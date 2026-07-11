@@ -50,6 +50,7 @@
                         <a href="{{ route('server.firewall.index', $currentServer) }}" class="{{ $serverDropdownClass }} {{ request()->routeIs('server.firewall.*') ? 'font-medium' : '' }}">Firewall</a>
                         <a href="{{ route('server.mysql.index', $currentServer) }}" class="{{ $serverDropdownClass }} {{ request()->routeIs('server.mysql.*') ? 'font-medium' : '' }}">MySQL</a>
                         <a href="{{ route('server.apache.index', $currentServer) }}" class="{{ $serverDropdownClass }} {{ request()->routeIs('server.apache.*') ? 'font-medium' : '' }}">Apache</a>
+                        <a href="{{ route('server.github.index', $currentServer) }}" class="{{ $serverDropdownClass }} {{ request()->routeIs('server.github.*') ? 'font-medium' : '' }}">GitHub</a>
                         <a href="{{ route('server.services.index', $currentServer) }}" class="{{ $serverDropdownClass }} {{ request()->routeIs('server.services.*') ? 'font-medium' : '' }}">Dienste</a>
                     @endif
                 </div>
@@ -125,6 +126,7 @@
                             <a href="{{ route('server.firewall.index', $currentServer) }}" class="block {{ $serverDropdownClass }} {{ request()->routeIs('server.firewall.*') ? 'font-medium' : '' }}">Firewall</a>
                             <a href="{{ route('server.mysql.index', $currentServer) }}" class="block {{ $serverDropdownClass }} {{ request()->routeIs('server.mysql.*') ? 'font-medium' : '' }}">MySQL</a>
                             <a href="{{ route('server.apache.index', $currentServer) }}" class="block {{ $serverDropdownClass }} {{ request()->routeIs('server.apache.*') ? 'font-medium' : '' }}">Apache</a>
+                            <a href="{{ route('server.github.index', $currentServer) }}" class="block {{ $serverDropdownClass }} {{ request()->routeIs('server.github.*') ? 'font-medium' : '' }}">GitHub</a>
                             <a href="{{ route('server.services.index', $currentServer) }}" class="block {{ $serverDropdownClass }} {{ request()->routeIs('server.services.*') ? 'font-medium' : '' }}">Dienste</a>
                         @endif
                     </div>

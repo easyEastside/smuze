@@ -1239,3 +1239,131 @@ test('user cannot create database on another users server', function () {
         ->post(route('server.mysql.databases.create', $server), ['db_name' => 'test'])
         ->assertForbidden();
 });
+
+// GitHub
+test('guest cannot view github page', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.github.index', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user can view their own github page', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.github.index', $server))
+        ->assertSuccessful()
+        ->assertSee('GitHub-Deployment')
+        ->assertSee($server->name);
+});
+
+test('user cannot view another users github page', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.github.index', $server))
+        ->assertForbidden();
+});
+
+test('github deploy validates repo_url', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.github.deploy', $server), [
+            'repo_url' => '',
+            'host' => 'example.com',
+            'target_name' => 'myproject',
+        ])
+        ->assertInvalid(['repo_url']);
+});
+
+test('github deploy validates host', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.github.deploy', $server), [
+            'repo_url' => 'https://github.com/owner/repo.git',
+            'host' => '',
+            'target_name' => 'myproject',
+        ])
+        ->assertInvalid(['host']);
+});
+
+test('github deploy validates target_name', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.github.deploy', $server), [
+            'repo_url' => 'https://github.com/owner/repo.git',
+            'host' => 'example.com',
+            'target_name' => '',
+        ])
+        ->assertInvalid(['target_name']);
+});
+
+test('github deploy returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.github.deploy', $server), [
+            'repo_url' => 'https://github.com/owner/repo.git',
+            'host' => 'example.com',
+            'target_name' => 'myproject',
+        ])
+        ->assertJson(['success' => false]);
+});
+
+test('github deploy rejects non-https url', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.github.deploy', $server), [
+            'repo_url' => 'git@github.com:owner/repo.git',
+            'host' => 'example.com',
+            'target_name' => 'myproject',
+        ])
+        ->assertJson(['success' => false]);
+});
+
+test('user cannot deploy on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.github.deploy', $server), [
+            'repo_url' => 'https://github.com/owner/repo.git',
+            'host' => 'example.com',
+            'target_name' => 'myproject',
+        ])
+        ->assertForbidden();
+});

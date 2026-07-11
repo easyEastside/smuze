@@ -422,15 +422,53 @@
             </div>
         </div>
 
+        {{-- GitHub Tab --}}
+        <div id="tab-github" class="tab-content mt-6 hidden" data-tab="github">
+            <div>
+                <div id="gh-dash-apache-overlay" class="hidden">
+                    <div class="rounded-2xl bg-white p-8 text-center shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d]">
+                        <p class="text-lg font-semibold">Apache ist nicht installiert</p>
+                        <p class="mt-2 text-sm text-[#706f6c] dark:text-[#A1A09A]">Installiere Apache, bevor GitHub-Projekte bereitgestellt werden können.</p>
+                        <button type="button" id="btn-install-apache-gh-dash" onclick="installApacheGhDash(this)" class="mt-6 rounded-lg bg-[#1b1b18] px-6 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">Apache installieren</button>
+                        <div id="gh-dash-install-result" class="mt-4 hidden rounded-xl p-3 text-sm"></div>
+                    </div>
+                </div>
+
+                <div id="gh-dash-content" class="hidden">
+                    <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                        <p class="text-sm text-[#f53003] dark:text-[#FF4433]">GitHub-Projekt bereitstellen</p>
+                        <div class="mt-4 space-y-3">
+                            <input type="url" id="gh-dash-url" onkeyup="syncGhDashTarget()" placeholder="https://github.com/owner/projekt.git" class="block w-full rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
+                            <div class="flex gap-2">
+                                <input type="text" id="gh-dash-host" placeholder="Domain (z.B. example.com)" class="flex-1 rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
+                                <div class="flex items-center gap-1">
+                                    <input type="text" id="gh-dash-target" placeholder="Zielordner" class="w-40 rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
+                                    <span class="text-xs text-[#706f6c] dark:text-[#A1A09A]">/var/www</span>
+                                </div>
+                            </div>
+                            <label class="flex items-center gap-2 text-sm">
+                                <input type="checkbox" id="gh-dash-ssl" onchange="toggleGhDashSsl()" class="text-[#f53003]">
+                                SSL (Let's Encrypt)
+                            </label>
+                            <div id="gh-dash-email-group" class="hidden">
+                                <input type="email" id="gh-dash-email" placeholder="E-Mail für Let's Encrypt" class="block w-full rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
+                            </div>
+                            <button type="button" onclick="ghDashDeploy()" id="gh-dash-deploy-btn" class="rounded-lg bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                                Clonen und Apache einrichten
+                            </button>
+                            <div id="gh-dash-result" class="hidden rounded-xl p-3 text-sm"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- Placeholder tabs for future phases --}}
-        @foreach (['github', 'terminal'] as $tab)
+        @foreach (['terminal'] as $tab)
             <div id="tab-{{ $tab }}" class="tab-content mt-6 hidden" data-tab="{{ $tab }}">
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <p class="text-sm text-[#706f6c] dark:text-[#A1A09A]">
-                        @switch($tab)
-                            @case('github') GitHub-Deployment — in Kürze verfügbar. @break
-                            @case('terminal') SSH-Terminal — in Kürze verfügbar. @break
-                        @endswitch
+                        SSH-Terminal — in Kürze verfügbar.
                     </p>
                 </div>
             </div>
@@ -1337,6 +1375,108 @@
             });
     }
 
+    // GitHub Tab
+    function loadGithubTab() {
+        const overlay = document.getElementById('gh-dash-apache-overlay');
+        const content = document.getElementById('gh-dash-content');
+        overlay.classList.add('hidden');
+        content.classList.add('hidden');
+
+        fetch('{{ route('server.apache.status', $server) }}')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success || !data.installed) {
+                    overlay.classList.remove('hidden');
+                    return;
+                }
+                content.classList.remove('hidden');
+            })
+            .catch(() => { overlay.classList.remove('hidden'); });
+    }
+
+    function syncGhDashTarget() {
+        const url = document.getElementById('gh-dash-url').value.trim();
+        const target = document.getElementById('gh-dash-target');
+        if (!target.value) {
+            const match = url.match(/\/\/github\.com\/[^/]+\/([^/]+?)(?:\.git)?(?:\/)?$/);
+            if (match) target.value = match[1];
+        }
+    }
+
+    function toggleGhDashSsl() {
+        document.getElementById('gh-dash-email-group').classList.toggle('hidden', !document.getElementById('gh-dash-ssl').checked);
+    }
+
+    function ghDashDeploy() {
+        const url = document.getElementById('gh-dash-url').value.trim();
+        const host = document.getElementById('gh-dash-host').value.trim();
+        const target = document.getElementById('gh-dash-target').value.trim();
+        const useSsl = document.getElementById('gh-dash-ssl').checked;
+        const email = document.getElementById('gh-dash-email').value.trim();
+        if (!url) { ghDashShowResult('Bitte eine Git-URL eingeben.', false); return; }
+        if (!host) { ghDashShowResult('Bitte eine Domain eingeben.', false); return; }
+        if (!target) { ghDashShowResult('Bitte einen Zielordner eingeben.', false); return; }
+        if (useSsl && !email) { ghDashShowResult('Bitte eine E-Mail für Let\'s Encrypt angeben.', false); return; }
+
+        const btn = document.getElementById('gh-dash-deploy-btn');
+        btn.disabled = true;
+        btn.textContent = 'Wird ausgeführt...';
+        ghDashShowResult('Starte Deployment...', true);
+
+        fetch('{{ route('server.github.deploy', $server) }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            body: JSON.stringify({ repo_url: url, host, target_name: target, use_ssl: useSsl, email }),
+        })
+            .then(r => r.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.textContent = 'Clonen und Apache einrichten';
+                ghDashShowResult(data.message, data.success);
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.textContent = 'Clonen und Apache einrichten';
+                ghDashShowResult('Fehler: ' + err.message, false);
+            });
+    }
+
+    function ghDashShowResult(msg, success) {
+        const el = document.getElementById('gh-dash-result');
+        el.className = 'rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+
+    function installApacheGhDash(btn) {
+        const result = document.getElementById('gh-dash-install-result');
+        btn.disabled = true;
+        btn.textContent = 'Installiere...';
+        result.className = 'mt-4 rounded-xl bg-[#19140008] p-3 text-sm dark:bg-[#fffaed08]';
+        result.textContent = 'Apache wird installiert...';
+        result.classList.remove('hidden');
+        fetch('{{ route('server.apache.install', $server) }}', { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
+                    result.textContent = 'Apache wurde installiert.';
+                    setTimeout(loadGithubTab, 2000);
+                } else {
+                    result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+                    result.textContent = data.message;
+                    btn.disabled = false;
+                    btn.textContent = 'Apache installieren';
+                }
+            })
+            .catch(err => {
+                result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+                result.textContent = 'Fehler: ' + err.message;
+                btn.disabled = false;
+                btn.textContent = 'Apache installieren';
+            });
+    }
+
     // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', function () {
@@ -1361,6 +1501,8 @@
                 loadApacheTab();
             } else if (this.dataset.tab === 'mysql') {
                 loadMysqlTab();
+            } else if (this.dataset.tab === 'github') {
+                loadGithubTab();
             }
         });
     });
