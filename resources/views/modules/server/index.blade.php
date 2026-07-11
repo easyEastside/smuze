@@ -68,10 +68,16 @@
 
                         <div class="mt-5 flex flex-wrap gap-2">
                             <a
-                                href="{{ route('server.dashboard', $server) }}"
+                                href="{{ route('server.system', $server) }}"
                                 class="inline-flex items-center gap-2 rounded-lg bg-[#f53003] px-4 py-2 text-sm font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:hover:bg-[#e63a2e]"
                             >
-                                Dashboard
+                                System
+                            </a>
+                            <a
+                                href="{{ route('server.terminal.index', $server) }}"
+                                class="inline-flex items-center gap-2 rounded-lg border border-[#19140035] px-4 py-2 text-sm font-medium transition hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
+                            >
+                                Terminal
                             </a>
                             <button
                                 type="button"

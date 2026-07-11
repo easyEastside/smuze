@@ -196,28 +196,51 @@ test('user can create server with password auth', function () {
     ]);
 });
 
-test('guest cannot view server dashboard', function () {
+test('guest cannot view server system', function () {
     $server = Server::factory()->create();
 
-    $this->get(route('server.dashboard', $server))->assertRedirect(route('login', absolute: false));
+    $this->get(route('server.system', $server))->assertRedirect(route('login', absolute: false));
 });
 
-test('user can view their own server dashboard', function () {
+test('user can view their own server system', function () {
     $server = Server::factory()->create(['user_id' => $this->user->id]);
 
     $this->actingAs($this->user)
-        ->get(route('server.dashboard', $server))
+        ->get(route('server.system', $server))
         ->assertSuccessful()
-        ->assertSee('Server Dashboard')
+        ->assertSee('Server System')
         ->assertSee($server->name)
         ->assertSee('System')
-        ->assertSee('Dienste')
-        ->assertSee('Firewall')
-        ->assertSee('Apache')
-        ->assertSee('MySQL')
-        ->assertSee('GitHub')
+        ->assertSee('Systeminformationen')
+        ->assertSee('System-Aktionen')
         ->assertSee('Terminal')
-        ->assertSee('SSH-Terminal');
+        ->assertDontSee('SSH-Terminal');
+});
+
+test('guest cannot view server terminal', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.terminal.index', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user can view their own server terminal', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.terminal.index', $server))
+        ->assertSuccessful()
+        ->assertSee('SSH-Terminal')
+        ->assertSee($server->name)
+        ->assertSee('Neu verbinden');
+});
+
+test('user cannot view another users server terminal', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.terminal.index', $server))
+        ->assertForbidden();
 });
 
 test('guest cannot create terminal session', function () {
@@ -240,6 +263,30 @@ test('user can create terminal session for own server', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.terminal.session', $server))
+        ->assertSuccessful()
+        ->assertJsonStructure(['token', 'websocket_url', 'expires_at']);
+});
+
+test('guest cannot create metrics session', function () {
+    $server = Server::factory()->create();
+
+    $this->post(route('server.metrics.session', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user cannot create metrics session for another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.metrics.session', $server))
+        ->assertForbidden();
+});
+
+test('user can create metrics session for own server', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.metrics.session', $server))
         ->assertSuccessful()
         ->assertJsonStructure(['token', 'websocket_url', 'expires_at']);
 });
@@ -288,27 +335,43 @@ test('terminal resolve endpoint returns ssh connection details for sidecar', fun
         ->assertJsonPath('server.key_content', null);
 });
 
-test('user cannot view another users server dashboard', function () {
+test('terminal resolve endpoint returns metrics mode for metrics sessions', function () {
+    config(['terminal.secret' => 'test-terminal-secret']);
+
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $token = $this->actingAs($this->user)
+        ->post(route('server.metrics.session', $server))
+        ->json('token');
+
+    $this->withHeader('X-Terminal-Secret', 'test-terminal-secret')
+        ->get(route('server.terminal.resolve', $token))
+        ->assertSuccessful()
+        ->assertJsonPath('session.mode', 'metrics')
+        ->assertJsonPath('server.host', $server->host);
+});
+
+test('user cannot view another users server system', function () {
     $otherUser = User::factory()->create();
     $server = Server::factory()->create(['user_id' => $otherUser->id]);
 
     $this->actingAs($this->user)
-        ->get(route('server.dashboard', $server))
+        ->get(route('server.system', $server))
         ->assertForbidden();
 });
 
-test('guest cannot refresh server dashboard', function () {
+test('guest cannot refresh server system', function () {
     $server = Server::factory()->create();
 
-    $this->get(route('server.dashboard.refresh', $server))->assertRedirect(route('login', absolute: false));
+    $this->get(route('server.system.refresh', $server))->assertRedirect(route('login', absolute: false));
 });
 
-test('user cannot refresh another users server dashboard', function () {
+test('user cannot refresh another users server system', function () {
     $otherUser = User::factory()->create();
     $server = Server::factory()->create(['user_id' => $otherUser->id]);
 
     $this->actingAs($this->user)
-        ->get(route('server.dashboard.refresh', $server))
+        ->get(route('server.system.refresh', $server))
         ->assertForbidden();
 });
 

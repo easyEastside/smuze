@@ -5,7 +5,7 @@ namespace App\Modules\Server\Actions;
 use App\Models\Server;
 use App\Services\ServerMonitoringService;
 
-class RefreshDashboard
+class RefreshSystem
 {
     public function __construct(
         private ServerMonitoringService $monitoring,

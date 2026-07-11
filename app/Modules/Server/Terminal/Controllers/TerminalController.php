@@ -8,9 +8,19 @@ use App\Services\SshService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\View\View;
 
 class TerminalController
 {
+    public function index(Request $request, Server $server): View
+    {
+        if ($server->user_id !== $request->user()->id) {
+            abort(403);
+        }
+
+        return view('modules.server.terminal.index', compact('server'));
+    }
+
     public function store(Request $request, Server $server, CreateTerminalSession $createTerminalSession): JsonResponse
     {
         if ($server->user_id !== $request->user()->id) {
@@ -21,6 +31,21 @@ class TerminalController
             $server,
             $request->user()->id,
             $this->websocketUrl($request),
+            'terminal',
+        ));
+    }
+
+    public function metrics(Request $request, Server $server, CreateTerminalSession $createTerminalSession): JsonResponse
+    {
+        if ($server->user_id !== $request->user()->id) {
+            abort(403);
+        }
+
+        return response()->json($createTerminalSession->handle(
+            $server,
+            $request->user()->id,
+            $this->websocketUrl($request),
+            'metrics',
         ));
     }
 

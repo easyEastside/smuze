@@ -11,9 +11,9 @@ Route::middleware('auth')->group(function (): void {
     Route::put('servers/{server}', [ServerController::class, 'update'])->name('server.update');
     Route::delete('servers/{server}', [ServerController::class, 'destroy'])->name('server.destroy');
 
-    Route::get('servers/{server}/dashboard', [ServerController::class, 'dashboard'])->name('server.dashboard');
-    Route::get('servers/{server}/dashboard/refresh', [ServerController::class, 'dashboardRefresh'])->name('server.dashboard.refresh');
-    Route::get('servers/{server}/dashboard/test-connection', [ServerController::class, 'dashboardTestConnection'])->name('server.dashboard.test-connection');
+    Route::get('servers/{server}/system', [ServerController::class, 'system'])->name('server.system');
+    Route::get('servers/{server}/system/refresh', [ServerController::class, 'systemRefresh'])->name('server.system.refresh');
+    Route::get('servers/{server}/system/test-connection', [ServerController::class, 'systemTestConnection'])->name('server.system.test-connection');
 
     Route::post('servers/{server}/update', [ServerController::class, 'updatePackages'])->name('server.update-packages');
     Route::post('servers/{server}/upgrade', [ServerController::class, 'upgradePackages'])->name('server.upgrade-packages');

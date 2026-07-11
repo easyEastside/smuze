@@ -13,8 +13,8 @@
                     <button type="button" onclick="refreshMysql()" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                         Aktualisieren
                     </button>
-                    <a href="{{ route('server.dashboard', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
-                        Zurück zum Dashboard
+                    <a href="{{ route('server.system', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                        Zurück zum System
                     </a>
                 </div>
             </div>

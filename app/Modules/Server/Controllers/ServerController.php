@@ -5,7 +5,7 @@ namespace App\Modules\Server\Controllers;
 use App\Models\Server;
 use App\Modules\Server\Actions\CreateServer;
 use App\Modules\Server\Actions\DeleteServer;
-use App\Modules\Server\Actions\RefreshDashboard;
+use App\Modules\Server\Actions\RefreshSystem;
 use App\Modules\Server\Actions\SystemRestart;
 use App\Modules\Server\Actions\SystemStop;
 use App\Modules\Server\Actions\SystemUpdate;
@@ -84,25 +84,25 @@ class ServerController
             ->with('flash', ['success' => 'Server deleted successfully.']);
     }
 
-    public function dashboard(Server $server): View
+    public function system(Server $server): View
     {
         if ($server->user_id !== auth()->id()) {
             abort(403);
         }
 
-        return view('modules.server.dashboard', compact('server'));
+        return view('modules.server.system', compact('server'));
     }
 
-    public function dashboardRefresh(Server $server, RefreshDashboard $refreshDashboard): JsonResponse
+    public function systemRefresh(Server $server, RefreshSystem $refreshSystem): JsonResponse
     {
         if ($server->user_id !== auth()->id()) {
             abort(403);
         }
 
-        return response()->json($refreshDashboard->handle($server));
+        return response()->json($refreshSystem->handle($server));
     }
 
-    public function dashboardTestConnection(Server $server, TestConnection $testConnection): JsonResponse
+    public function systemTestConnection(Server $server, TestConnection $testConnection): JsonResponse
     {
         if ($server->user_id !== auth()->id()) {
             abort(403);

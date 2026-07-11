@@ -9,15 +9,15 @@
                         {{ $server->name }} — {{ $server->username }}@{{ $server->host }}:{{ $server->port }}
                     </p>
                 </div>
-                <a href="{{ route('server.dashboard', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
-                    Zurück zum Dashboard
+                <a href="{{ route('server.system', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                    Zurück zum System
                 </a>
             </div>
         </div>
 
         <div class="mt-6 rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
             <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Installierte Dienste</p>
-            <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">Die aktuellen Versionen werden beim Öffnen des Dashboards geladen.</p>
+            <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">Die aktuellen Versionen werden beim Öffnen geladen.</p>
 
             <div id="services-loading" class="mt-4 text-sm text-[#706f6c] dark:text-[#A1A09A]">
                 Lade Dienstinformationen...
@@ -48,7 +48,7 @@
         loading.classList.remove('hidden');
         content.classList.add('hidden');
 
-        fetch('{{ route('server.dashboard.refresh', $server) }}')
+        fetch('{{ route('server.system.refresh', $server) }}')
             .then(r => r.json())
             .then(data => {
                 loading.classList.add('hidden');

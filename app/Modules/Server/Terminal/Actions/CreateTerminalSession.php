@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 class CreateTerminalSession
 {
     /** @return array{token: string, websocket_url: string, expires_at: string} */
-    public function handle(Server $server, int $userId, string $websocketUrl): array
+    public function handle(Server $server, int $userId, string $websocketUrl, string $mode = 'terminal'): array
     {
         $token = Str::random(64);
         $ttl = (int) config('terminal.token_ttl_seconds', 60);
@@ -18,6 +18,7 @@ class CreateTerminalSession
         Cache::put("terminal-session:{$token}", [
             'server_id' => $server->id,
             'user_id' => $userId,
+            'mode' => $mode,
             'expires_at' => $expiresAt->toISOString(),
         ], $expiresAt);
 
