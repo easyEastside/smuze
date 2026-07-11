@@ -48,9 +48,9 @@
 
                     <div>
                         <label class="text-xs font-medium text-[#706f6c] dark:text-[#A1A09A]">Zielordner</label>
-                        <div class="flex items-center gap-2">
-                            <input type="text" id="gh-target" onkeyup="updatePreview()" placeholder="projektname" class="mt-1 block w-full rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
-                            <span class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A] whitespace-nowrap">unter /var/www/</span>
+                        <div class="mt-1 flex items-center">
+                            <span class="inline-flex items-center rounded-l-lg border border-r-0 border-[#19140035] bg-[#f5f5f4] px-3 py-2 text-sm text-[#706f6c] dark:border-[#3E3E3A] dark:bg-[#1b1b18] dark:text-[#A1A09A]">/var/www/</span>
+                            <input type="text" id="gh-target" onkeyup="updatePreview()" placeholder="projektname" class="block w-full rounded-r-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
                         </div>
                         <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">Wird automatisch aus der URL vorgeschlagen. Bestehende Ordner werden nicht überschrieben.</p>
                     </div>

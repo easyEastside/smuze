@@ -441,9 +441,9 @@
                             <input type="url" id="gh-dash-url" onkeyup="syncGhDashTarget()" placeholder="https://github.com/owner/projekt.git" class="block w-full rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
                             <div class="flex gap-2">
                                 <input type="text" id="gh-dash-host" placeholder="Domain (z.B. example.com)" class="flex-1 rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
-                                <div class="flex items-center gap-1">
-                                    <input type="text" id="gh-dash-target" placeholder="Zielordner" class="w-40 rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
-                                    <span class="text-xs text-[#706f6c] dark:text-[#A1A09A]">/var/www</span>
+                                <div class="flex items-center">
+                                    <span class="inline-flex items-center rounded-l-lg border border-r-0 border-[#19140035] bg-[#f5f5f4] px-3 py-2 text-xs text-[#706f6c] dark:border-[#3E3E3A] dark:bg-[#1b1b18] dark:text-[#A1A09A]">/var/www/</span>
+                                    <input type="text" id="gh-dash-target" placeholder="projektname" class="w-40 rounded-r-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
                                 </div>
                             </div>
                             <label class="flex items-center gap-2 text-sm">
