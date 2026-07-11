@@ -1,4 +1,5 @@
 <x-layouts.app title="Dienste: {{ $server->name }}">
+    <div id="websocket-status-bar" class="fixed inset-x-0 top-0 z-50 h-1 bg-red-600 transition-colors duration-200" title="WebSocket getrennt"></div>
     <section class="w-full max-w-4xl">
         <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
             <div class="flex items-center justify-between">
@@ -29,6 +30,25 @@
 
     @push('scripts')
     <script>
+    function wsInit() {
+        SmuzeServerSocket.onStatus((status) => {
+            const bar = document.getElementById('websocket-status-bar');
+            if (!bar) return;
+            const connected = status === 'connected';
+            bar.classList.toggle('bg-green-500', connected);
+            bar.classList.toggle('bg-red-600', !connected);
+            bar.title = connected ? 'WebSocket verbunden' : 'WebSocket getrennt';
+        });
+
+        SmuzeServerSocket.connect({{ $server->id }}, '{{ route('server.socket.session', $server) }}', '{{ csrf_token() }}');
+    }
+
+    if (typeof SmuzeServerSocket !== 'undefined') {
+        wsInit();
+    } else {
+        document.addEventListener('DOMContentLoaded', wsInit);
+    }
+
     const SERVICES = [
         { key: 'php', label: 'PHP', versionField: 'php_version' },
         { key: 'apache', label: 'Apache', versionField: 'apache_version' },
@@ -48,48 +68,79 @@
         loading.classList.remove('hidden');
         content.classList.add('hidden');
 
-        fetch('{{ route('server.system.refresh', $server) }}')
-            .then(r => r.json())
-            .then(data => {
-                loading.classList.add('hidden');
-
-                if (data.error) {
-                    content.innerHTML = `<div class="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">${data.error}</div>`;
+        const doHttp = () => {
+            fetch('{{ route('server.system.refresh', $server) }}')
+                .then(r => r.json())
+                .then(data => {
+                    loading.classList.add('hidden');
+                    if (data.error) {
+                        content.innerHTML = `<div class="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">${data.error}</div>`;
+                        content.classList.remove('hidden');
+                        return;
+                    }
+                    renderServicesView(data);
+                })
+                .catch(err => {
+                    loading.classList.add('hidden');
+                    content.innerHTML = `<div class="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">Verbindungsfehler: ${err.message}</div>`;
                     content.classList.remove('hidden');
-                    return;
-                }
+                });
+        };
 
-                let html = '<div class="space-y-2">';
-                for (const svc of SERVICES) {
-                    const version = data[svc.versionField];
-                    const installed = !!version;
-                    html += `
-                        <div class="flex items-center justify-between rounded-xl border border-[#19140020] p-4 dark:border-[#3E3E3A]">
-                            <div class="flex items-center gap-3">
-                                <span class="size-3 shrink-0 rounded-full ${installed ? 'bg-green-500' : 'bg-[#19140035] dark:bg-[#3E3E3A]'}"></span>
-                                <div>
-                                    <p class="text-sm font-medium">${svc.label}</p>
-                                    <p class="text-xs text-[#706f6c] dark:text-[#A1A09A]">${installed ? version : 'Nicht installiert'}</p>
-                                </div>
-                            </div>
-                            <div>
-                                ${installed
-                                    ? `<button data-service-key="${svc.key}" data-service-action="deinstall" onclick="serviceAction(this)" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Deinstallieren</button>`
-                                    : `<button data-service-key="${svc.key}" data-service-action="install" onclick="serviceAction(this)" class="rounded-lg bg-[#1b1b18] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">Installieren</button>`
-                                }
-                            </div>
+        if (typeof SmuzeServerSocket !== 'undefined' && SmuzeServerSocket.isConnected) {
+            SmuzeServerSocket.request('system', 'refresh')
+                .then(p => p.data)
+                .then(data => {
+                    loading.classList.add('hidden');
+                    if (data.error) {
+                        content.innerHTML = `<div class="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">${data.error}</div>`;
+                        content.classList.remove('hidden');
+                        return;
+                    }
+                    renderServicesView(data);
+                })
+                .catch(doHttp);
+        } else {
+            doHttp();
+        }
+    }
+
+    function renderServicesView(data) {
+        const content = document.getElementById('services-content');
+        const loading = document.getElementById('services-loading');
+        loading.classList.add('hidden');
+
+        if (data.error) {
+            content.innerHTML = `<div class="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">${data.error}</div>`;
+            content.classList.remove('hidden');
+            return;
+        }
+
+        let html = '<div class="space-y-2">';
+        for (const svc of SERVICES) {
+            const version = data[svc.versionField];
+            const installed = !!version;
+            html += `
+                <div class="flex items-center justify-between rounded-xl border border-[#19140020] p-4 dark:border-[#3E3E3A]">
+                    <div class="flex items-center gap-3">
+                        <span class="size-3 shrink-0 rounded-full ${installed ? 'bg-green-500' : 'bg-[#19140035] dark:bg-[#3E3E3A]'}"></span>
+                        <div>
+                            <p class="text-sm font-medium">${svc.label}</p>
+                            <p class="text-xs text-[#706f6c] dark:text-[#A1A09A]">${installed ? version : 'Nicht installiert'}</p>
                         </div>
-                    `;
-                }
-                html += '</div>';
-                content.innerHTML = html;
-                content.classList.remove('hidden');
-            })
-            .catch(err => {
-                loading.classList.add('hidden');
-                content.innerHTML = `<div class="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">Verbindungsfehler: ${err.message}</div>`;
-                content.classList.remove('hidden');
-            });
+                    </div>
+                    <div>
+                        ${installed
+                            ? `<button data-service-key="${svc.key}" data-service-action="deinstall" onclick="serviceAction(this)" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Deinstallieren</button>`
+                            : `<button data-service-key="${svc.key}" data-service-action="install" onclick="serviceAction(this)" class="rounded-lg bg-[#1b1b18] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">Installieren</button>`
+                        }
+                    </div>
+                </div>
+            `;
+        }
+        html += '</div>';
+        content.innerHTML = html;
+        content.classList.remove('hidden');
     }
 
     function serviceAction(btn) {

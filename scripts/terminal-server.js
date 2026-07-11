@@ -247,6 +247,30 @@ function handleMetricsConnection(ws, server, keyFile) {
     };
 }
 
+async function proxyModuleRequest(ws, serverId, module, action, requestId, params) {
+    try {
+        const url = new URL(`${appUrl}/internal/servers/${serverId}/proxy/${module}/${action}`);
+        url.searchParams.set('params', JSON.stringify(params || {}));
+
+        const response = await fetch(url.toString(), {
+            headers: {
+                Accept: 'application/json',
+                'X-Terminal-Secret': terminalSecret,
+            },
+        });
+
+        if (! response.ok) {
+            send(ws, { channel: module, action, requestId, error: `Proxy request failed (${response.status}).` });
+            return;
+        }
+
+        const data = await response.json();
+        send(ws, { channel: module, action, requestId, data });
+    } catch (err) {
+        send(ws, { channel: module, action, requestId, error: err.message });
+    }
+}
+
 wss.on('connection', async (ws, request) => {
     let metricsConnection = null;
     let terminalConnection = null;
@@ -313,6 +337,10 @@ wss.on('connection', async (ws, request) => {
 
             if (payload.channel === 'terminal' && payload.type === 'input' && terminalConnection && typeof payload.data === 'string') {
                 terminalConnection.write(payload.data);
+            }
+
+            if (payload.requestId && ['apache', 'mysql', 'firewall', 'services', 'github'].includes(payload.channel) && payload.action) {
+                proxyModuleRequest(ws, server.id, payload.channel, payload.action, payload.requestId, payload.params);
             }
 
             if (payload.channel === 'terminal' && payload.type === 'resize' && terminalConnection) {

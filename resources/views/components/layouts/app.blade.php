@@ -7,7 +7,7 @@
         <title>{{ $title ?? config('app.name', 'Laravel') }}</title>
 
         @fonts
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/server-websocket.js'])
     </head>
     <body class="min-h-screen bg-[#FDFDFC] text-[#1b1b18] antialiased dark:bg-[#0a0a0a] dark:text-[#EDEDEC]">
         <div class="flex min-h-screen flex-col">

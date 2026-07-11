@@ -16,8 +16,8 @@ class RefreshSystem
     {
         $info = $this->monitoring->collectSystemInfo($server);
 
-        if ($info->hasError()) {
-            return ['error' => $info->error, 'server_id' => $server->id];
+        if ($info->hasError() || $info->hostname === null) {
+            return ['error' => $info->errorMessage(), 'server_id' => $server->id];
         }
 
         return [

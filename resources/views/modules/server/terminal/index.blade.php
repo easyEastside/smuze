@@ -1,4 +1,5 @@
 <x-layouts.app title="Terminal: {{ $server->name }}">
+    <div id="websocket-status-bar" class="fixed inset-x-0 top-0 z-50 h-1 bg-red-600 transition-colors duration-200" title="WebSocket getrennt"></div>
     <section class="w-full max-w-6xl">
         <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
             <div class="flex flex-wrap items-center justify-between gap-4">
@@ -29,6 +30,25 @@
 
     @push('scripts')
     <script>
+    function wsInit() {
+        SmuzeServerSocket.onStatus((status) => {
+            const bar = document.getElementById('websocket-status-bar');
+            if (!bar) return;
+            const connected = status === 'connected';
+            bar.classList.toggle('bg-green-500', connected);
+            bar.classList.toggle('bg-red-600', !connected);
+            bar.title = connected ? 'WebSocket verbunden' : 'WebSocket getrennt';
+        });
+
+        SmuzeServerSocket.connect({{ $server->id }}, '{{ route('server.socket.session', $server) }}', '{{ csrf_token() }}');
+    }
+
+    if (typeof SmuzeServerSocket !== 'undefined') {
+        wsInit();
+    } else {
+        document.addEventListener('DOMContentLoaded', wsInit);
+    }
+
     let terminalClient = null;
 
     function setTerminalStatus(label, state) {

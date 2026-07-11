@@ -65,5 +65,11 @@
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true
+  },
+  "resources/js/server-websocket.js": {
+    "file": "assets/server-websocket-CVqaiPmg.js",
+    "name": "server-websocket",
+    "src": "resources/js/server-websocket.js",
+    "isEntry": true
   }
 }

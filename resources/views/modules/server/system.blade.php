@@ -1,7 +1,5 @@
 <x-layouts.app title="System: {{ $server->name }}">
-    @if (config('app.debug'))
-        <div id="websocket-status-bar" class="fixed inset-x-0 top-0 z-50 h-1 bg-red-600 transition-colors duration-200" title="WebSocket getrennt"></div>
-    @endif
+    <div id="websocket-status-bar" class="fixed inset-x-0 top-0 z-50 h-1 bg-red-600 transition-colors duration-200" title="WebSocket getrennt"></div>
 
     <section class="w-full max-w-6xl">
         <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
@@ -173,7 +171,6 @@
     @push('scripts')
     <script>
     let refreshInterval = null;
-    let metricsSocket = null;
 
     function formatBytes(mb) {
         if (mb >= 1024) return (mb / 1024).toFixed(1) + ' GB';
@@ -252,7 +249,7 @@
             servicesList.appendChild(div);
         }
 
-        document.getElementById('conn-status').textContent = metricsSocket?.readyState === WebSocket.OPEN ? 'Live' : 'Online';
+        document.getElementById('conn-status').textContent = (typeof SmuzeServerSocket !== 'undefined' && SmuzeServerSocket.isConnected) ? 'Live' : 'Online';
         document.getElementById('conn-status').className = 'font-medium text-green-500';
     }
 
@@ -260,15 +257,6 @@
         document.getElementById('system-loading').classList.add('hidden');
         document.getElementById('system-error').classList.add('hidden');
         document.getElementById('system-content').classList.remove('hidden');
-    }
-
-    function setWebsocketStatus(isConnected) {
-        const bar = document.getElementById('websocket-status-bar');
-        if (!bar) return;
-
-        bar.classList.toggle('bg-green-500', isConnected);
-        bar.classList.toggle('bg-red-600', !isConnected);
-        bar.title = isConnected ? 'WebSocket verbunden' : 'WebSocket getrennt';
     }
 
     function refreshSystem() {
@@ -356,70 +344,51 @@
         refreshInterval = null;
     }
 
-    function connectMetricsStream() {
-        if (metricsSocket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(metricsSocket.readyState)) {
-            return;
-        }
+    function wsInit() {
+        SmuzeServerSocket.onStatus((status) => {
+            const bar = document.getElementById('websocket-status-bar');
+            if (!bar) return;
+            const connected = status === 'connected';
+            bar.classList.toggle('bg-green-500', connected);
+            bar.classList.toggle('bg-red-600', !connected);
+            bar.title = connected ? 'WebSocket verbunden' : 'WebSocket getrennt';
 
-        fetch('{{ route('server.socket.session', $server) }}', {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', Accept: 'application/json' },
-        })
-            .then(r => {
-                if (!r.ok) throw new Error('Metrics-Session konnte nicht erstellt werden.');
-                return r.json();
-            })
-            .then(data => {
-                const url = new URL(data.websocket_url);
-                url.searchParams.set('token', data.token);
+            if (connected) {
+                stopPollingFallback();
+                document.getElementById('conn-status').textContent = 'Live';
+                document.getElementById('conn-status').className = 'font-medium text-green-500';
+                SmuzeServerSocket.send('metrics', 'subscribe');
+            }
+        });
 
-                metricsSocket = new WebSocket(url.toString());
-                metricsSocket.addEventListener('open', () => {
-                    setWebsocketStatus(true);
-                    stopPollingFallback();
-                    document.getElementById('conn-status').textContent = 'Live';
-                    document.getElementById('conn-status').className = 'font-medium text-green-500';
-                    metricsSocket.send(JSON.stringify({ channel: 'metrics', type: 'subscribe' }));
-                });
-                metricsSocket.addEventListener('message', event => {
-                    const payload = JSON.parse(event.data);
+        SmuzeServerSocket.onMessage((payload) => {
+            if (payload.channel === 'metrics' && payload.type === 'metrics') {
+                stopPollingFallback();
+                renderSystemData(payload.data);
+                showSystemContent();
+            }
 
-                    if (payload.channel === 'metrics' && payload.type === 'metrics') {
-                        stopPollingFallback();
-                        renderSystemData(payload.data);
-                        showSystemContent();
-                    }
-
-                    if (payload.channel === 'metrics' && payload.type === 'metrics_error') {
-                        document.getElementById('conn-status').textContent = 'Polling';
-                        document.getElementById('conn-status').className = 'font-medium text-yellow-600 dark:text-yellow-400';
-                        startPollingFallback();
-                    }
-
-                    if (payload.type === 'error') {
-                        startPollingFallback();
-                    }
-                });
-                metricsSocket.addEventListener('close', () => {
-                    setWebsocketStatus(false);
-                    document.getElementById('conn-status').textContent = 'Polling';
-                    document.getElementById('conn-status').className = 'font-medium text-yellow-600 dark:text-yellow-400';
-                    startPollingFallback();
-                    setTimeout(connectMetricsStream, 5000);
-                });
-                metricsSocket.addEventListener('error', () => {
-                    setWebsocketStatus(false);
-                    startPollingFallback();
-                });
-            })
-            .catch(() => {
-                setWebsocketStatus(false);
+            if (payload.channel === 'metrics' && payload.type === 'metrics_error') {
+                document.getElementById('conn-status').textContent = 'Polling';
+                document.getElementById('conn-status').className = 'font-medium text-yellow-600 dark:text-yellow-400';
                 startPollingFallback();
-            });
+            }
+
+            if (payload.type === 'error') {
+                startPollingFallback();
+            }
+        });
+
+        SmuzeServerSocket.connect({{ $server->id }}, '{{ route('server.socket.session', $server) }}', '{{ csrf_token() }}');
+    }
+
+    if (typeof SmuzeServerSocket !== 'undefined') {
+        wsInit();
+    } else {
+        document.addEventListener('DOMContentLoaded', wsInit);
     }
 
     refreshSystem();
-    connectMetricsStream();
     </script>
     @endpush
 </x-layouts.app>

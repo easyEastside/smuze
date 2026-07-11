@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Server\Terminal\Controllers\InternalProxyController;
 use App\Modules\Server\Terminal\Controllers\TerminalController;
 use Illuminate\Support\Facades\Route;
 
@@ -9,3 +10,4 @@ Route::middleware('auth')->group(function (): void {
 });
 
 Route::get('internal/terminal/sessions/{token}', [TerminalController::class, 'resolve'])->name('server.terminal.resolve');
+Route::get('internal/servers/{server}/proxy/{module}/{action}', InternalProxyController::class);

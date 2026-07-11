@@ -27,6 +27,19 @@ readonly class SystemInfo
 
     public function hasError(): bool
     {
-        return $this->error !== null;
+        return $this->error !== null && $this->error !== '';
+    }
+
+    public function errorMessage(): string
+    {
+        if ($this->error !== null && $this->error !== '') {
+            return $this->error;
+        }
+
+        if ($this->hostname === null) {
+            return 'Server konnte nicht erreicht werden.';
+        }
+
+        return '';
     }
 }
