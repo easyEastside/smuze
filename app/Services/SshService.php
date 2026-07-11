@@ -13,7 +13,7 @@ class SshService
 {
     private array $connections = [];
 
-    public function connect(Server $server, int $timeout = 10): SSH2
+    public function connect(Server $server): SSH2
     {
         $serverId = $server->id;
 
@@ -22,8 +22,8 @@ class SshService
         }
 
         try {
-            $ssh = new SSH2($server->host, $server->port, $timeout);
-            $ssh->setTimeout($timeout);
+            $ssh = new SSH2($server->host, $server->port, 10);
+            $ssh->setTimeout(10);
 
             $key = null;
             $password = null;
@@ -71,12 +71,13 @@ class SshService
     public function execute(Server $server, string $command, int $timeout = 30, bool $useSudo = true): SshResult
     {
         try {
-            $ssh = $this->connect($server, $timeout);
+            $ssh = $this->connect($server);
 
             if ($useSudo && $server->use_sudo) {
                 $command = $this->applySudo($command);
             }
 
+            $ssh->setTimeout($timeout);
             $output = $ssh->exec($command);
             $exitCode = $ssh->getExitStatus();
 

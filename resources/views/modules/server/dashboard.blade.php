@@ -184,13 +184,24 @@
             </div>
         </div>
 
+        {{-- Services Tab --}}
+        <div id="tab-services" class="tab-content mt-6 hidden" data-tab="services">
+            <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Dienstverwaltung</p>
+                <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">Installiere oder deinstalliere Dienste auf dem Server.</p>
+
+                <div id="services-tab-loading" class="mt-4 text-sm text-[#706f6c] dark:text-[#A1A09A]">Lade...</div>
+                <div id="services-tab-content" class="mt-4 hidden space-y-2"></div>
+                <div id="services-tab-result" class="mt-4 hidden rounded-xl p-3 text-sm"></div>
+            </div>
+        </div>
+
         {{-- Placeholder tabs for future phases --}}
-        @foreach (['services', 'firewall', 'apache', 'mysql', 'github', 'terminal'] as $tab)
+        @foreach (['firewall', 'apache', 'mysql', 'github', 'terminal'] as $tab)
             <div id="tab-{{ $tab }}" class="tab-content mt-6 hidden" data-tab="{{ $tab }}">
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <p class="text-sm text-[#706f6c] dark:text-[#A1A09A]">
                         @switch($tab)
-                            @case('services') Dienstverwaltung (PHP, Node.js, nvm, Composer) — in Kürze verfügbar. @break
                             @case('firewall') UFW-Firewall-Verwaltung — in Kürze verfügbar. @break
                             @case('apache') Apache-Webserver-Verwaltung — in Kürze verfügbar. @break
                             @case('mysql') MySQL-Datenbank-Verwaltung — in Kürze verfügbar. @break
@@ -252,6 +263,8 @@
                     error.classList.remove('hidden');
                     return;
                 }
+
+                window.lastDashboardData = data;
 
                 document.getElementById('sys-hostname').textContent = data.hostname || '-';
                 document.getElementById('sys-os').textContent = data.os || '-';
@@ -382,6 +395,119 @@
             });
     }
 
+    // Services tab
+    const SERVICE_DEFS = [
+        { key: 'php', label: 'PHP', versionField: 'php_version' },
+        { key: 'apache', label: 'Apache', versionField: 'apache_version' },
+        { key: 'mysql', label: 'MySQL', versionField: 'mysql_version' },
+        { key: 'node', label: 'Node.js', versionField: 'node_version' },
+        { key: 'nvm', label: 'nvm', versionField: 'nvm_version' },
+        { key: 'npm', label: 'npm', versionField: 'node_version' },
+        { key: 'composer', label: 'Composer', versionField: 'composer_version' },
+    ];
+
+    function renderServicesTab(data) {
+        const loading = document.getElementById('services-tab-loading');
+        const content = document.getElementById('services-tab-content');
+        if (!loading || !content) return;
+
+        loading.classList.add('hidden');
+        content.innerHTML = '';
+
+        for (const svc of SERVICE_DEFS) {
+            const version = data[svc.versionField];
+            const installed = !!version;
+            const div = document.createElement('div');
+            div.className = 'flex items-center justify-between rounded-xl border border-[#19140020] p-4 dark:border-[#3E3E3A]';
+            div.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <span class="size-3 shrink-0 rounded-full ${installed ? 'bg-green-500' : 'bg-[#19140035] dark:bg-[#3E3E3A]'}"></span>
+                    <div>
+                        <p class="text-sm font-medium">${svc.label}</p>
+                        <p class="text-xs text-[#706f6c] dark:text-[#A1A09A]">${installed ? version : 'Nicht installiert'}</p>
+                    </div>
+                </div>
+                <div>
+                    ${installed
+                        ? `<button data-service-key="${svc.key}" data-service-action="deinstall" onclick="serviceTabAction(this)" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Deinstallieren</button>`
+                        : `<button data-service-key="${svc.key}" data-service-action="install" onclick="serviceTabAction(this)" class="rounded-lg bg-[#1b1b18] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">Installieren</button>`
+                    }
+                </div>
+            `;
+            content.appendChild(div);
+        }
+
+        content.classList.remove('hidden');
+    }
+
+    function loadServicesTab(refreshData) {
+        const loading = document.getElementById('services-tab-loading');
+        if (!loading) return;
+
+        if (refreshData) {
+            loading.classList.add('hidden');
+            renderServicesTab(refreshData);
+            return;
+        }
+
+        loading.textContent = 'Lade...';
+        loading.classList.remove('hidden');
+
+        fetch('{{ route('server.dashboard.refresh', $server) }}')
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    loading.textContent = data.error;
+                    return;
+                }
+                renderServicesTab(data);
+            })
+            .catch(() => {
+                loading.textContent = 'Fehler beim Laden.';
+            });
+    }
+
+    function serviceTabAction(btn) {
+        const key = btn.dataset.serviceKey;
+        const action = btn.dataset.serviceAction;
+        const labels = { php: 'PHP', apache: 'Apache', mysql: 'MySQL', node: 'Node.js', nvm: 'nvm', npm: 'npm', composer: 'Composer' };
+        const label = labels[key] || key;
+        const msg = action === 'install' ? `${label} installieren? Dies kann einige Minuten dauern.` : `${label} deinstallieren?`;
+        if (!confirm(msg)) return;
+
+        const result = document.getElementById('services-tab-result');
+        result.className = 'mt-4 rounded-xl bg-[#19140008] p-3 text-sm dark:bg-[#fffaed08]';
+        result.classList.remove('hidden');
+
+        const allBtns = document.querySelectorAll('#services-tab-content button[data-service-key]');
+        allBtns.forEach(b => { b.disabled = true; b.style.opacity = '0.5'; b.style.cursor = 'wait'; });
+
+        btn.textContent = 'Warte...';
+        btn.style.opacity = '1';
+        result.textContent = `${label}: Befehl wird ausgeführt. Bitte warten...`;
+
+        const url = '{{ route('server.services.install', ['server' => $server, 'service' => '__SERVICE__']) }}'.replace('__SERVICE__', key);
+        const finalUrl = action === 'deinstall' ? url.replace('install', 'deinstall') : url;
+
+        fetch(finalUrl, { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+            .then(r => r.json())
+            .then(data => {
+                allBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; b.style.cursor = ''; });
+                if (data.success) {
+                    result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
+                    setTimeout(() => loadServicesTab(), 2000);
+                } else {
+                    result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+                }
+                result.textContent = data.message;
+            })
+            .catch(err => {
+                allBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; b.style.cursor = ''; });
+                result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+                result.textContent = 'Fehler: ' + err.message;
+            });
+    }
+
     // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', function () {
@@ -397,6 +523,10 @@
             document.querySelectorAll('.tab-content').forEach(tc => tc.classList.add('hidden'));
             const tab = document.getElementById('tab-' + this.dataset.tab);
             if (tab) tab.classList.remove('hidden');
+
+            if (this.dataset.tab === 'services') {
+                loadServicesTab();
+            }
         });
     });
 

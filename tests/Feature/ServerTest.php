@@ -299,3 +299,89 @@ test('user without admin permission cannot access admin servers', function () {
         ->get(route('admin.servers.index'))
         ->assertForbidden();
 });
+
+test('guest cannot view services page', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.services.index', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user can view their own services page', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.services.index', $server))
+        ->assertSuccessful()
+        ->assertSee('Dienstverwaltung')
+        ->assertSee($server->name);
+});
+
+test('user cannot view another users services page', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.services.index', $server))
+        ->assertForbidden();
+});
+
+test('user cannot install service on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.services.install', ['server' => $server, 'service' => 'php']))
+        ->assertForbidden();
+});
+
+test('user cannot deinstall service on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.services.deinstall', ['server' => $server, 'service' => 'php']))
+        ->assertForbidden();
+});
+
+test('service install returns error json', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.services.install', ['server' => $server, 'service' => 'php']))
+        ->assertJson(['success' => false]);
+});
+
+test('service deinstall returns error json', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.services.deinstall', ['server' => $server, 'service' => 'php']))
+        ->assertJson(['success' => false]);
+});
+
+test('unknown service returns not found', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.services.install', ['server' => $server, 'service' => 'unknown']))
+        ->assertNotFound();
+});
