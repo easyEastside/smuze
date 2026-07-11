@@ -3,93 +3,35 @@
 namespace App\Services;
 
 use App\Models\Server;
-use phpseclib3\Crypt\Common\PrivateKey;
-use phpseclib3\Crypt\PublicKeyLoader;
-use phpseclib3\Exception\UnableToConnectException;
-use phpseclib3\Net\SSH2;
 use RuntimeException;
+use Spatie\Ssh\Ssh;
 
 class SshService
 {
-    private array $connections = [];
-
-    public function connect(Server $server): SSH2
-    {
-        $serverId = $server->id;
-
-        if (isset($this->connections[$serverId]) && $this->connections[$serverId]->isConnected()) {
-            return $this->connections[$serverId];
-        }
-
-        try {
-            $ssh = new SSH2($server->host, $server->port, 10);
-            $ssh->setTimeout(10);
-
-            $key = null;
-            $password = null;
-
-            if ($server->auth_type === 'key') {
-                if ($server->key_content) {
-                    $key = PublicKeyLoader::load($server->key_content);
-                } elseif ($server->key_path && file_exists($server->key_path)) {
-                    $key = PublicKeyLoader::load(file_get_contents($server->key_path));
-                } elseif ($server->credentials) {
-                    $key = PublicKeyLoader::load($server->credentials);
-                }
-
-                if ($key !== null) {
-                    if ($key instanceof PrivateKey && $server->credentials && $server->auth_type === 'password') {
-                        $key->withPassword($server->credentials);
-                    }
-
-                    if (! $ssh->login($server->username, $key)) {
-                        throw new RuntimeException($this->formatAuthError($server));
-                    }
-                } else {
-                    throw new RuntimeException('SSH-Key nicht gefunden. Bitte hinterlege einen gültigen SSH-Key.');
-                }
-            } else {
-                $password = $server->credentials;
-
-                if (! $ssh->login($server->username, $password)) {
-                    throw new RuntimeException($this->formatAuthError($server));
-                }
-            }
-
-            $this->connections[$serverId] = $ssh;
-
-            return $ssh;
-        } catch (UnableToConnectException $e) {
-            throw new RuntimeException($this->formatConnectionError($server, $e));
-        } catch (RuntimeException $e) {
-            throw $e;
-        } catch (\Exception $e) {
-            throw new RuntimeException("SSH-Fehler: {$e->getMessage()}");
-        }
-    }
+    private const CONTROL_PATH = 'ssh-sockets';
 
     public function execute(Server $server, string $command, int $timeout = 30, bool $useSudo = true): SshResult
     {
         try {
-            $ssh = $this->connect($server);
-
             if ($useSudo && $server->use_sudo) {
                 $command = $this->applySudo($command);
             }
 
-            $ssh->setTimeout($timeout);
-            $output = $ssh->exec($command);
-            $exitCode = $ssh->getExitStatus();
+            $process = $this->buildSsh($server, $timeout)->execute($command);
+
+            $stdout = trim($process->getOutput() ?: '');
+            $stderr = trim($process->getErrorOutput() ?: '');
+            $exitCode = $process->getExitCode();
 
             $result = new SshResult(
-                stdout: $output !== false ? trim($output) : '',
-                stderr: '',
+                stdout: $stdout,
+                stderr: $stderr,
                 exitCode: $exitCode ?? -1,
                 success: $exitCode === 0,
             );
 
             if (! $result->success) {
-                $errorMessage = $this->classifyError($result->stdout, $command);
+                $errorMessage = $this->classifyError($result->stdout ?: $result->stderr, $command);
                 $result = new SshResult(
                     stdout: $result->stdout,
                     stderr: $errorMessage,
@@ -114,11 +56,11 @@ class SshService
         $start = hrtime(true);
 
         try {
-            $ssh = $this->connect($server, $timeout);
-            $output = $ssh->exec('echo OK');
+            $process = $this->buildSsh($server, $timeout)->execute('echo OK');
             $elapsed = (hrtime(true) - $start) / 1e6;
+            $output = trim($process->getOutput() ?: '');
 
-            if (trim($output ?? '') === 'OK') {
+            if ($output === 'OK') {
                 return new ConnectionResult(success: true, latencyMs: round($elapsed, 1));
             }
 
@@ -132,28 +74,81 @@ class SshService
 
     public function disconnect(Server $server): void
     {
-        $serverId = $server->id;
+        $controlPath = $this->controlPath($server);
 
-        if (isset($this->connections[$serverId])) {
-            try {
-                $this->connections[$serverId]->disconnect();
-            } catch (\Exception) {
-            }
-
-            unset($this->connections[$serverId]);
+        if (file_exists($controlPath)) {
+            @exec("ssh -O stop -o ControlPath={$controlPath} {$server->username}@{$server->host} 2>/dev/null");
         }
     }
 
     public function disconnectAll(): void
     {
-        foreach (array_keys($this->connections) as $serverId) {
-            try {
-                $this->connections[$serverId]->disconnect();
-            } catch (\Exception) {
+        $dir = storage_path(self::CONTROL_PATH);
+
+        if (is_dir($dir)) {
+            foreach (glob("{$dir}/server_*") as $socket) {
+                @unlink($socket);
             }
         }
+    }
 
-        $this->connections = [];
+    private function buildSsh(Server $server, int $timeout): Ssh
+    {
+        $ssh = Ssh::create($server->username, $server->host, $server->port)
+            ->useMultiplexing(
+                controlPath: $this->controlPath($server),
+                controlPersist: '10m',
+            )
+            ->setTimeout($timeout)
+            ->disableStrictHostKeyChecking()
+            ->enableQuietMode();
+
+        if ($server->auth_type === 'key') {
+            $keyPath = $this->resolveKeyPath($server);
+
+            if ($keyPath !== null) {
+                $ssh->usePrivateKey($keyPath);
+            } else {
+                throw new RuntimeException('SSH-Key nicht gefunden. Bitte hinterlege einen gültigen SSH-Key.');
+            }
+        } else {
+            $ssh->usePassword($server->credentials);
+        }
+
+        return $ssh;
+    }
+
+    private function resolveKeyPath(Server $server): ?string
+    {
+        $content = $server->key_content ?? $server->credentials;
+
+        if ($content && $server->auth_type === 'key') {
+            $path = storage_path(self::CONTROL_PATH.'/keys/'.$server->id.'_key');
+
+            if (! is_dir(dirname($path))) {
+                mkdir(dirname($path), 0700, true);
+            }
+
+            if (! file_exists($path)) {
+                file_put_contents($path, $content);
+                chmod($path, 0600);
+            }
+
+            return $path;
+        }
+
+        if ($server->key_path && file_exists($server->key_path)) {
+            return $server->key_path;
+        }
+
+        return null;
+    }
+
+    private function controlPath(Server $server): string
+    {
+        $suffix = $server->id ?? md5($server->host.'-'.$server->port.'-'.$server->username);
+
+        return storage_path(self::CONTROL_PATH."/server_{$suffix}");
     }
 
     private function applySudo(string $command): string
@@ -167,12 +162,6 @@ class SshService
             $inner = trim($inner, "'\" \t\n\r\0\x0B");
 
             return 'sudo DEBIAN_FRONTEND=noninteractive sh -c '.escapeshellarg($inner);
-        }
-
-        if (preg_match('/^(.*?)(\s*&&\s*|\s*\|\|\s*|\s*;\s*)(.*)$/s', $command, $matches)) {
-            $rest = $matches[3];
-
-            return 'sudo DEBIAN_FRONTEND=noninteractive sh -c '.escapeshellarg($command);
         }
 
         return "sudo DEBIAN_FRONTEND=noninteractive {$command}";
@@ -222,39 +211,10 @@ class SshService
             return 'sudo-Passwort erforderlich. Bitte Server-Einstellungen prüfen.';
         }
 
+        if (str_contains($lower, 'sshpass') && str_contains($lower, 'not found')) {
+            return 'sshpass ist nicht auf dem Server installiert. Für Passwort-Authentifizierung sshpass installieren oder SSH-Key verwenden.';
+        }
+
         return $output;
-    }
-
-    private function formatConnectionError(Server $server, UnableToConnectException $e): string
-    {
-        $message = $e->getMessage();
-        $lower = mb_strtolower($message);
-
-        if (str_contains($lower, 'timed out') || str_contains($lower, 'timeout')) {
-            return "Verbindung zu {$server->host}:{$server->port} konnte nicht hergestellt werden (Timeout).";
-        }
-
-        if (str_contains($lower, 'connection refused')) {
-            return "Verbindung zu {$server->host}:{$server->port} verweigert (Connection refused). Der SSH-Dienst läuft möglicherweise nicht.";
-        }
-
-        if (str_contains($lower, 'network is unreachable')) {
-            return "Netzwerk nicht erreichbar: {$server->host}";
-        }
-
-        if (str_contains($lower, 'name or service not known') || str_contains($lower, 'dns')) {
-            return "DNS-Auflösung fehlgeschlagen: {$server->host} konnte nicht aufgelöst werden.";
-        }
-
-        return $e->getMessage();
-    }
-
-    private function formatAuthError(Server $server): string
-    {
-        if ($server->auth_type === 'key') {
-            return 'SSH-Key-Authentifizierung fehlgeschlagen. Bitte prüfe den hinterlegten SSH-Key.';
-        }
-
-        return "SSH-Passwort-Authentifizierung für {$server->username}@{$server->host} fehlgeschlagen. Bitte Passwort prüfen.";
     }
 }
