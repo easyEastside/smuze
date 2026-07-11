@@ -78,6 +78,13 @@
             </x-admin.sidebar-link>
 
             <x-admin.sidebar-link
+                :active="request()->routeIs('admin.servers.*')"
+                href="{{ route('admin.servers.index') }}"
+            >
+                Servers
+            </x-admin.sidebar-link>
+
+            <x-admin.sidebar-link
                 :active="request()->routeIs('admin.settings')"
                 href="{{ route('admin.settings') }}"
             >

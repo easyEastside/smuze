@@ -67,6 +67,12 @@ class User extends Authenticatable
         return $this->hasMany(DailyLoginBonus::class);
     }
 
+    /** @return HasMany<Server, $this> */
+    public function servers(): HasMany
+    {
+        return $this->hasMany(Server::class);
+    }
+
     /** @return BelongsToMany<Achievement, $this> */
     public function achievements(): BelongsToMany
     {

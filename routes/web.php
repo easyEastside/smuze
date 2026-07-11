@@ -22,4 +22,5 @@ require app_path('Modules/Messages/routes.php');
 require app_path('Modules/Surveys/routes.php');
 require app_path('Modules/Quests/routes.php');
 require app_path('Modules/Achievements/routes.php');
+require app_path('Modules/Server/routes.php');
 require app_path('Modules/Admin/routes.php');

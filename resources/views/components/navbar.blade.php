@@ -7,6 +7,7 @@
         ['label' => 'Shop', 'route' => 'shop.index', 'active' => 'shop.*'],
         ['label' => 'Bank', 'route' => 'bank.index', 'active' => 'bank.*'],
         ['label' => 'Inventory', 'route' => 'inventory.index', 'active' => 'inventory.*'],
+        ['label' => 'Server', 'route' => 'server.index', 'active' => 'server.*'],
     ];
 
     $secondaryLinks = [

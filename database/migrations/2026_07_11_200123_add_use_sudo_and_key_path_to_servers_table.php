@@ -1,0 +1,24 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('servers', function (Blueprint $table) {
+            $table->boolean('use_sudo')->default(true)->after('credentials');
+            $table->string('key_path')->nullable()->after('use_sudo');
+            $table->text('key_content')->nullable()->after('key_path');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('servers', function (Blueprint $table) {
+            $table->dropColumn(['use_sudo', 'key_path', 'key_content']);
+        });
+    }
+};

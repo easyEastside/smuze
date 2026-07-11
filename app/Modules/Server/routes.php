@@ -1,0 +1,28 @@
+<?php
+
+use App\Modules\Server\Controllers\ServerController;
+use Illuminate\Support\Facades\Route;
+
+Route::middleware('auth')->group(function (): void {
+    Route::get('servers', [ServerController::class, 'index'])->name('server.index');
+    Route::get('servers/create', [ServerController::class, 'create'])->name('server.create');
+    Route::post('servers', [ServerController::class, 'store'])->name('server.store');
+    Route::get('servers/{server}/edit', [ServerController::class, 'edit'])->name('server.edit');
+    Route::put('servers/{server}', [ServerController::class, 'update'])->name('server.update');
+    Route::delete('servers/{server}', [ServerController::class, 'destroy'])->name('server.destroy');
+
+    Route::get('servers/{server}/dashboard', [ServerController::class, 'dashboard'])->name('server.dashboard');
+    Route::get('servers/{server}/dashboard/refresh', [ServerController::class, 'dashboardRefresh'])->name('server.dashboard.refresh');
+    Route::get('servers/{server}/dashboard/test-connection', [ServerController::class, 'dashboardTestConnection'])->name('server.dashboard.test-connection');
+
+    Route::post('servers/{server}/update', [ServerController::class, 'updatePackages'])->name('server.update-packages');
+    Route::post('servers/{server}/upgrade', [ServerController::class, 'upgradePackages'])->name('server.upgrade-packages');
+    Route::post('servers/{server}/restart', [ServerController::class, 'restartServer'])->name('server.restart');
+    Route::post('servers/{server}/stop', [ServerController::class, 'stopServer'])->name('server.stop');
+});
+
+require __DIR__.'/Firewall/routes.php';
+require __DIR__.'/Apache/routes.php';
+require __DIR__.'/Mysql/routes.php';
+require __DIR__.'/Github/routes.php';
+require __DIR__.'/Services/routes.php';
