@@ -216,7 +216,76 @@ test('user can view their own server dashboard', function () {
         ->assertSee('Apache')
         ->assertSee('MySQL')
         ->assertSee('GitHub')
-        ->assertSee('Terminal');
+        ->assertSee('Terminal')
+        ->assertSee('SSH-Terminal');
+});
+
+test('guest cannot create terminal session', function () {
+    $server = Server::factory()->create();
+
+    $this->post(route('server.terminal.session', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user cannot create terminal session for another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.terminal.session', $server))
+        ->assertForbidden();
+});
+
+test('user can create terminal session for own server', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.terminal.session', $server))
+        ->assertSuccessful()
+        ->assertJsonStructure(['token', 'websocket_url', 'expires_at']);
+});
+
+test('terminal session websocket url uses current request host by default', function () {
+    config(['terminal.websocket_url' => null, 'terminal.websocket_port' => 8081]);
+
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->post('http://smuze.test/servers/'.$server->id.'/terminal/session')
+        ->assertSuccessful()
+        ->assertJsonPath('websocket_url', 'ws://smuze.test:8081');
+});
+
+test('terminal resolve endpoint requires sidecar secret', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $token = $this->actingAs($this->user)
+        ->post(route('server.terminal.session', $server))
+        ->json('token');
+
+    $this->get(route('server.terminal.resolve', $token))->assertForbidden();
+});
+
+test('terminal resolve endpoint returns ssh connection details for sidecar', function () {
+    config(['terminal.secret' => 'test-terminal-secret']);
+
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'auth_type' => 'password',
+        'credentials' => 'secret-password',
+    ]);
+
+    $token = $this->actingAs($this->user)
+        ->post(route('server.terminal.session', $server))
+        ->json('token');
+
+    $this->withHeader('X-Terminal-Secret', 'test-terminal-secret')
+        ->get(route('server.terminal.resolve', $token))
+        ->assertSuccessful()
+        ->assertJsonPath('server.host', $server->host)
+        ->assertJsonPath('server.username', $server->username)
+        ->assertJsonPath('server.auth_type', 'password')
+        ->assertJsonPath('server.password', 'secret-password')
+        ->assertJsonPath('server.key_content', null);
 });
 
 test('user cannot view another users server dashboard', function () {

@@ -92,6 +92,21 @@ class SshService
         }
     }
 
+    /** @return array{host: string, port: int, username: string, auth_type: string, password: ?string, key_path: ?string, key_content: ?string, control_path: string} */
+    public function terminalConnection(Server $server): array
+    {
+        return [
+            'host' => $server->host,
+            'port' => $server->port,
+            'username' => $server->username,
+            'auth_type' => $server->auth_type,
+            'password' => $server->auth_type === 'password' ? $server->credentials : null,
+            'key_path' => $server->key_path,
+            'key_content' => $server->auth_type === 'key' ? $server->key_content : null,
+            'control_path' => $this->controlPath($server),
+        ];
+    }
+
     private function buildSsh(Server $server, int $timeout): Ssh
     {
         $ssh = Ssh::create($server->username, $server->host, $server->port)

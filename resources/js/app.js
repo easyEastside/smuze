@@ -1,3 +1,8 @@
+import { FitAddon } from '@xterm/addon-fit';
+import { Terminal } from '@xterm/xterm';
+
+window.SmuzeTerminal = { FitAddon, Terminal };
+
 document.addEventListener('click', (event) => {
     const navbarToggle = event.target.closest('[data-navbar-toggle]');
 
