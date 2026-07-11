@@ -5,8 +5,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth')->prefix('servers/{server}/mysql')->name('server.mysql.')->group(function (): void {
     Route::get('/', [MysqlController::class, 'index'])->name('index');
+    Route::get('status', [MysqlController::class, 'status'])->name('status');
     Route::post('install', [MysqlController::class, 'install'])->name('install');
     Route::post('deinstall', [MysqlController::class, 'deinstall'])->name('deinstall');
+    Route::post('{action}', [MysqlController::class, 'service'])->whereIn('action', ['start', 'stop', 'restart'])->name('service');
     Route::get('databases', [MysqlController::class, 'databases'])->name('databases');
     Route::post('databases/create', [MysqlController::class, 'createDatabase'])->name('databases.create');
     Route::delete('databases/{database}', [MysqlController::class, 'dropDatabase'])->name('databases.destroy');

@@ -349,13 +349,67 @@
             </div>
         </div>
 
+        {{-- MySQL Tab --}}
+        <div id="tab-mysql" class="tab-content mt-6 hidden" data-tab="mysql">
+            <div>
+                <div id="my-dash-loading" class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                    <p class="text-sm text-[#706f6c] dark:text-[#A1A09A]">Lade MySQL-Status...</p>
+                </div>
+
+                <div id="my-dash-install" class="hidden">
+                    <div class="rounded-2xl bg-white p-8 text-center shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d]">
+                        <p class="text-lg font-semibold">MySQL ist nicht installiert</p>
+                        <p class="mt-2 text-sm text-[#706f6c] dark:text-[#A1A09A]">Installiere MySQL um die Datenbank zu verwalten.</p>
+                        <button type="button" id="btn-install-mysql-dash" onclick="installMysqlDash(this)" class="mt-6 rounded-lg bg-[#1b1b18] px-6 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">MySQL installieren</button>
+                        <div id="my-dash-install-result" class="mt-4 hidden rounded-xl p-3 text-sm"></div>
+                    </div>
+                </div>
+
+                <div id="my-dash-content" class="hidden">
+                    <div class="grid gap-6 lg:grid-cols-[1fr_280px]">
+                        <div class="space-y-6">
+                            <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <p class="text-sm text-[#f53003] dark:text-[#FF4433]">MySQL</p>
+                                        <span id="my-dash-badge" class="rounded-full px-2.5 py-0.5 text-xs font-medium"></span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <button type="button" onclick="myDashService('start')" class="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">Start</button>
+                                        <button type="button" onclick="myDashService('stop')" class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">Stop</button>
+                                        <button type="button" onclick="myDashService('restart')" class="rounded-lg bg-yellow-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-yellow-700">Restart</button>
+                                    </div>
+                                </div>
+                                <div id="my-dash-version" class="mt-2 text-xs text-[#706f6c] dark:text-[#A1A09A]"></div>
+                            </div>
+
+                            <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                                <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Datenbanken</p>
+                                <div id="my-dash-dbs-empty" class="mt-4 text-sm text-[#706f6c] dark:text-[#A1A09A]">Keine Datenbanken.</div>
+                                <div id="my-dash-dbs-list" class="mt-4 hidden space-y-2"></div>
+                            </div>
+
+                            <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                                <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Benutzer</p>
+                                <div id="my-dash-users-empty" class="mt-4 text-sm text-[#706f6c] dark:text-[#A1A09A]">Keine Benutzer.</div>
+                                <div id="my-dash-users-list" class="mt-4 hidden space-y-2"></div>
+                            </div>
+                        </div>
+
+                        <aside class="space-y-6">
+                            <div id="my-dash-result" class="hidden rounded-xl p-3 text-sm"></div>
+                        </aside>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- Placeholder tabs for future phases --}}
-        @foreach (['mysql', 'github', 'terminal'] as $tab)
+        @foreach (['github', 'terminal'] as $tab)
             <div id="tab-{{ $tab }}" class="tab-content mt-6 hidden" data-tab="{{ $tab }}">
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <p class="text-sm text-[#706f6c] dark:text-[#A1A09A]">
                         @switch($tab)
-                            @case('mysql') MySQL-Datenbank-Verwaltung — in Kürze verfügbar. @break
                             @case('github') GitHub-Deployment — in Kürze verfügbar. @break
                             @case('terminal') SSH-Terminal — in Kürze verfügbar. @break
                         @endswitch
@@ -1050,6 +1104,143 @@
             });
     }
 
+    // MySQL Tab
+    function loadMysqlTab() {
+        const loading = document.getElementById('my-dash-loading');
+        const install = document.getElementById('my-dash-install');
+        const content = document.getElementById('my-dash-content');
+
+        loading.classList.remove('hidden');
+        install.classList.add('hidden');
+        content.classList.add('hidden');
+
+        fetch('{{ route('server.mysql.status', $server) }}')
+            .then(r => r.json())
+            .then(data => {
+                loading.classList.add('hidden');
+                if (!data.success) {
+                    loading.textContent = 'Fehler: ' + (data.error || 'Unbekannter Fehler');
+                    loading.classList.remove('hidden');
+                    return;
+                }
+                if (!data.installed) {
+                    install.classList.remove('hidden');
+                    return;
+                }
+                content.classList.remove('hidden');
+                renderMyDashStatus(data);
+                loadMyDashDatabases();
+                loadMyDashUsers();
+            })
+            .catch(err => {
+                loading.textContent = 'Verbindungsfehler: ' + err.message;
+                loading.classList.remove('hidden');
+            });
+    }
+
+    function renderMyDashStatus(data) {
+        const badge = document.getElementById('my-dash-badge');
+        const version = document.getElementById('my-dash-version');
+        badge.textContent = data.active ? 'Aktiv' : 'Inaktiv';
+        badge.className = 'rounded-full px-2.5 py-0.5 text-xs font-medium ' + (data.active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200');
+        version.textContent = data.version || '';
+    }
+
+    function myDashShowResult(msg, success) {
+        const el = document.getElementById('my-dash-result');
+        el.className = 'rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+
+    function myDashService(action) {
+        const labels = { start: 'starten', stop: 'stoppen', restart: 'neu starten' };
+        if (!confirm('MySQL ' + labels[action] + '?')) return;
+        myDashShowResult('MySQL wird ' + labels[action] + '...', true);
+        fetch('{{ route('server.mysql.service', ['server' => $server, 'action' => '__ACTION__']) }}'.replace('__ACTION__', action), { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+            .then(r => r.json())
+            .then(data => {
+                myDashShowResult(data.message, data.success);
+                if (data.success) setTimeout(loadMysqlTab, 2000);
+            })
+            .catch(err => myDashShowResult('Fehler: ' + err.message, false));
+    }
+
+    function loadMyDashDatabases() {
+        fetch('{{ route('server.mysql.databases', $server) }}')
+            .then(r => r.json())
+            .then(data => {
+                const empty = document.getElementById('my-dash-dbs-empty');
+                const list = document.getElementById('my-dash-dbs-list');
+                if (!data.success || !data.databases || data.databases.length === 0) {
+                    empty.classList.remove('hidden');
+                    list.classList.add('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+                list.innerHTML = '';
+                for (const db of data.databases) {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center justify-between rounded-xl border border-[#19140020] p-3 dark:border-[#3E3E3A]';
+                    div.innerHTML = '<span class="flex items-center gap-2"><span class="size-2 rounded-full bg-blue-500"></span><span class="text-sm font-medium">' + db + '</span></span>';
+                    list.appendChild(div);
+                }
+                list.classList.remove('hidden');
+            });
+    }
+
+    function loadMyDashUsers() {
+        fetch('{{ route('server.mysql.users', $server) }}')
+            .then(r => r.json())
+            .then(data => {
+                const empty = document.getElementById('my-dash-users-empty');
+                const list = document.getElementById('my-dash-users-list');
+                if (!data.success || !data.users || data.users.length === 0) {
+                    empty.classList.remove('hidden');
+                    list.classList.add('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+                list.innerHTML = '';
+                for (const user of data.users) {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center justify-between rounded-xl border border-[#19140020] px-3 py-2 text-sm dark:border-[#3E3E3A]';
+                    div.innerHTML = '<span class="font-medium">' + user.username + '</span><span class="text-xs text-[#706f6c] dark:text-[#A1A09A]">' + user.host + '</span>';
+                    list.appendChild(div);
+                }
+                list.classList.remove('hidden');
+            });
+    }
+
+    function installMysqlDash(btn) {
+        const result = document.getElementById('my-dash-install-result');
+        btn.disabled = true;
+        btn.textContent = 'Installiere...';
+        result.className = 'mt-4 rounded-xl bg-[#19140008] p-3 text-sm dark:bg-[#fffaed08]';
+        result.textContent = 'MySQL wird installiert...';
+        result.classList.remove('hidden');
+        fetch('{{ route('server.mysql.install', $server) }}', { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
+                    result.textContent = 'MySQL wurde installiert.';
+                    setTimeout(loadMysqlTab, 2000);
+                } else {
+                    result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+                    result.textContent = data.message;
+                    btn.disabled = false;
+                    btn.textContent = 'MySQL installieren';
+                }
+            })
+            .catch(err => {
+                result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+                result.textContent = 'Fehler: ' + err.message;
+                btn.disabled = false;
+                btn.textContent = 'MySQL installieren';
+            });
+    }
+
     // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', function () {
@@ -1072,6 +1263,8 @@
                 loadFirewallTab();
             } else if (this.dataset.tab === 'apache') {
                 loadApacheTab();
+            } else if (this.dataset.tab === 'mysql') {
+                loadMysqlTab();
             }
         });
     });

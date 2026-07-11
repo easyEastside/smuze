@@ -934,3 +934,308 @@ test('user cannot vhost on another users server', function () {
         ])
         ->assertForbidden();
 });
+
+// MySQL
+test('guest cannot view mysql page', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.mysql.index', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user can view their own mysql page', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.mysql.index', $server))
+        ->assertSuccessful()
+        ->assertSee('MySQL-Datenbank-Verwaltung')
+        ->assertSee($server->name);
+});
+
+test('user cannot view another users mysql page', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.mysql.index', $server))
+        ->assertForbidden();
+});
+
+test('mysql status returns json with success', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.mysql.status', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('mysql install returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.mysql.install', $server))
+        ->assertJson(['success' => false]);
+});
+
+test('mysql deinstall returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.mysql.deinstall', $server))
+        ->assertJson(['success' => false]);
+});
+
+test('mysql service start returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.mysql.service', ['server' => $server, 'action' => 'start']))
+        ->assertJson(['success' => false]);
+});
+
+test('mysql databases returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.mysql.databases', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('mysql users returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.mysql.users', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('mysql create database validates name', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.mysql.databases.create', $server), [
+            'db_name' => '',
+        ])
+        ->assertInvalid(['db_name']);
+});
+
+test('mysql create database validates invalid name', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.mysql.databases.create', $server), [
+            'db_name' => 'invalid name with spaces!',
+        ])
+        ->assertInvalid(['db_name']);
+});
+
+test('mysql create database returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.mysql.databases.create', $server), [
+            'db_name' => 'test_db',
+        ])
+        ->assertJson(['success' => false]);
+});
+
+test('mysql create user validates fields', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.mysql.users.create', $server), [
+            'username' => '',
+            'host' => '',
+            'password' => '',
+        ])
+        ->assertInvalid(['username', 'host', 'password']);
+});
+
+test('mysql create user returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.mysql.users.create', $server), [
+            'username' => 'testuser',
+            'host' => 'localhost',
+            'password' => 'secret',
+        ])
+        ->assertJson(['success' => false]);
+});
+
+test('mysql set password validates field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.mysql.users.password', ['server' => $server, 'username' => 'test', 'host' => 'localhost']), [
+            'password' => '',
+        ])
+        ->assertInvalid(['password']);
+});
+
+test('mysql grant all returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.mysql.users.grant', ['server' => $server, 'username' => 'test', 'host' => 'localhost']))
+        ->assertJson(['success' => false]);
+});
+
+test('mysql drop database returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->delete(route('server.mysql.databases.destroy', ['server' => $server, 'database' => 'test_db']))
+        ->assertJson(['success' => false]);
+});
+
+test('mysql drop user returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->delete(route('server.mysql.users.destroy', ['server' => $server, 'username' => 'test', 'host' => 'localhost']))
+        ->assertJson(['success' => false]);
+});
+
+// Permission tests
+test('user cannot view another users mysql status', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.mysql.status', $server))
+        ->assertForbidden();
+});
+
+test('user cannot install mysql on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.mysql.install', $server))
+        ->assertForbidden();
+});
+
+test('user cannot start mysql on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.mysql.service', ['server' => $server, 'action' => 'start']))
+        ->assertForbidden();
+});
+
+test('user cannot view another users mysql databases', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.mysql.databases', $server))
+        ->assertForbidden();
+});
+
+test('user cannot create database on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.mysql.databases.create', $server), ['db_name' => 'test'])
+        ->assertForbidden();
+});

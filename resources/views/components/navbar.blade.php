@@ -48,6 +48,7 @@
                         <hr class="my-1 border-[#19140020] dark:border-[#3E3E3A]">
                         <a href="{{ route('server.dashboard', $currentServer) }}" class="{{ $serverDropdownClass }} {{ request()->routeIs('server.dashboard') ? 'font-medium' : '' }}">Dashboard</a>
                         <a href="{{ route('server.firewall.index', $currentServer) }}" class="{{ $serverDropdownClass }} {{ request()->routeIs('server.firewall.*') ? 'font-medium' : '' }}">Firewall</a>
+                        <a href="{{ route('server.mysql.index', $currentServer) }}" class="{{ $serverDropdownClass }} {{ request()->routeIs('server.mysql.*') ? 'font-medium' : '' }}">MySQL</a>
                         <a href="{{ route('server.apache.index', $currentServer) }}" class="{{ $serverDropdownClass }} {{ request()->routeIs('server.apache.*') ? 'font-medium' : '' }}">Apache</a>
                         <a href="{{ route('server.services.index', $currentServer) }}" class="{{ $serverDropdownClass }} {{ request()->routeIs('server.services.*') ? 'font-medium' : '' }}">Dienste</a>
                     @endif
@@ -122,6 +123,7 @@
                         @if ($currentServer)
                             <a href="{{ route('server.dashboard', $currentServer) }}" class="block {{ $serverDropdownClass }} {{ request()->routeIs('server.dashboard') ? 'font-medium' : '' }}">Dashboard</a>
                             <a href="{{ route('server.firewall.index', $currentServer) }}" class="block {{ $serverDropdownClass }} {{ request()->routeIs('server.firewall.*') ? 'font-medium' : '' }}">Firewall</a>
+                            <a href="{{ route('server.mysql.index', $currentServer) }}" class="block {{ $serverDropdownClass }} {{ request()->routeIs('server.mysql.*') ? 'font-medium' : '' }}">MySQL</a>
                             <a href="{{ route('server.apache.index', $currentServer) }}" class="block {{ $serverDropdownClass }} {{ request()->routeIs('server.apache.*') ? 'font-medium' : '' }}">Apache</a>
                             <a href="{{ route('server.services.index', $currentServer) }}" class="block {{ $serverDropdownClass }} {{ request()->routeIs('server.services.*') ? 'font-medium' : '' }}">Dienste</a>
                         @endif
