@@ -390,9 +390,27 @@
                             </div>
 
                             <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
-                                <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Benutzer</p>
+                                <div class="flex items-center justify-between">
+                                    <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Benutzer</p>
+                                    <button type="button" onclick="showMyDashCreateUser()" class="rounded-lg bg-[#1b1b18] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                                        + Benutzer
+                                    </button>
+                                </div>
                                 <div id="my-dash-users-empty" class="mt-4 text-sm text-[#706f6c] dark:text-[#A1A09A]">Keine Benutzer.</div>
                                 <div id="my-dash-users-list" class="mt-4 hidden space-y-2"></div>
+                                <div id="my-dash-create-user-form" class="mt-4 hidden border-t border-[#19140020] pt-4 dark:border-[#3E3E3A]">
+                                    <p class="text-sm font-medium mb-3">Benutzer erstellen</p>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <input type="text" id="my-dash-username" placeholder="Benutzername" class="rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
+                                        <input type="text" id="my-dash-host" placeholder="Host" value="localhost" class="rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
+                                        <input type="password" id="my-dash-password" placeholder="Passwort" class="rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
+                                    </div>
+                                    <div class="mt-3 flex gap-2">
+                                        <button type="button" onclick="myDashCreateUser()" class="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">Erstellen</button>
+                                        <button type="button" onclick="hideMyDashCreateUser()" class="rounded-lg border border-[#19140035] px-4 py-2 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Abbrechen</button>
+                                    </div>
+                                    <div id="my-dash-user-create-result" class="mt-3 hidden rounded-xl p-3 text-sm"></div>
+                                </div>
                             </div>
                         </div>
 
@@ -1248,6 +1266,46 @@
                 if (data.success) setTimeout(loadMyDashUsers, 1500);
             })
             .catch(err => myDashShowResult('Fehler: ' + err.message, false));
+    }
+
+    function showMyDashCreateUser() {
+        document.getElementById('my-dash-create-user-form').classList.remove('hidden');
+    }
+
+    function hideMyDashCreateUser() {
+        document.getElementById('my-dash-create-user-form').classList.add('hidden');
+        document.getElementById('my-dash-user-create-result').classList.add('hidden');
+    }
+
+    function myDashCreateUser() {
+        const username = document.getElementById('my-dash-username').value.trim();
+        const host = document.getElementById('my-dash-host').value.trim();
+        const password = document.getElementById('my-dash-password').value.trim();
+        if (!username || !host || !password) { myDashShowResult('Bitte alle Felder ausfüllen.', false); return; }
+        const result = document.getElementById('my-dash-user-create-result');
+        result.className = 'mt-3 rounded-xl p-3 text-sm bg-[#19140008] dark:bg-[#fffaed08]';
+        result.textContent = 'Erstelle Benutzer...';
+        result.classList.remove('hidden');
+        fetch('{{ route('server.mysql.users.create', $server) }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            body: JSON.stringify({ username, host, password }),
+        })
+            .then(r => r.json())
+            .then(data => {
+                result.className = 'mt-3 rounded-xl p-3 text-sm ' + (data.success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
+                result.textContent = data.message;
+                if (data.success) {
+                    document.getElementById('my-dash-username').value = '';
+                    document.getElementById('my-dash-host').value = 'localhost';
+                    document.getElementById('my-dash-password').value = '';
+                    setTimeout(() => { hideMyDashCreateUser(); loadMyDashUsers(); }, 1500);
+                }
+            })
+            .catch(err => {
+                result.className = 'mt-3 rounded-xl p-3 text-sm bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200';
+                result.textContent = 'Fehler: ' + err.message;
+            });
     }
 
     function installMysqlDash(btn) {
