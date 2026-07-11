@@ -10,11 +10,21 @@ class ServerSocket {
         this.messageListeners = [];
         this.reconnectTimer = null;
         this.reconnectDelay = 1000;
+        this.heartbeatTimer = null;
+        this.lastPong = 0;
         this._csrfToken = null;
         this._sessionEndpoint = null;
     }
 
     async connect(serverId, sessionEndpoint, csrfToken) {
+        if (this.serverId === serverId && this.isConnected) {
+            return;
+        }
+
+        if (this.isConnected) {
+            this.disconnect();
+        }
+
         this.serverId = serverId;
         this._sessionEndpoint = sessionEndpoint;
         this._csrfToken = csrfToken;
@@ -55,6 +65,7 @@ class ServerSocket {
         this.socket.addEventListener('open', () => {
             this._notifyStatus('connected');
             this.reconnectDelay = 1000;
+            this._startHeartbeat();
         });
 
         this.socket.addEventListener('message', (event) => {
@@ -67,6 +78,7 @@ class ServerSocket {
         });
 
         this.socket.addEventListener('close', () => {
+            this._stopHeartbeat();
             this._notifyStatus('disconnected');
             this._scheduleReconnect();
         });
@@ -77,6 +89,11 @@ class ServerSocket {
     }
 
     _handleMessage(payload) {
+        if (payload.channel === 'heartbeat' && payload.type === 'pong') {
+            this.lastPong = Date.now();
+            return;
+        }
+
         if (payload.requestId && this.pending.has(payload.requestId)) {
             const { resolve, reject } = this.pending.get(payload.requestId);
             this.pending.delete(payload.requestId);
@@ -92,6 +109,32 @@ class ServerSocket {
 
         for (const cb of this.messageListeners) {
             cb(payload);
+        }
+    }
+
+    _startHeartbeat() {
+        this._stopHeartbeat();
+        this.lastPong = Date.now();
+
+        this.heartbeatTimer = setInterval(() => {
+            if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+                this._stopHeartbeat();
+                return;
+            }
+
+            if (Date.now() - this.lastPong > 40000) {
+                this.socket.close();
+                return;
+            }
+
+            this.socket.send(JSON.stringify({ channel: 'heartbeat', type: 'ping' }));
+        }, 30000);
+    }
+
+    _stopHeartbeat() {
+        if (this.heartbeatTimer) {
+            clearInterval(this.heartbeatTimer);
+            this.heartbeatTimer = null;
         }
     }
 
@@ -113,7 +156,6 @@ class ServerSocket {
 
         return () => {
             const i = this.messageListeners.indexOf(callback);
-
             if (i !== -1) {
                 this.messageListeners.splice(i, 1);
             }
@@ -125,7 +167,6 @@ class ServerSocket {
 
         return () => {
             const i = this.statusListeners.indexOf(callback);
-
             if (i !== -1) {
                 this.statusListeners.splice(i, 1);
             }
@@ -171,6 +212,8 @@ class ServerSocket {
     }
 
     disconnect() {
+        this._stopHeartbeat();
+
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;

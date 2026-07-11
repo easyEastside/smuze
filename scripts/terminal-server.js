@@ -296,6 +296,11 @@ wss.on('connection', async (ws, request) => {
     };
 
     const handleMessage = (payload) => {
+        if (payload.channel === 'heartbeat' && payload.type === 'ping') {
+            send(ws, { channel: 'heartbeat', type: 'pong' });
+            return;
+        }
+
         if (payload.channel === 'metrics' && payload.type === 'subscribe' && ! metricsConnection && server) {
             metricsConnection = handleMetricsConnection(ws, server, keyFile);
         }
