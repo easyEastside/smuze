@@ -196,13 +196,92 @@
             </div>
         </div>
 
+        {{-- Firewall Tab --}}
+        <div id="tab-firewall" class="tab-content mt-6 hidden" data-tab="firewall">
+            <div>
+                <div id="fw-dash-loading" class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                    <p class="text-sm text-[#706f6c] dark:text-[#A1A09A]">Lade Firewall-Status...</p>
+                </div>
+
+                <div id="fw-dash-install" class="hidden">
+                    <div class="rounded-2xl bg-white p-8 text-center shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d]">
+                        <p class="text-lg font-semibold">UFW ist nicht installiert</p>
+                        <p class="mt-2 text-sm text-[#706f6c] dark:text-[#A1A09A]">Installiere UFW um die Firewall zu verwalten.</p>
+                        <button type="button" id="btn-install-ufw-dash" onclick="installUfwDash(this)" class="mt-6 rounded-lg bg-[#1b1b18] px-6 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                            UFW installieren
+                        </button>
+                        <div id="fw-dash-install-result" class="mt-4 hidden rounded-xl p-3 text-sm"></div>
+                    </div>
+                </div>
+
+                <div id="fw-dash-content" class="hidden">
+                    <div class="grid gap-6 lg:grid-cols-[1fr_280px]">
+                        <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Firewall-Regeln</p>
+                                    <span id="fw-dash-badge" class="rounded-full px-2.5 py-0.5 text-xs font-medium"></span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" id="fw-dash-enable" onclick="fwDashAction('{{ route('server.firewall.enable', $server) }}', 'UFW aktivieren?')" class="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">Aktivieren</button>
+                                    <button type="button" id="fw-dash-disable" onclick="fwDashAction('{{ route('server.firewall.disable', $server) }}', 'UFW wirklich deaktivieren?')" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Deaktivieren</button>
+                                </div>
+                            </div>
+
+                            <div id="fw-dash-empty" class="mt-4 text-sm text-[#706f6c] dark:text-[#A1A09A]">Keine Firewall-Regeln vorhanden.</div>
+
+                            <div id="fw-dash-table" class="mt-4 hidden overflow-x-auto">
+                                <table class="w-full text-left text-sm">
+                                    <thead>
+                                        <tr class="border-b border-[#19140020] text-xs text-[#706f6c] dark:border-[#3E3E3A] dark:text-[#A1A09A]">
+                                            <th class="px-3 py-2 font-medium">Nr.</th>
+                                            <th class="px-3 py-2 font-medium">Aktion</th>
+                                            <th class="px-3 py-2 font-medium">Port</th>
+                                            <th class="px-3 py-2 font-medium">Proto</th>
+                                            <th class="px-3 py-2 font-medium">Quelle</th>
+                                            <th class="px-3 py-2 font-medium"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="fw-dash-tbody"></tbody>
+                                </table>
+                            </div>
+
+                            <div id="fw-dash-result" class="mt-4 hidden rounded-xl p-3 text-sm"></div>
+                        </div>
+
+                        <aside class="space-y-6">
+                            <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                                <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Port verwalten</p>
+                                <div class="mt-4">
+                                    <input type="number" id="fw-dash-port" min="1" max="65535" placeholder="Port" class="block w-full rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
+                                </div>
+                                <div class="mt-3 flex gap-2">
+                                    <button type="button" onclick="fwDashPortAction('allow')" class="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">Freigeben</button>
+                                    <button type="button" onclick="fwDashPortAction('deny')" class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">Blocken</button>
+                                </div>
+                            </div>
+
+                            <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                                <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Schnellzugriff</p>
+                                <div class="mt-4 flex flex-col gap-2">
+                                    @foreach ([['l' => 'SSH (22)', 'p' => '22'], ['l' => 'HTTP (80)', 'p' => '80'], ['l' => 'HTTPS (443)', 'p' => '443'], ['l' => 'MySQL (3306)', 'p' => '3306'], ['l' => 'PostgreSQL (5432)', 'p' => '5432']] as $preset)
+                                        <button type="button" onclick="fwDashPreset('{{ $preset['p'] }}')" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">{{ $preset['l'] }}</button>
+                                    @endforeach
+                                </div>
+                                <div id="fw-dash-preset-result" class="mt-3 hidden rounded-xl p-3 text-sm"></div>
+                            </div>
+                        </aside>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- Placeholder tabs for future phases --}}
-        @foreach (['firewall', 'apache', 'mysql', 'github', 'terminal'] as $tab)
+        @foreach (['apache', 'mysql', 'github', 'terminal'] as $tab)
             <div id="tab-{{ $tab }}" class="tab-content mt-6 hidden" data-tab="{{ $tab }}">
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <p class="text-sm text-[#706f6c] dark:text-[#A1A09A]">
                         @switch($tab)
-                            @case('firewall') UFW-Firewall-Verwaltung — in Kürze verfügbar. @break
                             @case('apache') Apache-Webserver-Verwaltung — in Kürze verfügbar. @break
                             @case('mysql') MySQL-Datenbank-Verwaltung — in Kürze verfügbar. @break
                             @case('github') GitHub-Deployment — in Kürze verfügbar. @break
@@ -508,6 +587,183 @@
             });
     }
 
+    // Firewall Tab
+    function loadFirewallTab() {
+        const loading = document.getElementById('fw-dash-loading');
+        const install = document.getElementById('fw-dash-install');
+        const content = document.getElementById('fw-dash-content');
+
+        loading.classList.remove('hidden');
+        install.classList.add('hidden');
+        content.classList.add('hidden');
+
+        fetch('{{ route('server.firewall.status', $server) }}')
+            .then(r => r.json())
+            .then(data => {
+                loading.classList.add('hidden');
+                if (!data.success) {
+                    loading.textContent = 'Fehler: ' + (data.error || 'Unbekannter Fehler');
+                    loading.classList.remove('hidden');
+                    return;
+                }
+                if (!data.installed) {
+                    install.classList.remove('hidden');
+                    return;
+                }
+                content.classList.remove('hidden');
+                renderFwDashStatus(data.active);
+                loadFwDashRules();
+            })
+            .catch(err => {
+                loading.textContent = 'Verbindungsfehler: ' + err.message;
+                loading.classList.remove('hidden');
+            });
+    }
+
+    function renderFwDashStatus(active) {
+        const badge = document.getElementById('fw-dash-badge');
+        const enableBtn = document.getElementById('fw-dash-enable');
+        const disableBtn = document.getElementById('fw-dash-disable');
+        if (active) {
+            badge.textContent = 'Aktiv';
+            badge.className = 'rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+            enableBtn.style.display = 'none';
+            disableBtn.style.display = '';
+        } else {
+            badge.textContent = 'Inaktiv';
+            badge.className = 'rounded-full px-2.5 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+            enableBtn.style.display = '';
+            disableBtn.style.display = 'none';
+        }
+    }
+
+    function loadFwDashRules() {
+        fetch('{{ route('server.firewall.rules', $server) }}')
+            .then(r => r.json())
+            .then(data => {
+                const empty = document.getElementById('fw-dash-empty');
+                const table = document.getElementById('fw-dash-table');
+                const tbody = document.getElementById('fw-dash-tbody');
+                if (!data.success || !data.rules || data.rules.length === 0) {
+                    empty.classList.remove('hidden');
+                    table.classList.add('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+                tbody.innerHTML = '';
+                for (const rule of data.rules) {
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-b border-[#19140020] dark:border-[#3E3E3A]';
+                    tr.innerHTML = `
+                        <td class="px-3 py-2">${rule.number}</td>
+                        <td class="px-3 py-2"><span class="rounded px-2 py-0.5 text-xs font-medium ${rule.action === 'ALLOW' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}">${rule.action}</span></td>
+                        <td class="px-3 py-2">${rule.port}</td>
+                        <td class="px-3 py-2">${rule.protocol || '-'}</td>
+                        <td class="px-3 py-2">${rule.source}</td>
+                        <td class="px-3 py-2"><button onclick="fwDashDeleteRule(${rule.number}, '${rule.port}')" class="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200">Löschen</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+                table.classList.remove('hidden');
+            });
+    }
+
+    function fwDashShowResult(msg, success) {
+        const el = document.getElementById('fw-dash-result');
+        el.className = 'mt-4 rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+
+    function fwDashAction(url, confirmMsg) {
+        if (confirmMsg && !confirm(confirmMsg)) return;
+        fwDashShowResult('Führe Befehl aus...', true);
+        fetch(url, { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+            .then(r => r.json())
+            .then(data => {
+                fwDashShowResult(data.message, data.success);
+                if (data.success) setTimeout(loadFirewallTab, 1000);
+            })
+            .catch(err => fwDashShowResult('Fehler: ' + err.message, false));
+    }
+
+    function fwDashPortAction(action) {
+        const port = document.getElementById('fw-dash-port').value.trim();
+        if (!port) { fwDashShowResult('Bitte einen Port eingeben.', false); return; }
+        if (action === 'deny' && port === '22' && !confirm('Du blockierst den SSH-Port (22)! Verbindung kann abbrechen.\n\nPort 22 wirklich blocken?')) return;
+        fwDashShowResult('Führe Befehl aus...', true);
+        const url = action === 'allow'
+            ? '{{ route('server.firewall.allow', $server) }}'
+            : '{{ route('server.firewall.deny', $server) }}';
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }, body: JSON.stringify({ port: port, protocol: 'tcp' }) })
+            .then(r => r.json())
+            .then(data => {
+                fwDashShowResult(data.message, data.success);
+                document.getElementById('fw-dash-port').value = '';
+                if (data.success) setTimeout(loadFirewallTab, 1000);
+            })
+            .catch(err => fwDashShowResult('Fehler: ' + err.message, false));
+    }
+
+    function fwDashDeleteRule(number, port) {
+        if (!confirm('Regel ' + number + ' (Port ' + port + ') wirklich löschen?')) return;
+        fwDashShowResult('Lösche Regel...', true);
+        fetch('{{ route('server.firewall.destroy', ['server' => $server, 'rule' => '__RULE__']) }}'.replace('__RULE__', number), { method: 'DELETE', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+            .then(r => r.json())
+            .then(data => {
+                fwDashShowResult(data.message, data.success);
+                if (data.success) setTimeout(loadFirewallTab, 1000);
+            })
+            .catch(err => fwDashShowResult('Fehler: ' + err.message, false));
+    }
+
+    function fwDashPreset(port) {
+        const el = document.getElementById('fw-dash-preset-result');
+        el.className = 'mt-3 rounded-xl p-3 text-sm bg-[#19140008] dark:bg-[#fffaed08]';
+        el.textContent = 'Öffne Port ' + port + '...';
+        el.classList.remove('hidden');
+        fetch('{{ route('server.firewall.allow', $server) }}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }, body: JSON.stringify({ port: port, protocol: 'tcp' }) })
+            .then(r => r.json())
+            .then(data => {
+                el.className = 'mt-3 rounded-xl p-3 text-sm ' + (data.success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
+                el.textContent = data.message;
+                if (data.success) setTimeout(loadFirewallTab, 1000);
+            })
+            .catch(err => {
+                el.className = 'mt-3 rounded-xl p-3 text-sm bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200';
+                el.textContent = 'Fehler: ' + err.message;
+            });
+    }
+
+    function installUfwDash(btn) {
+        const result = document.getElementById('fw-dash-install-result');
+        btn.disabled = true;
+        btn.textContent = 'Installiere...';
+        result.className = 'mt-4 rounded-xl bg-[#19140008] p-3 text-sm dark:bg-[#fffaed08]';
+        result.textContent = 'UFW wird installiert...';
+        result.classList.remove('hidden');
+        fetch('{{ route('server.services.install', ['server' => $server, 'service' => 'ufw']) }}', { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
+                    result.textContent = 'UFW wurde installiert.';
+                    setTimeout(loadFirewallTab, 1500);
+                } else {
+                    result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+                    result.textContent = data.message;
+                    btn.disabled = false;
+                    btn.textContent = 'UFW installieren';
+                }
+            })
+            .catch(err => {
+                result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+                result.textContent = 'Fehler: ' + err.message;
+                btn.disabled = false;
+                btn.textContent = 'UFW installieren';
+            });
+    }
+
     // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', function () {
@@ -526,6 +782,8 @@
 
             if (this.dataset.tab === 'services') {
                 loadServicesTab();
+            } else if (this.dataset.tab === 'firewall') {
+                loadFirewallTab();
             }
         });
     });

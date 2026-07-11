@@ -385,3 +385,252 @@ test('unknown service returns not found', function () {
         ->post(route('server.services.install', ['server' => $server, 'service' => 'unknown']))
         ->assertNotFound();
 });
+
+test('guest cannot view firewall page', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.firewall.index', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user can view their own firewall page', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.firewall.index', $server))
+        ->assertSuccessful()
+        ->assertSee('UFW-Firewall-Verwaltung')
+        ->assertSee($server->name);
+});
+
+test('user cannot view another users firewall page', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.firewall.index', $server))
+        ->assertForbidden();
+});
+
+test('guest cannot access firewall status', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.firewall.status', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('guest cannot access firewall rules', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.firewall.rules', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('firewall status returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.firewall.status', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('firewall rules returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.firewall.rules', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('firewall allow rejects invalid port', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.allow', $server), [
+            'port' => 0,
+            'protocol' => 'tcp',
+        ])
+        ->assertInvalid(['port']);
+});
+
+test('firewall allow rejects overflow port', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.allow', $server), [
+            'port' => 65536,
+            'protocol' => 'tcp',
+        ])
+        ->assertInvalid(['port']);
+});
+
+test('firewall allow returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.allow', $server), [
+            'port' => 8080,
+            'protocol' => 'tcp',
+        ])
+        ->assertJson(['success' => false]);
+});
+
+test('firewall deny returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.deny', $server), [
+            'port' => 8080,
+            'protocol' => 'tcp',
+        ])
+        ->assertJson(['success' => false]);
+});
+
+test('firewall enable returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.enable', $server))
+        ->assertJson(['success' => false]);
+});
+
+test('firewall disable returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.disable', $server))
+        ->assertJson(['success' => false]);
+});
+
+test('firewall destroy returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->delete(route('server.firewall.destroy', ['server' => $server, 'rule' => 1]))
+        ->assertJson(['success' => false]);
+});
+
+test('user cannot access another users firewall status', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.firewall.status', $server))
+        ->assertForbidden();
+});
+
+test('user cannot access another users firewall rules', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.firewall.rules', $server))
+        ->assertForbidden();
+});
+
+test('user cannot allow on another users firewall', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.allow', $server), [
+            'port' => 80,
+            'protocol' => 'tcp',
+        ])
+        ->assertForbidden();
+});
+
+test('user cannot deny on another users firewall', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.deny', $server), [
+            'port' => 80,
+            'protocol' => 'tcp',
+        ])
+        ->assertForbidden();
+});
+
+test('user cannot enable another users firewall', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.enable', $server))
+        ->assertForbidden();
+});
+
+test('user cannot disable another users firewall', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.disable', $server))
+        ->assertForbidden();
+});
+
+test('user cannot destroy rule on another users firewall', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->delete(route('server.firewall.destroy', ['server' => $server, 'rule' => 1]))
+        ->assertForbidden();
+});
