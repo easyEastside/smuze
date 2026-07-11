@@ -275,6 +275,8 @@ wss.on('connection', async (ws, request) => {
     let metricsConnection = null;
     let terminalConnection = null;
     let keyFile = null;
+    let server = null;
+    let pendingMessages = [];
 
     const cleanup = async () => {
         if (metricsConnection) {
@@ -293,6 +295,44 @@ wss.on('connection', async (ws, request) => {
         }
     };
 
+    const handleMessage = (payload) => {
+        if (payload.channel === 'metrics' && payload.type === 'subscribe' && ! metricsConnection && server) {
+            metricsConnection = handleMetricsConnection(ws, server, keyFile);
+        }
+
+        if (payload.channel === 'metrics' && payload.type === 'unsubscribe' && metricsConnection) {
+            metricsConnection.kill();
+            metricsConnection = null;
+        }
+
+        if (payload.channel === 'terminal' && payload.type === 'open' && server) {
+            if (terminalConnection) {
+                terminalConnection.kill();
+            }
+
+            const cols = Number.parseInt(payload.cols || 120, 10);
+            const rows = Number.parseInt(payload.rows || 34, 10);
+            terminalConnection = handleTerminalConnection(ws, server, cols, rows, keyFile);
+        }
+
+        if (payload.channel === 'terminal' && payload.type === 'input' && terminalConnection && typeof payload.data === 'string') {
+            terminalConnection.write(payload.data);
+        }
+
+        if (payload.requestId && ['apache', 'mysql', 'firewall', 'services', 'github'].includes(payload.channel) && payload.action && server) {
+            proxyModuleRequest(ws, server.id, payload.channel, payload.action, payload.requestId, payload.params);
+        }
+
+        if (payload.channel === 'terminal' && payload.type === 'resize' && terminalConnection) {
+            const cols = Number.parseInt(payload.cols, 10);
+            const rows = Number.parseInt(payload.rows, 10);
+
+            if (Number.isFinite(cols) && Number.isFinite(rows) && cols > 0 && rows > 0) {
+                terminalConnection.resize(cols, rows);
+            }
+        }
+    };
+
     try {
         const url = new URL(request.url || '/', `ws://${request.headers.host}`);
         const token = url.searchParams.get('token');
@@ -301,12 +341,7 @@ wss.on('connection', async (ws, request) => {
             throw new Error('Missing terminal token.');
         }
 
-        const { session, server } = await resolveSession(token);
-
-        if (server.auth_type === 'key' && server.key_content) {
-            keyFile = await writeKeyFile(server.key_content);
-        }
-
+        // Register message handler immediately (before async session resolve)
         ws.on('message', (message) => {
             let payload;
 
@@ -316,45 +351,31 @@ wss.on('connection', async (ws, request) => {
                 return;
             }
 
-            if (payload.channel === 'metrics' && payload.type === 'subscribe' && ! metricsConnection) {
-                metricsConnection = handleMetricsConnection(ws, server, keyFile);
+            if (! server) {
+                pendingMessages.push(payload);
+                return;
             }
 
-            if (payload.channel === 'metrics' && payload.type === 'unsubscribe' && metricsConnection) {
-                metricsConnection.kill();
-                metricsConnection = null;
-            }
-
-            if (payload.channel === 'terminal' && payload.type === 'open') {
-                if (terminalConnection) {
-                    terminalConnection.kill();
-                }
-
-                const cols = Number.parseInt(payload.cols || 120, 10);
-                const rows = Number.parseInt(payload.rows || 34, 10);
-                terminalConnection = handleTerminalConnection(ws, server, cols, rows, keyFile);
-            }
-
-            if (payload.channel === 'terminal' && payload.type === 'input' && terminalConnection && typeof payload.data === 'string') {
-                terminalConnection.write(payload.data);
-            }
-
-            if (payload.requestId && ['apache', 'mysql', 'firewall', 'services', 'github'].includes(payload.channel) && payload.action) {
-                proxyModuleRequest(ws, server.id, payload.channel, payload.action, payload.requestId, payload.params);
-            }
-
-            if (payload.channel === 'terminal' && payload.type === 'resize' && terminalConnection) {
-                const cols = Number.parseInt(payload.cols, 10);
-                const rows = Number.parseInt(payload.rows, 10);
-
-                if (Number.isFinite(cols) && Number.isFinite(rows) && cols > 0 && rows > 0) {
-                    terminalConnection.resize(cols, rows);
-                }
-            }
+            handleMessage(payload);
         });
 
         ws.on('close', cleanup);
         ws.on('error', cleanup);
+
+        // Resolve session (async)
+        const { server: resolvedServer } = await resolveSession(token);
+        server = resolvedServer;
+
+        if (server.auth_type === 'key' && server.key_content) {
+            keyFile = await writeKeyFile(server.key_content);
+        }
+
+        // Process buffered messages (e.g., terminal open, metrics subscribe)
+        const buffered = pendingMessages;
+        pendingMessages = [];
+        for (const payload of buffered) {
+            handleMessage(payload);
+        }
     } catch (error) {
         send(ws, { type: 'error', message: error.message });
         await cleanup();

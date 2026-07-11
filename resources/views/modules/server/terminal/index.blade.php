@@ -189,7 +189,15 @@
         terminalClient?.connect();
     }
 
-    reconnectTerminal();
+    function initTerminal() {
+        reconnectTerminal();
+    }
+
+    if (typeof SmuzeTerminal !== 'undefined' && SmuzeTerminal.Terminal) {
+        initTerminal();
+    } else {
+        document.addEventListener('DOMContentLoaded', initTerminal);
+    }
     </script>
     @endpush
 </x-layouts.app>
