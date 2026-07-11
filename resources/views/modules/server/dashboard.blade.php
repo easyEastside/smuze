@@ -1204,12 +1204,50 @@
                 list.innerHTML = '';
                 for (const user of data.users) {
                     const div = document.createElement('div');
-                    div.className = 'flex items-center justify-between rounded-xl border border-[#19140020] px-3 py-2 text-sm dark:border-[#3E3E3A]';
-                    div.innerHTML = '<span class="font-medium">' + user.username + '</span><span class="text-xs text-[#706f6c] dark:text-[#A1A09A]">' + user.host + '</span>';
+                    div.className = 'rounded-xl border border-[#19140020] px-3 py-2 text-sm dark:border-[#3E3E3A]';
+                    div.innerHTML = '<div class="flex items-center justify-between"><span class="font-medium">' + user.username + '</span><span class="text-xs text-[#706f6c] dark:text-[#A1A09A]">' + user.host + '</span></div><div class="mt-1 flex gap-2">' +
+                        '<button onclick="myDashUserAction(\'password\', \'' + user.username + '\', \'' + user.host + '\')" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400">Passwort</button>' +
+                        '<button onclick="myDashUserAction(\'grant\', \'' + user.username + '\', \'' + user.host + '\')" class="text-xs text-green-600 hover:text-green-800 dark:text-green-400">Grant All</button>' +
+                        '<button onclick="myDashUserAction(\'drop\', \'' + user.username + '\', \'' + user.host + '\')" class="text-xs text-red-600 hover:text-red-800 dark:text-red-400">Löschen</button>' +
+                        '</div>';
                     list.appendChild(div);
                 }
                 list.classList.remove('hidden');
             });
+    }
+
+    function myDashUserAction(action, username, host) {
+        if (action === 'drop' && !confirm('Benutzer ' + username + '@' + host + ' wirklich löschen?')) return;
+        if (action === 'grant' && !confirm('Alle Rechte an ' + username + '@' + host + ' erteilen?')) return;
+        if (action === 'password') {
+            const pw = prompt('Neues Passwort für ' + username + '@' + host + ':');
+            if (!pw) return;
+            myDashShowResult('Setze Passwort...', true);
+            fetch('{{ route('server.mysql.users.password', ['server' => $server, 'username' => '__USER__', 'host' => '__HOST__']) }}'.replace('__USER__', username).replace('__HOST__', host), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body: JSON.stringify({ password: pw }),
+            })
+                .then(r => r.json())
+                .then(data => {
+                    myDashShowResult(data.message, data.success);
+                    if (data.success) setTimeout(loadMyDashUsers, 1500);
+                })
+                .catch(err => myDashShowResult('Fehler: ' + err.message, false));
+            return;
+        }
+        const url = action === 'grant'
+            ? '{{ route('server.mysql.users.grant', ['server' => $server, 'username' => '__USER__', 'host' => '__HOST__']) }}'.replace('__USER__', username).replace('__HOST__', host)
+            : '{{ route('server.mysql.users.destroy', ['server' => $server, 'username' => '__USER__', 'host' => '__HOST__']) }}'.replace('__USER__', username).replace('__HOST__', host);
+        const method = action === 'drop' ? 'DELETE' : 'POST';
+        myDashShowResult('Führe Befehl aus...', true);
+        fetch(url, { method, headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+            .then(r => r.json())
+            .then(data => {
+                myDashShowResult(data.message, data.success);
+                if (data.success) setTimeout(loadMyDashUsers, 1500);
+            })
+            .catch(err => myDashShowResult('Fehler: ' + err.message, false));
     }
 
     function installMysqlDash(btn) {
