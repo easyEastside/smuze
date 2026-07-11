@@ -361,7 +361,7 @@
             return;
         }
 
-        fetch('{{ route('server.metrics.session', $server) }}', {
+        fetch('{{ route('server.socket.session', $server) }}', {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', Accept: 'application/json' },
         })
@@ -379,17 +379,18 @@
                     stopPollingFallback();
                     document.getElementById('conn-status').textContent = 'Live';
                     document.getElementById('conn-status').className = 'font-medium text-green-500';
+                    metricsSocket.send(JSON.stringify({ channel: 'metrics', type: 'subscribe' }));
                 });
                 metricsSocket.addEventListener('message', event => {
                     const payload = JSON.parse(event.data);
 
-                    if (payload.type === 'metrics') {
+                    if (payload.channel === 'metrics' && payload.type === 'metrics') {
                         stopPollingFallback();
                         renderSystemData(payload.data);
                         showSystemContent();
                     }
 
-                    if (payload.type === 'metrics_error') {
+                    if (payload.channel === 'metrics' && payload.type === 'metrics_error') {
                         document.getElementById('conn-status').textContent = 'Polling';
                         document.getElementById('conn-status').className = 'font-medium text-yellow-600 dark:text-yellow-400';
                         startPollingFallback();

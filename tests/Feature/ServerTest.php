@@ -243,50 +243,26 @@ test('user cannot view another users server terminal', function () {
         ->assertForbidden();
 });
 
-test('guest cannot create terminal session', function () {
+test('guest cannot create socket session', function () {
     $server = Server::factory()->create();
 
-    $this->post(route('server.terminal.session', $server))->assertRedirect(route('login', absolute: false));
+    $this->post(route('server.socket.session', $server))->assertRedirect(route('login', absolute: false));
 });
 
-test('user cannot create terminal session for another users server', function () {
+test('user cannot create socket session for another users server', function () {
     $otherUser = User::factory()->create();
     $server = Server::factory()->create(['user_id' => $otherUser->id]);
 
     $this->actingAs($this->user)
-        ->post(route('server.terminal.session', $server))
+        ->post(route('server.socket.session', $server))
         ->assertForbidden();
 });
 
-test('user can create terminal session for own server', function () {
+test('user can create socket session for own server', function () {
     $server = Server::factory()->create(['user_id' => $this->user->id]);
 
     $this->actingAs($this->user)
-        ->post(route('server.terminal.session', $server))
-        ->assertSuccessful()
-        ->assertJsonStructure(['token', 'websocket_url', 'expires_at']);
-});
-
-test('guest cannot create metrics session', function () {
-    $server = Server::factory()->create();
-
-    $this->post(route('server.metrics.session', $server))->assertRedirect(route('login', absolute: false));
-});
-
-test('user cannot create metrics session for another users server', function () {
-    $otherUser = User::factory()->create();
-    $server = Server::factory()->create(['user_id' => $otherUser->id]);
-
-    $this->actingAs($this->user)
-        ->post(route('server.metrics.session', $server))
-        ->assertForbidden();
-});
-
-test('user can create metrics session for own server', function () {
-    $server = Server::factory()->create(['user_id' => $this->user->id]);
-
-    $this->actingAs($this->user)
-        ->post(route('server.metrics.session', $server))
+        ->post(route('server.socket.session', $server))
         ->assertSuccessful()
         ->assertJsonStructure(['token', 'websocket_url', 'expires_at']);
 });
@@ -297,16 +273,32 @@ test('terminal session websocket url uses current request host by default', func
     $server = Server::factory()->create(['user_id' => $this->user->id]);
 
     $this->actingAs($this->user)
-        ->post('http://smuze.test/servers/'.$server->id.'/terminal/session')
+        ->post('http://smuze.test/servers/'.$server->id.'/socket/session')
         ->assertSuccessful()
         ->assertJsonPath('websocket_url', 'ws://smuze.test:8081');
+});
+
+test('terminal resolve endpoint returns no mode for socket sessions', function () {
+    config(['terminal.secret' => 'test-terminal-secret']);
+
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $token = $this->actingAs($this->user)
+        ->post(route('server.socket.session', $server))
+        ->json('token');
+
+    $this->withHeader('X-Terminal-Secret', 'test-terminal-secret')
+        ->get(route('server.terminal.resolve', $token))
+        ->assertSuccessful()
+        ->assertJsonMissingPath('session.mode')
+        ->assertJsonPath('server.host', $server->host);
 });
 
 test('terminal resolve endpoint requires sidecar secret', function () {
     $server = Server::factory()->create(['user_id' => $this->user->id]);
 
     $token = $this->actingAs($this->user)
-        ->post(route('server.terminal.session', $server))
+        ->post(route('server.socket.session', $server))
         ->json('token');
 
     $this->get(route('server.terminal.resolve', $token))->assertForbidden();
@@ -322,7 +314,7 @@ test('terminal resolve endpoint returns ssh connection details for sidecar', fun
     ]);
 
     $token = $this->actingAs($this->user)
-        ->post(route('server.terminal.session', $server))
+        ->post(route('server.socket.session', $server))
         ->json('token');
 
     $this->withHeader('X-Terminal-Secret', 'test-terminal-secret')
@@ -333,22 +325,6 @@ test('terminal resolve endpoint returns ssh connection details for sidecar', fun
         ->assertJsonPath('server.auth_type', 'password')
         ->assertJsonPath('server.password', 'secret-password')
         ->assertJsonPath('server.key_content', null);
-});
-
-test('terminal resolve endpoint returns metrics mode for metrics sessions', function () {
-    config(['terminal.secret' => 'test-terminal-secret']);
-
-    $server = Server::factory()->create(['user_id' => $this->user->id]);
-
-    $token = $this->actingAs($this->user)
-        ->post(route('server.metrics.session', $server))
-        ->json('token');
-
-    $this->withHeader('X-Terminal-Secret', 'test-terminal-secret')
-        ->get(route('server.terminal.resolve', $token))
-        ->assertSuccessful()
-        ->assertJsonPath('session.mode', 'metrics')
-        ->assertJsonPath('server.host', $server->host);
 });
 
 test('user cannot view another users server system', function () {

@@ -21,7 +21,7 @@ class TerminalController
         return view('modules.server.terminal.index', compact('server'));
     }
 
-    public function store(Request $request, Server $server, CreateTerminalSession $createTerminalSession): JsonResponse
+    public function socket(Request $request, Server $server, CreateTerminalSession $createTerminalSession): JsonResponse
     {
         if ($server->user_id !== $request->user()->id) {
             abort(403);
@@ -31,21 +31,6 @@ class TerminalController
             $server,
             $request->user()->id,
             $this->websocketUrl($request),
-            'terminal',
-        ));
-    }
-
-    public function metrics(Request $request, Server $server, CreateTerminalSession $createTerminalSession): JsonResponse
-    {
-        if ($server->user_id !== $request->user()->id) {
-            abort(403);
-        }
-
-        return response()->json($createTerminalSession->handle(
-            $server,
-            $request->user()->id,
-            $this->websocketUrl($request),
-            'metrics',
         ));
     }
 

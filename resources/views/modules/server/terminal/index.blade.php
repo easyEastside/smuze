@@ -87,7 +87,7 @@
         const resizeObserver = new ResizeObserver(() => {
             fitAddon.fit();
             if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+                socket.send(JSON.stringify({ channel: 'terminal', type: 'resize', cols: term.cols, rows: term.rows }));
             }
         });
 
@@ -95,7 +95,7 @@
 
         term.onData(data => {
             if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: 'input', data }));
+                socket.send(JSON.stringify({ channel: 'terminal', type: 'input', data }));
             }
         });
 
@@ -106,7 +106,7 @@
                 term.reset();
                 term.writeln('Starte SSH-Terminal...');
 
-                fetch('{{ route('server.terminal.session', $server) }}', {
+                fetch('{{ route('server.socket.session', $server) }}', {
                     method: 'POST',
                     headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', Accept: 'application/json' },
                 })
@@ -124,17 +124,17 @@
                         socket.addEventListener('open', () => {
                             setTerminalStatus('Verbunden', 'connected');
                             term.focus();
-                            socket.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+                            socket.send(JSON.stringify({ channel: 'terminal', type: 'open', cols: term.cols, rows: term.rows }));
                         });
                         socket.addEventListener('message', event => {
                             const payload = JSON.parse(event.data);
-                            if (payload.type === 'output') term.write(payload.data);
+                            if (payload.channel === 'terminal' && payload.type === 'output') term.write(payload.data);
                             if (payload.type === 'error') {
                                 setTerminalStatus('Fehler', 'error');
                                 showTerminalError(payload.message || 'Terminal-Fehler.');
                                 term.writeln('\r\n' + (payload.message || 'Terminal-Fehler.'));
                             }
-                            if (payload.type === 'exit') {
+                            if (payload.channel === 'terminal' && payload.type === 'exit') {
                                 setTerminalStatus('Beendet', 'idle');
                                 term.writeln(`\r\nSession beendet (Exit ${payload.exit_code ?? 'unbekannt'}).`);
                             }

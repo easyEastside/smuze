@@ -161,38 +161,24 @@ function handleTerminalConnection(ws, server, cols, rows, keyFile) {
             terminal.write(`${server.password}\r`);
         }
 
-        send(ws, { type: 'output', data });
+        send(ws, { channel: 'terminal', type: 'output', data });
     });
 
     terminal.onExit(({ exitCode, signal }) => {
-        send(ws, { type: 'exit', exit_code: exitCode, signal });
-        ws.close();
+        send(ws, { channel: 'terminal', type: 'exit', exit_code: exitCode, signal });
     });
 
-    ws.on('message', (message) => {
-        let payload;
-
-        try {
-            payload = JSON.parse(message.toString());
-        } catch {
-            return;
-        }
-
-        if (payload.type === 'input' && typeof payload.data === 'string') {
-            terminal.write(payload.data);
-        }
-
-        if (payload.type === 'resize') {
-            const nextCols = Number.parseInt(payload.cols, 10);
-            const nextRows = Number.parseInt(payload.rows, 10);
-
-            if (Number.isFinite(nextCols) && Number.isFinite(nextRows) && nextCols > 0 && nextRows > 0) {
-                terminal.resize(nextCols, nextRows);
-            }
-        }
-    });
-
-    return terminal;
+    return {
+        write(data) {
+            terminal.write(data);
+        },
+        resize(cols, rows) {
+            terminal.resize(cols, rows);
+        },
+        kill() {
+            terminal.kill();
+        },
+    };
 }
 
 function handleMetricsConnection(ws, server, keyFile) {
@@ -230,13 +216,13 @@ function handleMetricsConnection(ws, server, keyFile) {
                 const end = buffer.indexOf('__SMUZE_METRICS_END__');
                 const rawMetrics = buffer.slice(begin, end);
                 buffer = buffer.slice(end + '__SMUZE_METRICS_END__'.length);
-                send(ws, { type: 'metrics', data: parseKeyValueMetrics(rawMetrics), collected_at: new Date().toISOString() });
+                send(ws, { channel: 'metrics', type: 'metrics', data: parseKeyValueMetrics(rawMetrics), collected_at: new Date().toISOString() });
             }
         });
 
         terminal.onExit(({ exitCode, signal }) => {
             terminal = null;
-            send(ws, { type: 'metrics_error', exit_code: exitCode, signal });
+            send(ws, { channel: 'metrics', type: 'metrics_error', exit_code: exitCode, signal });
 
             if (ws.readyState === ws.OPEN) {
                 retryTimer = setTimeout(start, 5000);
@@ -262,13 +248,19 @@ function handleMetricsConnection(ws, server, keyFile) {
 }
 
 wss.on('connection', async (ws, request) => {
-    let connection = null;
+    let metricsConnection = null;
+    let terminalConnection = null;
     let keyFile = null;
 
     const cleanup = async () => {
-        if (connection) {
-            connection.kill();
-            connection = null;
+        if (metricsConnection) {
+            metricsConnection.kill();
+            metricsConnection = null;
+        }
+
+        if (terminalConnection) {
+            terminalConnection.kill();
+            terminalConnection = null;
         }
 
         if (keyFile) {
@@ -280,8 +272,6 @@ wss.on('connection', async (ws, request) => {
     try {
         const url = new URL(request.url || '/', `ws://${request.headers.host}`);
         const token = url.searchParams.get('token');
-        const cols = Number.parseInt(url.searchParams.get('cols') || '120', 10);
-        const rows = Number.parseInt(url.searchParams.get('rows') || '34', 10);
 
         if (! token) {
             throw new Error('Missing terminal token.');
@@ -293,9 +283,47 @@ wss.on('connection', async (ws, request) => {
             keyFile = await writeKeyFile(server.key_content);
         }
 
-        connection = session.mode === 'metrics'
-            ? handleMetricsConnection(ws, server, keyFile)
-            : handleTerminalConnection(ws, server, cols, rows, keyFile);
+        ws.on('message', (message) => {
+            let payload;
+
+            try {
+                payload = JSON.parse(message.toString());
+            } catch {
+                return;
+            }
+
+            if (payload.channel === 'metrics' && payload.type === 'subscribe' && ! metricsConnection) {
+                metricsConnection = handleMetricsConnection(ws, server, keyFile);
+            }
+
+            if (payload.channel === 'metrics' && payload.type === 'unsubscribe' && metricsConnection) {
+                metricsConnection.kill();
+                metricsConnection = null;
+            }
+
+            if (payload.channel === 'terminal' && payload.type === 'open') {
+                if (terminalConnection) {
+                    terminalConnection.kill();
+                }
+
+                const cols = Number.parseInt(payload.cols || 120, 10);
+                const rows = Number.parseInt(payload.rows || 34, 10);
+                terminalConnection = handleTerminalConnection(ws, server, cols, rows, keyFile);
+            }
+
+            if (payload.channel === 'terminal' && payload.type === 'input' && terminalConnection && typeof payload.data === 'string') {
+                terminalConnection.write(payload.data);
+            }
+
+            if (payload.channel === 'terminal' && payload.type === 'resize' && terminalConnection) {
+                const cols = Number.parseInt(payload.cols, 10);
+                const rows = Number.parseInt(payload.rows, 10);
+
+                if (Number.isFinite(cols) && Number.isFinite(rows) && cols > 0 && rows > 0) {
+                    terminalConnection.resize(cols, rows);
+                }
+            }
+        });
 
         ws.on('close', cleanup);
         ws.on('error', cleanup);
