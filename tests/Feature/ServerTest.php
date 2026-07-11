@@ -634,3 +634,303 @@ test('user cannot destroy rule on another users firewall', function () {
         ->delete(route('server.firewall.destroy', ['server' => $server, 'rule' => 1]))
         ->assertForbidden();
 });
+
+// Apache
+test('guest cannot view apache page', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.apache.index', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user can view their own apache page', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.apache.index', $server))
+        ->assertSuccessful()
+        ->assertSee('Apache-Webserver-Verwaltung')
+        ->assertSee($server->name);
+});
+
+test('user cannot view another users apache page', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.apache.index', $server))
+        ->assertForbidden();
+});
+
+test('apache status returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.apache.status', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('apache install returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.install', $server))
+        ->assertJson(['success' => false]);
+});
+
+test('apache deinstall returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.deinstall', $server))
+        ->assertJson(['success' => false]);
+});
+
+test('apache service start returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.service', ['server' => $server, 'action' => 'start']))
+        ->assertJson(['success' => false]);
+});
+
+test('apache configtest returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.configtest', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('apache sites returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.apache.sites', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('apache modules returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.apache.modules', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('apache create vhost validates domain', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.vhost', $server), [
+            'domain' => 'invalid domain!',
+            'document_root' => '/var/www/test',
+        ])
+        ->assertInvalid(['domain']);
+});
+
+test('apache create vhost validates document_root', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.vhost', $server), [
+            'domain' => 'example.com',
+            'document_root' => 'relative/path',
+        ])
+        ->assertInvalid(['document_root']);
+});
+
+test('apache create vhost returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.vhost', $server), [
+            'domain' => 'example.com',
+            'document_root' => '/var/www/test',
+        ])
+        ->assertJson(['success' => false]);
+});
+
+test('apache enable site returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.sites.enable', ['server' => $server, 'site' => 'test.conf']))
+        ->assertJson(['success' => false]);
+});
+
+test('apache enable module returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.modules.enable', ['server' => $server, 'module' => 'rewrite']))
+        ->assertJson(['success' => false]);
+});
+
+test('apache certbot install returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.ssl.install-certbot', $server))
+        ->assertJson(['success' => false]);
+});
+
+test('apache obtain ssl validates fields', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'auth_type' => 'password',
+        'credentials' => 'test',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.ssl.obtain', $server), [
+            'domain' => '',
+            'email' => '',
+        ])
+        ->assertInvalid(['domain', 'email']);
+});
+
+// Permission tests
+test('user cannot access another users apache status', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.apache.status', $server))
+        ->assertForbidden();
+});
+
+test('user cannot install apache on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.install', $server))
+        ->assertForbidden();
+});
+
+test('user cannot start apache on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.service', ['server' => $server, 'action' => 'start']))
+        ->assertForbidden();
+});
+
+test('user cannot configtest another users apache', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.configtest', $server))
+        ->assertForbidden();
+});
+
+test('user cannot view another users apache sites', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.apache.sites', $server))
+        ->assertForbidden();
+});
+
+test('user cannot vhost on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.apache.vhost', $server), [
+            'domain' => 'example.com',
+            'document_root' => '/var/www/test',
+        ])
+        ->assertForbidden();
+});

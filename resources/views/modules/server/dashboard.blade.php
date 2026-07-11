@@ -276,13 +276,85 @@
             </div>
         </div>
 
+        {{-- Apache Tab --}}
+        <div id="tab-apache" class="tab-content mt-6 hidden" data-tab="apache">
+            <div>
+                <div id="ap-dash-loading" class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                    <p class="text-sm text-[#706f6c] dark:text-[#A1A09A]">Lade Apache-Status...</p>
+                </div>
+
+                <div id="ap-dash-install" class="hidden">
+                    <div class="rounded-2xl bg-white p-8 text-center shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d]">
+                        <p class="text-lg font-semibold">Apache ist nicht installiert</p>
+                        <p class="mt-2 text-sm text-[#706f6c] dark:text-[#A1A09A]">Installiere Apache um den Webserver zu verwalten.</p>
+                        <button type="button" id="btn-install-apache-dash" onclick="installApacheDash(this)" class="mt-6 rounded-lg bg-[#1b1b18] px-6 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                            Apache installieren
+                        </button>
+                        <div id="ap-dash-install-result" class="mt-4 hidden rounded-xl p-3 text-sm"></div>
+                    </div>
+                </div>
+
+                <div id="ap-dash-content" class="hidden">
+                    <div class="grid gap-6 lg:grid-cols-[1fr_280px]">
+                        <div class="space-y-6">
+                            <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Apache</p>
+                                        <span id="ap-dash-badge" class="rounded-full px-2.5 py-0.5 text-xs font-medium"></span>
+                                    </div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <button type="button" onclick="apDashService('start')" class="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">Start</button>
+                                        <button type="button" onclick="apDashService('stop')" class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">Stop</button>
+                                        <button type="button" onclick="apDashService('restart')" class="rounded-lg bg-yellow-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-yellow-700">Restart</button>
+                                        <button type="button" onclick="apDashService('reload')" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Reload</button>
+                                    </div>
+                                </div>
+                                <div id="ap-dash-version" class="mt-3 text-xs text-[#706f6c] dark:text-[#A1A09A]"></div>
+                                <div class="mt-3 flex gap-2">
+                                    <button type="button" onclick="apDashConfigtest()" class="rounded-lg bg-[#1b1b18] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">Config Test</button>
+                                </div>
+                                <div id="ap-dash-configtest-result" class="mt-3 hidden rounded-xl p-3 text-sm"></div>
+                            </div>
+
+                            <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                                <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Sites</p>
+                                <div id="ap-dash-sites-empty" class="mt-4 text-sm text-[#706f6c] dark:text-[#A1A09A]">Keine Sites konfiguriert.</div>
+                                <div id="ap-dash-sites-table" class="mt-4 hidden overflow-x-auto">
+                                    <table class="w-full text-left text-sm">
+                                        <thead>
+                                            <tr class="border-b border-[#19140020] text-xs text-[#706f6c] dark:border-[#3E3E3A] dark:text-[#A1A09A]">
+                                                <th class="px-3 py-2 font-medium">Name</th>
+                                                <th class="px-3 py-2 font-medium">Status</th>
+                                                <th class="px-3 py-2 font-medium">ServerName</th>
+                                                <th class="px-3 py-2 font-medium"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="ap-dash-sites-tbody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <aside class="space-y-6">
+                            <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                                <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Module</p>
+                                <div id="ap-dash-modules-loading" class="mt-4 text-sm text-[#706f6c] dark:text-[#A1A09A]">Lade Module...</div>
+                                <div id="ap-dash-modules-list" class="mt-4 hidden space-y-1 max-h-72 overflow-y-auto"></div>
+                            </div>
+                            <div id="ap-dash-result" class="hidden rounded-xl p-3 text-sm"></div>
+                        </aside>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- Placeholder tabs for future phases --}}
-        @foreach (['apache', 'mysql', 'github', 'terminal'] as $tab)
+        @foreach (['mysql', 'github', 'terminal'] as $tab)
             <div id="tab-{{ $tab }}" class="tab-content mt-6 hidden" data-tab="{{ $tab }}">
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <p class="text-sm text-[#706f6c] dark:text-[#A1A09A]">
                         @switch($tab)
-                            @case('apache') Apache-Webserver-Verwaltung — in Kürze verfügbar. @break
                             @case('mysql') MySQL-Datenbank-Verwaltung — in Kürze verfügbar. @break
                             @case('github') GitHub-Deployment — in Kürze verfügbar. @break
                             @case('terminal') SSH-Terminal — in Kürze verfügbar. @break
@@ -764,6 +836,220 @@
             });
     }
 
+    // Apache Tab
+    function loadApacheTab() {
+        const loading = document.getElementById('ap-dash-loading');
+        const install = document.getElementById('ap-dash-install');
+        const content = document.getElementById('ap-dash-content');
+
+        loading.classList.remove('hidden');
+        install.classList.add('hidden');
+        content.classList.add('hidden');
+
+        fetch('{{ route('server.apache.status', $server) }}')
+            .then(r => r.json())
+            .then(data => {
+                loading.classList.add('hidden');
+                if (!data.success) {
+                    loading.textContent = 'Fehler: ' + (data.error || 'Unbekannter Fehler');
+                    loading.classList.remove('hidden');
+                    return;
+                }
+                if (!data.installed) {
+                    install.classList.remove('hidden');
+                    return;
+                }
+                content.classList.remove('hidden');
+                renderApDashStatus(data);
+                loadApDashSites();
+                loadApDashModules();
+            })
+            .catch(err => {
+                loading.textContent = 'Verbindungsfehler: ' + err.message;
+                loading.classList.remove('hidden');
+            });
+    }
+
+    function renderApDashStatus(data) {
+        const badge = document.getElementById('ap-dash-badge');
+        const version = document.getElementById('ap-dash-version');
+        if (data.active) {
+            badge.textContent = 'Aktiv';
+            badge.className = 'rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+        } else {
+            badge.textContent = 'Inaktiv';
+            badge.className = 'rounded-full px-2.5 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+        }
+        version.textContent = data.version || '';
+    }
+
+    function apDashShowResult(msg, success) {
+        const el = document.getElementById('ap-dash-result');
+        el.className = 'rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+
+    function apDashService(action) {
+        const labels = { start: 'starten', stop: 'stoppen', restart: 'neu starten', reload: 'neu laden' };
+        if (!confirm('Apache ' + labels[action] + '?')) return;
+        apDashShowResult('Apache wird ' + labels[action] + '...', true);
+        fetch('{{ route('server.apache.service', ['server' => $server, 'action' => '__ACTION__']) }}'.replace('__ACTION__', action), { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+            .then(r => r.json())
+            .then(data => {
+                apDashShowResult(data.message, data.success);
+                if (data.success) setTimeout(loadApacheTab, 2000);
+            })
+            .catch(err => apDashShowResult('Fehler: ' + err.message, false));
+    }
+
+    function apDashConfigtest() {
+        const el = document.getElementById('ap-dash-configtest-result');
+        el.className = 'mt-3 rounded-xl p-3 text-sm bg-[#19140008] dark:bg-[#fffaed08]';
+        el.textContent = 'Prüfe Konfiguration...';
+        el.classList.remove('hidden');
+        fetch('{{ route('server.apache.configtest', $server) }}', { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+            .then(r => r.json())
+            .then(data => {
+                el.className = 'mt-3 rounded-xl p-3 text-sm ' + (data.success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
+                el.textContent = data.output || (data.success ? 'Syntax OK' : 'Fehler');
+            })
+            .catch(err => {
+                el.className = 'mt-3 rounded-xl p-3 text-sm bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200';
+                el.textContent = 'Fehler: ' + err.message;
+            });
+    }
+
+    function loadApDashSites() {
+        fetch('{{ route('server.apache.sites', $server) }}')
+            .then(r => r.json())
+            .then(data => {
+                const empty = document.getElementById('ap-dash-sites-empty');
+                const table = document.getElementById('ap-dash-sites-table');
+                const tbody = document.getElementById('ap-dash-sites-tbody');
+                if (!data.success || !data.sites || data.sites.length === 0) {
+                    empty.classList.remove('hidden');
+                    table.classList.add('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+                tbody.innerHTML = '';
+                for (const site of data.sites) {
+                    const enabled = site.enabled === 'yes';
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-b border-[#19140020] dark:border-[#3E3E3A]';
+                    tr.innerHTML = `
+                        <td class="px-3 py-2 font-medium text-xs">${site.name}</td>
+                        <td class="px-3 py-2">
+                            <span class="rounded px-2 py-0.5 text-xs font-medium ${enabled ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-[#19140020] text-[#706f6c] dark:bg-[#3E3E3A] dark:text-[#A1A09A]'}">${enabled ? 'Enabled' : 'Disabled'}</span>
+                        </td>
+                        <td class="px-3 py-2 text-xs">${site.server_name}</td>
+                        <td class="px-3 py-2">
+                            ${enabled
+                                ? `<button onclick="apDashSiteAction('disable', '${site.name}')" class="text-xs text-yellow-600 hover:text-yellow-800 dark:text-yellow-400">Deaktivieren</button>`
+                                : `<button onclick="apDashSiteAction('enable', '${site.name}')" class="text-xs text-green-600 hover:text-green-800 dark:text-green-400">Aktivieren</button>`
+                            }
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+                table.classList.remove('hidden');
+            });
+    }
+
+    function apDashSiteAction(action, site) {
+        const label = action === 'enable' ? 'aktivieren' : 'deaktivieren';
+        if (!confirm('Site ' + site + ' ' + label + '?')) return;
+        apDashShowResult('Site wird ' + label + '...', true);
+        const url = action === 'enable'
+            ? '{{ route('server.apache.sites.enable', ['server' => $server, 'site' => '__SITE__']) }}'.replace('__SITE__', site)
+            : '{{ route('server.apache.sites.disable', ['server' => $server, 'site' => '__SITE__']) }}'.replace('__SITE__', site);
+        fetch(url, { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+            .then(r => r.json())
+            .then(data => {
+                apDashShowResult(data.message, data.success);
+                if (data.success) setTimeout(loadApacheTab, 1500);
+            })
+            .catch(err => apDashShowResult('Fehler: ' + err.message, false));
+    }
+
+    function loadApDashModules() {
+        const loading = document.getElementById('ap-dash-modules-loading');
+        const list = document.getElementById('ap-dash-modules-list');
+        loading.classList.remove('hidden');
+        list.classList.add('hidden');
+        fetch('{{ route('server.apache.modules', $server) }}')
+            .then(r => r.json())
+            .then(data => {
+                loading.classList.add('hidden');
+                if (!data.success || !data.modules) return;
+                list.innerHTML = '';
+                for (const mod of data.modules) {
+                    const enabled = mod.enabled === 'enabled';
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center justify-between rounded-lg border border-[#19140020] px-3 py-1.5 text-xs dark:border-[#3E3E3A]';
+                    div.innerHTML = `
+                        <span class="flex items-center gap-1.5">
+                            <span class="size-1.5 rounded-full ${enabled ? 'bg-green-500' : 'bg-[#19140035] dark:bg-[#3E3E3A]'}"></span>
+                            ${mod.name}
+                        </span>
+                        ${enabled
+                            ? `<button onclick="apDashModuleAction('disable', '${mod.name}')" class="text-red-600 hover:text-red-800 dark:text-red-400">Deaktivieren</button>`
+                            : `<button onclick="apDashModuleAction('enable', '${mod.name}')" class="text-green-600 hover:text-green-800 dark:text-green-400">Aktivieren</button>`
+                        }
+                    `;
+                    list.appendChild(div);
+                }
+                list.classList.remove('hidden');
+            })
+            .catch(() => { loading.textContent = 'Fehler beim Laden.'; });
+    }
+
+    function apDashModuleAction(action, mod) {
+        const label = action === 'enable' ? 'aktivieren' : 'deaktivieren';
+        if (!confirm('Modul ' + mod + ' ' + label + '?')) return;
+        apDashShowResult('Modul wird ' + label + '...', true);
+        const url = action === 'enable'
+            ? '{{ route('server.apache.modules.enable', ['server' => $server, 'module' => '__MOD__']) }}'.replace('__MOD__', mod)
+            : '{{ route('server.apache.modules.disable', ['server' => $server, 'module' => '__MOD__']) }}'.replace('__MOD__', mod);
+        fetch(url, { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+            .then(r => r.json())
+            .then(data => {
+                apDashShowResult(data.message, data.success);
+                if (data.success) setTimeout(loadApDashModules, 1500);
+            })
+            .catch(err => apDashShowResult('Fehler: ' + err.message, false));
+    }
+
+    function installApacheDash(btn) {
+        const result = document.getElementById('ap-dash-install-result');
+        btn.disabled = true;
+        btn.textContent = 'Installiere...';
+        result.className = 'mt-4 rounded-xl bg-[#19140008] p-3 text-sm dark:bg-[#fffaed08]';
+        result.textContent = 'Apache wird installiert...';
+        result.classList.remove('hidden');
+        fetch('{{ route('server.apache.install', $server) }}', { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
+                    result.textContent = 'Apache wurde installiert.';
+                    setTimeout(loadApacheTab, 2000);
+                } else {
+                    result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+                    result.textContent = data.message;
+                    btn.disabled = false;
+                    btn.textContent = 'Apache installieren';
+                }
+            })
+            .catch(err => {
+                result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+                result.textContent = 'Fehler: ' + err.message;
+                btn.disabled = false;
+                btn.textContent = 'Apache installieren';
+            });
+    }
+
     // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', function () {
@@ -784,6 +1070,8 @@
                 loadServicesTab();
             } else if (this.dataset.tab === 'firewall') {
                 loadFirewallTab();
+            } else if (this.dataset.tab === 'apache') {
+                loadApacheTab();
             }
         });
     });
