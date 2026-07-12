@@ -178,7 +178,7 @@ class ServerAgentController
             .' --server-id '.escapeshellarg((string) $server->id)
             .' --token '.escapeshellarg($token)
             .' --port '.escapeshellarg((string) $server->agent_port)
-            .' && $SUDO systemctl daemon-reload && $SUDO systemctl restart smuze-agent';
+            .' && $SUDO systemctl daemon-reload && $SUDO systemctl enable --now smuze-agent';
     }
 
     public function proxyHealth(Server $server): JsonResponse

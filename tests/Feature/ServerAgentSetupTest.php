@@ -93,7 +93,7 @@ test('user can generate manual agent install command', function () {
         ->and($server->agent_status)->toBe('disconnected')
         ->and($response->json('install_command'))->toContain('agent/download')
         ->and($response->json('install_command'))->toContain('smuze-agent')
-        ->and($response->json('install_command'))->toContain('$SUDO systemctl restart smuze-agent');
+        ->and($response->json('install_command'))->toContain('$SUDO systemctl enable --now smuze-agent');
 });
 
 test('agent download endpoint serves binary', function () {
