@@ -305,12 +305,14 @@ function initializeFloatingCommandLog() {
         disconnect();
     };
 
-    const connect = () => {
+    const connect = (autoReconnect = false) => {
         if (isConnected || socket) {
             return;
         }
 
-        setCollapsed(false);
+        if (! autoReconnect) {
+            setCollapsed(false);
+        }
         setShouldReconnect(true);
         setConnectionStatus('Verbinde...');
         append('SSH-Terminal wird verbunden...');
@@ -426,7 +428,7 @@ function initializeFloatingCommandLog() {
     resizeTerminal();
 
     if (readStoredBoolean(connectedKey)) {
-        connect();
+        connect(true);
     }
 
     toggles.forEach((toggle) => {
