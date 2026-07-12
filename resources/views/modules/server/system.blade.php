@@ -290,6 +290,10 @@
     <script>
     const host = '{{ $server->host }}';
     const port = '{{ $server->agent_port ?? config('agent.push_port', 9300) }}';
+    const metricsRefreshMs = 15000;
+    let isFetchingMetrics = false;
+    let hasLoadedMetrics = false;
+    let metricsRefreshTimer = null;
 
     function formatBytes(mb) {
         if (mb >= 1024) return (mb / 1024).toFixed(1) + ' GB';
@@ -377,15 +381,27 @@
         }
 
         setConnectionStatus('Online', 'font-medium text-green-500');
+
+        const updateMode = document.getElementById('update-mode');
+        updateMode.textContent = 'alle 15 Sekunden';
+        updateMode.title = 'Zuletzt aktualisiert: ' + new Date().toLocaleTimeString('de-DE');
     }
 
     function fetchMetrics() {
+        if (isFetchingMetrics) return;
+
         const loading = document.getElementById('system-loading');
         const content = document.getElementById('system-content');
         const error = document.getElementById('system-error');
+        const showInitialLoading = !hasLoadedMetrics;
 
-        loading.classList.remove('hidden');
-        content.classList.add('hidden');
+        isFetchingMetrics = true;
+
+        if (showInitialLoading) {
+            loading.classList.remove('hidden');
+            content.classList.add('hidden');
+        }
+
         error.classList.add('hidden');
 
         fetch('{{ route('server.agent.metrics', $server) }}')
@@ -400,6 +416,7 @@
                 }
 
                 renderSystemData(data);
+                hasLoadedMetrics = true;
                 content.classList.remove('hidden');
             })
             .catch(err => {
@@ -407,6 +424,9 @@
                 error.textContent = 'Verbindungsfehler: ' + err.message;
                 error.classList.remove('hidden');
                 setConnectionStatus('Offline', 'font-medium text-red-500');
+            })
+            .finally(() => {
+                isFetchingMetrics = false;
             });
     }
 
@@ -595,6 +615,8 @@
     }
 
     fetchMetrics();
+    metricsRefreshTimer = setInterval(fetchMetrics, metricsRefreshMs);
+    window.addEventListener('beforeunload', () => clearInterval(metricsRefreshTimer));
 
     if (@json($server->agent_enabled)) {
         checkAgentUpdate();

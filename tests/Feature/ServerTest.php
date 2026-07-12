@@ -202,6 +202,10 @@ test('user can view their own server system', function () {
         ->assertSee(route('server.terminal', $server), false)
         ->assertSee(route('server.nginx.index', $server), false)
         ->assertSee(route('server.services.index', $server), false)
+        ->assertSee(route('server.agent.metrics', $server), false)
+        ->assertSee('setInterval(fetchMetrics, metricsRefreshMs)', false)
+        ->assertSee('const metricsRefreshMs = 15000', false)
+        ->assertSee('clearInterval(metricsRefreshTimer)', false)
         ->assertSee('Webhosting')
         ->assertSee('PHP')
         ->assertSee('Unwichtig');
