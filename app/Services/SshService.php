@@ -17,7 +17,7 @@ class SshService
                 $command = $this->applySudo($command);
             }
 
-            $process = $this->buildSsh($server, $timeout)->execute($command);
+            $process = $this->buildSsh($server, $this->commandTimeout($server, $timeout))->execute($command);
 
             $stdout = trim($process->getOutput() ?: '');
             $stderr = trim($process->getErrorOutput() ?: '');
@@ -77,7 +77,14 @@ class SshService
         $controlPath = $this->controlPath($server);
 
         if (file_exists($controlPath)) {
-            @exec("ssh -O stop -o ControlPath={$controlPath} {$server->username}@{$server->host} 2>/dev/null");
+            $command = sprintf(
+                'ssh -O stop -p %d -o %s %s 2>/dev/null',
+                $server->port,
+                escapeshellarg('ControlPath='.$controlPath),
+                escapeshellarg("{$server->username}@{$server->host}"),
+            );
+
+            @exec($command);
         }
     }
 
@@ -112,17 +119,27 @@ class SshService
         $ssh = Ssh::create($server->username, $server->host, $server->port)
             ->useMultiplexing(
                 controlPath: $this->controlPath($server),
-                controlPersist: '10m',
+                controlPersist: $this->option($server, 'ssh_control_persist', 30).'m',
             )
             ->setTimeout($timeout)
+            ->addExtraOption('-o ConnectTimeout='.$this->option($server, 'ssh_connect_timeout', 5))
+            ->addExtraOption('-o ServerAliveInterval='.$this->option($server, 'ssh_server_alive_interval', 15))
+            ->addExtraOption('-o ServerAliveCountMax='.$this->option($server, 'ssh_server_alive_count_max', 3))
+            ->addExtraOption('-o ConnectionAttempts='.$this->option($server, 'ssh_connection_attempts', 2))
             ->disableStrictHostKeyChecking()
             ->enableQuietMode();
+
+        if ($server->ssh_compression) {
+            $ssh->addExtraOption('-o Compression=yes');
+        }
 
         if ($server->auth_type === 'key') {
             $keyPath = $this->resolveKeyPath($server);
 
             if ($keyPath !== null) {
-                $ssh->usePrivateKey($keyPath);
+                $ssh->usePrivateKey($keyPath)
+                    ->disablePasswordAuthentication()
+                    ->addExtraOption('-o IdentitiesOnly=yes');
             } else {
                 throw new RuntimeException('SSH-Key nicht gefunden. Bitte hinterlege einen gültigen SSH-Key.');
             }
@@ -161,9 +178,31 @@ class SshService
 
     private function controlPath(Server $server): string
     {
+        $dir = storage_path(self::CONTROL_PATH);
+
+        if (! is_dir($dir)) {
+            mkdir($dir, 0700, true);
+        }
+
         $suffix = $server->id ?? md5($server->host.'-'.$server->port.'-'.$server->username);
 
-        return storage_path(self::CONTROL_PATH."/server_{$suffix}");
+        return "{$dir}/server_{$suffix}";
+    }
+
+    private function commandTimeout(Server $server, int $timeout): int
+    {
+        if ($timeout !== 30) {
+            return $timeout;
+        }
+
+        return $this->option($server, 'ssh_command_timeout', 30);
+    }
+
+    private function option(Server $server, string $key, int $default): int
+    {
+        $value = $server->getAttribute($key);
+
+        return is_numeric($value) && (int) $value > 0 ? (int) $value : $default;
     }
 
     private function applySudo(string $command): string
@@ -220,6 +259,26 @@ class SshService
 
         if (str_contains($lower, 'could not resolve host')) {
             return 'DNS-Auflösung auf dem Server fehlgeschlagen. Die angegebene Adresse konnte nicht aufgelöst werden.';
+        }
+
+        if (str_contains($lower, 'connection timed out') || str_contains($lower, 'operation timed out')) {
+            return 'SSH-Verbindung abgelaufen. Connect Timeout oder Netzwerkverbindung prüfen.';
+        }
+
+        if (str_contains($lower, 'connection refused')) {
+            return 'SSH-Verbindung abgelehnt. SSH-Dienst, Port und Firewall prüfen.';
+        }
+
+        if (str_contains($lower, 'no route to host')) {
+            return 'Server nicht erreichbar. Netzwerkroute oder Firewall prüfen.';
+        }
+
+        if (str_contains($lower, 'host key verification failed')) {
+            return 'SSH-Host-Key konnte nicht verifiziert werden. Known-Hosts Eintrag prüfen.';
+        }
+
+        if (str_contains($lower, 'too many authentication failures')) {
+            return 'Zu viele SSH-Authentifizierungsversuche. Hinterlegten Key und IdentitiesOnly prüfen.';
         }
 
         if (str_contains($lower, 'sudo:') && (str_contains($lower, 'password') || str_contains($lower, 'required'))) {

@@ -21,6 +21,13 @@ class Server extends Model
         'key_path',
         'key_content',
         'use_sudo',
+        'ssh_connect_timeout',
+        'ssh_command_timeout',
+        'ssh_control_persist',
+        'ssh_server_alive_interval',
+        'ssh_server_alive_count_max',
+        'ssh_connection_attempts',
+        'ssh_compression',
         'notes',
         'status',
     ];
@@ -30,6 +37,13 @@ class Server extends Model
         return [
             'port' => 'integer',
             'use_sudo' => 'boolean',
+            'ssh_connect_timeout' => 'integer',
+            'ssh_command_timeout' => 'integer',
+            'ssh_control_persist' => 'integer',
+            'ssh_server_alive_interval' => 'integer',
+            'ssh_server_alive_count_max' => 'integer',
+            'ssh_connection_attempts' => 'integer',
+            'ssh_compression' => 'boolean',
             'credentials' => 'encrypted',
             'key_content' => 'encrypted',
         ];

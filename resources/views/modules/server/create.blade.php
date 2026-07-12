@@ -149,6 +149,8 @@
                         <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">Befehle mit sudo DEBIAN_FRONTEND=noninteractive ausführen (Standard: aktiviert).</p>
                     </div>
 
+                    @include('modules.server.partials.ssh-options')
+
                     <div class="sm:col-span-2">
                         <label for="notes" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Notizen (optional)</label>
                         <textarea

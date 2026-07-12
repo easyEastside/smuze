@@ -149,6 +149,8 @@
                         </label>
                     </div>
 
+                    @include('modules.server.partials.ssh-options', ['server' => $server])
+
                     <div class="sm:col-span-2">
                         <label for="notes" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Notizen (optional)</label>
                         <textarea

@@ -21,6 +21,13 @@ class ServerFactory extends Factory
             'auth_type' => 'key',
             'credentials' => fake()->optional()->text(),
             'use_sudo' => true,
+            'ssh_connect_timeout' => 5,
+            'ssh_command_timeout' => 30,
+            'ssh_control_persist' => 30,
+            'ssh_server_alive_interval' => 15,
+            'ssh_server_alive_count_max' => 3,
+            'ssh_connection_attempts' => 2,
+            'ssh_compression' => false,
             'notes' => fake()->optional()->sentence(),
         ];
     }

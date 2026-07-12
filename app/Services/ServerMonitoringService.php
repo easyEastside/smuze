@@ -43,10 +43,9 @@ printf 'UPTIME=%s\n' "$(uptime -p 2>/dev/null || uptime)"
 awk '{printf "LOAD=%s\n", $1}' /proc/loadavg
 
 CPU_PREV=$(awk '/^cpu / {print $2+$3+$4+$5+$6+$7+$8+$9+$10+$11+$12+$13+$14+$15+$16+$17+$18+$19+$20+$21+$22+$23}' /proc/stat)
-sleep 0.5
-CPU_CURR=$(awk '/^cpu / {print $2+$3+$4+$5+$6+$7+$8+$9+$10+$11+$12+$13+$14+$15+$16+$17+$18+$19+$20+$21+$22+$23}' /proc/stat)
 CPU_IDLE_PREV=$(awk '/^cpu / {print $5}' /proc/stat)
 sleep 0.5
+CPU_CURR=$(awk '/^cpu / {print $2+$3+$4+$5+$6+$7+$8+$9+$10+$11+$12+$13+$14+$15+$16+$17+$18+$19+$20+$21+$22+$23}' /proc/stat)
 CPU_IDLE_CURR=$(awk '/^cpu / {print $5}' /proc/stat)
 
 TOTAL_DELTA=$((CPU_CURR - CPU_PREV))

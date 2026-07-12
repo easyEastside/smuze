@@ -11,6 +11,7 @@ class CreateServer
     {
         $data = $request->validated();
         $data['use_sudo'] = $request->boolean('use_sudo');
+        $data['ssh_compression'] = $request->boolean('ssh_compression');
 
         return $request->user()->servers()->create($data);
     }
