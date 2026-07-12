@@ -24,12 +24,17 @@ test('user can rotate server agent token', function () {
         ]);
 
     $token = $response->json('token');
+    $installCommand = $response->json('install_command');
     $server->refresh();
     $rawToken = DB::table('servers')->whereKey($server->id)->value('agent_token');
 
     expect($token)->toStartWith('smz_')
         ->and($server->agent_enabled)->toBeTrue()
         ->and($server->agent_token)->toBe($token)
+        ->and($installCommand)->toContain('smuze-agent install')
+        ->and($installCommand)->toContain('--server-id')
+        ->and($installCommand)->toContain((string) $server->id)
+        ->and($installCommand)->toContain($token)
         ->and($rawToken)->not->toBe($token)
         ->and($server->agent_status)->toBe('disconnected')
         ->and($server->execution_driver)->toBe('auto');

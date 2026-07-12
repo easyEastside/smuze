@@ -29,6 +29,7 @@ class ServerAgentController
             'token' => $token,
             'server_id' => $server->id,
             'app_url' => $request->getSchemeAndHttpHost(),
+            'install_command' => $this->installCommand($request->getSchemeAndHttpHost(), $server, $token),
         ]);
     }
 
@@ -44,5 +45,14 @@ class ServerAgentController
         ])->save();
 
         return response()->json(['success' => true]);
+    }
+
+    private function installCommand(string $appUrl, Server $server, string $token): string
+    {
+        return 'smuze-agent install'
+            .' --app-url '.escapeshellarg($appUrl)
+            .' --server-id '.escapeshellarg((string) $server->id)
+            .' --token '.escapeshellarg($token)
+            .' && systemctl daemon-reload && systemctl enable --now smuze-agent';
     }
 }

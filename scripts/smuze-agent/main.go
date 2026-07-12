@@ -13,6 +13,15 @@ import (
 const version = "0.1.0"
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "install" {
+		if err := runInstall(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+
+		return
+	}
+
 	configPath := flag.String("config", "", "Path to JSON config file")
 	once := flag.Bool("once", false, "Run one polling iteration and exit")
 	showVersion := flag.Bool("version", false, "Print version and exit")

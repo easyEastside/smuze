@@ -396,7 +396,7 @@
             return;
         }
 
-        document.getElementById('agent-token-output').textContent = [
+        document.getElementById('agent-token-output').textContent = data.install_command || [
             'SMUZE_APP_URL=' + JSON.stringify(data.app_url),
             'SMUZE_SERVER_ID=' + JSON.stringify(String(data.server_id)),
             'SMUZE_AGENT_TOKEN=' + JSON.stringify(data.token),
