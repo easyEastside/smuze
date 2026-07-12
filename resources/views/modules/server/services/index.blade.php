@@ -32,6 +32,7 @@
     const SERVICES = [
         { key: 'php', label: 'PHP', versionField: 'php_version' },
         { key: 'apache', label: 'Apache', versionField: 'apache_version' },
+        { key: 'nginx', label: 'Nginx', versionField: 'nginx_version' },
         { key: 'mysql', label: 'MySQL', versionField: 'mysql_version' },
         { key: 'node', label: 'Node.js', versionField: 'node_version' },
         { key: 'nvm', label: 'nvm', versionField: 'nvm_version' },
@@ -143,7 +144,7 @@
         const key = btn.dataset.serviceKey;
         const action = btn.dataset.serviceAction;
         const originalButtonText = btn.textContent;
-        const labels = { php: 'PHP', apache: 'Apache', mysql: 'MySQL', node: 'Node.js', nvm: 'nvm', npm: 'npm', composer: 'Composer' };
+        const labels = { php: 'PHP', apache: 'Apache', nginx: 'Nginx', mysql: 'MySQL', node: 'Node.js', nvm: 'nvm', npm: 'npm', composer: 'Composer' };
         const label = labels[key] || key;
         const msg = action === 'install' ? `${label} installieren? Dies kann einige Minuten dauern.` : `${label} deinstallieren?`;
         if (!confirm(msg)) return;

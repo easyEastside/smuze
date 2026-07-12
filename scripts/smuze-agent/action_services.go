@@ -61,6 +61,11 @@ var serviceInstallCommands = map[string]serviceCommand{
 		Timeout: 300,
 		UseSudo: true,
 	},
+	"nginx": {
+		Command: "DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y nginx && systemctl enable --now nginx",
+		Timeout: 300,
+		UseSudo: true,
+	},
 	"mysql": {
 		Command: "DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server && systemctl enable --now mysql && mysql -e 'CREATE DATABASE IF NOT EXISTS `database`;'",
 		Timeout: 300,
@@ -96,6 +101,11 @@ var serviceDeinstallCommands = map[string]serviceCommand{
 	},
 	"apache": {
 		Command: apacheDeinstallCommand,
+		Timeout: 180,
+		UseSudo: true,
+	},
+	"nginx": {
+		Command: nginxDeinstallCommand,
 		Timeout: 180,
 		UseSudo: true,
 	},

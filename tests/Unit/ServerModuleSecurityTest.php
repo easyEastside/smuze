@@ -5,6 +5,7 @@ use App\Modules\Server\Apache\Actions\ApacheAction;
 use App\Modules\Server\Firewall\Actions\FirewallAction;
 use App\Modules\Server\Github\Actions\GithubAction;
 use App\Modules\Server\Mysql\Actions\MysqlAction;
+use App\Modules\Server\Nginx\Actions\NginxAction;
 use App\Services\ExecutionEngine\ExecutionResult;
 use App\Services\ExecutionEngine\PushAgentEngine;
 use Tests\TestCase;
@@ -45,6 +46,43 @@ test('apache module action rejects unsafe module names', function () {
         ->toMatchArray([
             'success' => false,
             'message' => 'Ungültiger Modulname.',
+        ]);
+});
+
+test('nginx site config writes encoded content', function () {
+    $server = new Server;
+    $content = 'server { listen 80; }';
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(function (Server $serverArgument, string $action, array $payload) use ($server, $content): bool {
+            expect($serverArgument)->toBe($server);
+            expect($action)->toBe('nginx.save_site_config')
+                ->and($payload)->toBe([
+                    'site' => 'example.com.conf',
+                    'content' => $content,
+                ]);
+
+            return true;
+        })
+        ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
+
+    $result = (new NginxAction($engine))->saveSiteConfig($server, 'example.com', $content);
+
+    expect($result['success'])->toBeTrue();
+});
+
+test('nginx site action rejects unsafe site names', function () {
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')->never();
+
+    $result = (new NginxAction($engine))->enableSite(new Server, 'default; reboot');
+
+    expect($result)
+        ->toMatchArray([
+            'success' => false,
+            'message' => 'Ungültiger Site-Name.',
         ]);
 });
 

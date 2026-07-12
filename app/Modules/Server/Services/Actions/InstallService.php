@@ -12,6 +12,7 @@ class InstallService
     private const LABELS = [
         'php' => 'PHP',
         'apache' => 'Apache',
+        'nginx' => 'Nginx',
         'mysql' => 'MySQL',
         'node' => 'Node.js',
         'nvm' => 'nvm',

@@ -56,6 +56,9 @@ func readServiceVersions() map[string]string {
 	if version := readCommandVersion("apache2 -v 2>/dev/null | sed -n '1p'"); version != "" {
 		versions["apache_version"] = version
 	}
+	if version := readCommandVersion("nginx -v 2>&1 | sed -n '1p'"); version != "" {
+		versions["nginx_version"] = version
+	}
 	if version := readCommandVersion("mysql --version 2>/dev/null"); version != "" {
 		versions["mysql_version"] = version
 	}

@@ -6,6 +6,7 @@ var systemActions = registerActionGroups(
 	firewallActionDefinitions(),
 	githubActionDefinitions(),
 	mysqlActionDefinitions(),
+	nginxActionDefinitions(),
 	serviceActionDefinitions(),
 	systemActionDefinitions(),
 )
@@ -30,6 +31,10 @@ func githubActionDefinitions() []actionDefinition {
 
 func mysqlActionDefinitions() []actionDefinition {
 	return []actionDefinition{mysqlStatusAction(), mysqlInstallAction(), mysqlDeinstallAction(), mysqlStartAction(), mysqlStopAction(), mysqlRestartAction(), mysqlDatabasesAction(), mysqlCreateDatabaseAction(), mysqlDropDatabaseAction(), mysqlTablesAction(), mysqlCreateTableAction(), mysqlDropTableAction(), mysqlUsersAction(), mysqlCreateUserAction(), mysqlDropUserAction(), mysqlSetPasswordAction(), mysqlGrantAllAction()}
+}
+
+func nginxActionDefinitions() []actionDefinition {
+	return []actionDefinition{nginxStatusAction(), nginxInstallAction(), nginxDeinstallAction(), nginxStartAction(), nginxStopAction(), nginxRestartAction(), nginxReloadAction(), nginxConfigtestAction(), nginxSitesAction(), nginxSiteConfigAction(), nginxSaveSiteConfigAction(), nginxEnableSiteAction(), nginxDisableSiteAction(), nginxDeleteSiteAction(), nginxCreateVhostAction(), nginxInstallCertbotAction(), nginxObtainSslAction()}
 }
 
 func serviceActionDefinitions() []actionDefinition {

@@ -512,6 +512,17 @@ func TestServicesInstallNpmUsesNode24Npm(t *testing.T) {
 	}
 }
 
+func TestServicesInstallNginxInstallsNginx(t *testing.T) {
+	command, err := servicesInstallAction().command(map[string]any{"service": "nginx"})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+
+	if !strings.Contains(command, "apt-get install -y nginx") || !strings.Contains(command, "systemctl enable --now nginx") {
+		t.Fatalf("expected nginx install command, got %s", command)
+	}
+}
+
 func TestServicesInstallPhpBuildsSelectedVersionCommand(t *testing.T) {
 	command, err := servicesInstallAction().command(map[string]any{"service": "php", "version": "8.5"})
 	if err != nil {
@@ -597,6 +608,52 @@ func TestServicesDeinstallApachePurgesPackagesAndKeepsWebroot(t *testing.T) {
 	}
 	if strings.Contains(command, "/var/www") {
 		t.Fatalf("expected apache deinstall to preserve webroot, got %s", command)
+	}
+}
+
+func TestServicesDeinstallNginxPurgesPackagesAndKeepsWebroot(t *testing.T) {
+	command, err := servicesDeinstallAction().command(map[string]any{"service": "nginx"})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+
+	if !strings.Contains(command, "systemctl disable --now nginx") || !strings.Contains(command, "apt-get purge -y nginx nginx-common nginx-core") {
+		t.Fatalf("expected nginx disable and purge command, got %s", command)
+	}
+	if !strings.Contains(command, "rm -rf /etc/nginx") {
+		t.Fatalf("expected nginx config cleanup command, got %s", command)
+	}
+	if strings.Contains(command, "/var/www") {
+		t.Fatalf("expected nginx deinstall to preserve webroot, got %s", command)
+	}
+}
+
+func TestNginxCreateVhostBuildsSiteCommand(t *testing.T) {
+	command, err := nginxCreateVhostAction().command(map[string]any{
+		"domain":        "example.com",
+		"document_root": "/var/www/example/public",
+		"config":        "server { listen 80; }",
+	})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+
+	if !strings.Contains(command, "/etc/nginx/sites-available/example.com.conf") || !strings.Contains(command, "/etc/nginx/sites-enabled/example.com.conf") {
+		t.Fatalf("expected nginx site paths, got %s", command)
+	}
+	if !strings.Contains(command, "nginx -t") || !strings.Contains(command, "systemctl reload nginx") {
+		t.Fatalf("expected nginx config test and reload, got %s", command)
+	}
+}
+
+func TestNginxCreateVhostRejectsUnsafeDomain(t *testing.T) {
+	_, err := nginxCreateVhostAction().command(map[string]any{
+		"domain":        "example.com; reboot",
+		"document_root": "/var/www/example/public",
+		"config":        "server { listen 80; }",
+	})
+	if err == nil {
+		t.Fatal("expected unsafe nginx domain to be rejected")
 	}
 }
 

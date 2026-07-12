@@ -951,6 +951,162 @@ test('user cannot vhost on another users server', function () {
         ->assertForbidden();
 });
 
+// Nginx
+test('guest cannot view nginx page', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.nginx.index', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user can view their own nginx page', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.nginx.index', $server))
+        ->assertSuccessful()
+        ->assertSee('Nginx-Webserver-Verwaltung')
+        ->assertSee($server->name)
+        ->assertSee('encodeURIComponent(value)', false);
+});
+
+test('user cannot view another users nginx page', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.nginx.index', $server))
+        ->assertForbidden();
+});
+
+test('nginx status returns json with success field', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id, 'host' => '127.0.0.1']);
+
+    $this->actingAs($this->user)
+        ->get(route('server.nginx.status', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('nginx install returns json with success field', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id, 'host' => '127.0.0.1']);
+
+    $this->actingAs($this->user)
+        ->post(route('server.nginx.install', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('nginx deinstall returns json with success field', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id, 'host' => '127.0.0.1']);
+
+    $this->actingAs($this->user)
+        ->post(route('server.nginx.deinstall', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('nginx service start returns json with success field', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id, 'host' => '127.0.0.1']);
+
+    $this->actingAs($this->user)
+        ->post(route('server.nginx.service', ['server' => $server, 'action' => 'start']))
+        ->assertJsonStructure(['success']);
+});
+
+test('nginx configtest returns json with success field', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id, 'host' => '127.0.0.1']);
+
+    $this->actingAs($this->user)
+        ->post(route('server.nginx.configtest', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('nginx sites returns json with success field', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id, 'host' => '127.0.0.1']);
+
+    $this->actingAs($this->user)
+        ->get(route('server.nginx.sites', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('nginx create vhost validates domain', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id, 'host' => '127.0.0.1']);
+
+    $this->actingAs($this->user)
+        ->post(route('server.nginx.vhost', $server), [
+            'domain' => 'invalid domain!',
+            'document_root' => '/var/www/test',
+        ])
+        ->assertInvalid(['domain']);
+});
+
+test('nginx create vhost validates document root', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id, 'host' => '127.0.0.1']);
+
+    $this->actingAs($this->user)
+        ->post(route('server.nginx.vhost', $server), [
+            'domain' => 'example.com',
+            'document_root' => 'relative/path',
+        ])
+        ->assertInvalid(['document_root']);
+});
+
+test('nginx create vhost returns json with success field', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id, 'host' => '127.0.0.1']);
+
+    $this->actingAs($this->user)
+        ->post(route('server.nginx.vhost', $server), [
+            'domain' => 'example.com',
+            'document_root' => '/var/www/test/public',
+        ])
+        ->assertJsonStructure(['success']);
+});
+
+test('nginx enable site returns json with success field', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id, 'host' => '127.0.0.1']);
+
+    $this->actingAs($this->user)
+        ->post(route('server.nginx.sites.enable', ['server' => $server, 'site' => 'test.conf']))
+        ->assertJsonStructure(['success']);
+});
+
+test('nginx certbot install returns json with success field', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id, 'host' => '127.0.0.1']);
+
+    $this->actingAs($this->user)
+        ->post(route('server.nginx.ssl.install-certbot', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('nginx obtain ssl validates fields', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id, 'host' => '127.0.0.1']);
+
+    $this->actingAs($this->user)
+        ->post(route('server.nginx.ssl.obtain', $server), [
+            'domain' => '',
+            'email' => '',
+        ])
+        ->assertInvalid(['domain', 'email']);
+});
+
+test('user cannot start nginx on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.nginx.service', ['server' => $server, 'action' => 'start']))
+        ->assertForbidden();
+});
+
+test('user cannot vhost nginx on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.nginx.vhost', $server), [
+            'domain' => 'example.com',
+            'document_root' => '/var/www/test',
+        ])
+        ->assertForbidden();
+});
+
 // MySQL
 test('guest cannot view mysql page', function () {
     $server = Server::factory()->create();

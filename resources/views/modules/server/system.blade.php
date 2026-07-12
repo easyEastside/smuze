@@ -219,6 +219,7 @@
                         <a href="{{ route('server.terminal', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Terminal</a>
                         <a href="{{ route('server.firewall.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Firewall</a>
                         <a href="{{ route('server.apache.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Apache</a>
+                        <a href="{{ route('server.nginx.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Nginx</a>
                         <a href="{{ route('server.mysql.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">MySQL</a>
                         <a href="{{ route('server.github.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">GitHub</a>
                     </div>
@@ -330,6 +331,7 @@
         const details = [];
         if (data.php_version) details.push('PHP: ' + data.php_version);
         if (data.apache_version) details.push('Apache: ' + data.apache_version);
+        if (data.nginx_version) details.push('Nginx: ' + data.nginx_version);
         if (data.mysql_version) details.push('MySQL: ' + data.mysql_version);
         if (data.node_version) details.push('Node.js: ' + data.node_version);
         if (data.nvm_version) details.push('nvm: ' + data.nvm_version);
@@ -342,6 +344,7 @@
         const services = [
             { label: 'PHP', version: data.php_version },
             { label: 'Apache', version: data.apache_version },
+            { label: 'Nginx', version: data.nginx_version },
             { label: 'MySQL', version: data.mysql_version },
             { label: 'Node.js', version: data.node_version },
             { label: 'nvm', version: data.nvm_version },
