@@ -34,6 +34,8 @@ class ServerFactory extends Factory
             'agent_last_seen_at' => null,
             'agent_status' => 'disconnected',
             'agent_transport' => 'polling',
+            'agent_metrics' => null,
+            'agent_metrics_collected_at' => null,
             'execution_driver' => 'ssh',
             'notes' => fake()->optional()->sentence(),
         ];
@@ -47,6 +49,7 @@ class ServerFactory extends Factory
             'agent_version' => '0.1.0',
             'agent_last_seen_at' => now(),
             'agent_status' => 'connected',
+            'agent_metrics_collected_at' => now(),
             'execution_driver' => 'agent',
         ]);
     }

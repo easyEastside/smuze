@@ -11,6 +11,7 @@ uses(RefreshDatabase::class);
 test('server stores agent metadata with casts', function () {
     $server = Server::factory()->withAgent()->create([
         'agent_token' => 'plain-agent-token',
+        'agent_metrics' => ['cpu_percent' => 10],
     ]);
 
     $rawToken = DB::table('servers')->whereKey($server->id)->value('agent_token');
@@ -19,6 +20,8 @@ test('server stores agent metadata with casts', function () {
         ->and($server->agent_token)->toBe('plain-agent-token')
         ->and($rawToken)->not->toBe('plain-agent-token')
         ->and($server->agent_last_seen_at)->not->toBeNull()
+        ->and($server->agent_metrics)->toBe(['cpu_percent' => 10])
+        ->and($server->agent_metrics_collected_at)->not->toBeNull()
         ->and($server->agent_status)->toBe('connected')
         ->and($server->execution_driver)->toBe('agent');
 });

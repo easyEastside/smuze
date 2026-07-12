@@ -36,6 +36,37 @@ test('agent heartbeat updates server status', function () {
         ->and($server->agent_last_seen_at)->not->toBeNull();
 });
 
+test('agent metrics endpoint stores latest metrics', function () {
+    $server = Server::factory()->create([
+        'agent_enabled' => true,
+        'agent_token' => 'agent-secret',
+    ]);
+
+    $this->postJson('/api/agent/metrics', [
+        'metrics' => [
+            'hostname' => 'web-01',
+            'cpu_percent' => 24,
+            'ram_total_mb' => 4096,
+            'ram_used_mb' => 1024,
+            'ram_percent' => 25,
+            'disk_percent' => 40,
+        ],
+    ], agentHeaders($server))
+        ->assertSuccessful()
+        ->assertJson(['success' => true]);
+
+    $server->refresh();
+
+    expect($server->agent_status)->toBe('connected')
+        ->and($server->agent_metrics)->toMatchArray([
+            'hostname' => 'web-01',
+            'cpu_percent' => 24,
+            'ram_percent' => 25,
+            'disk_percent' => 40,
+        ])
+        ->and($server->agent_metrics_collected_at)->not->toBeNull();
+});
+
 test('agent only receives queued commands for its server', function () {
     $server = Server::factory()->create([
         'agent_enabled' => true,

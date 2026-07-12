@@ -31,10 +31,27 @@ class AgentController
     public function metrics(Request $request): JsonResponse
     {
         $server = $this->authenticate($request);
+        $data = $request->validate([
+            'metrics' => ['required', 'array'],
+            'metrics.hostname' => ['nullable', 'string', 'max:255'],
+            'metrics.os' => ['nullable', 'string', 'max:255'],
+            'metrics.uptime' => ['nullable', 'string', 'max:255'],
+            'metrics.load' => ['nullable', 'string', 'max:50'],
+            'metrics.cpu_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'metrics.ram_total_mb' => ['nullable', 'integer', 'min:0'],
+            'metrics.ram_used_mb' => ['nullable', 'integer', 'min:0'],
+            'metrics.ram_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'metrics.disk_total_mb' => ['nullable', 'integer', 'min:0'],
+            'metrics.disk_used_mb' => ['nullable', 'integer', 'min:0'],
+            'metrics.disk_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'collected_at' => ['nullable', 'date'],
+        ]);
 
         $server->forceFill([
             'agent_last_seen_at' => now(),
             'agent_status' => 'connected',
+            'agent_metrics' => $data['metrics'],
+            'agent_metrics_collected_at' => isset($data['collected_at']) ? $data['collected_at'] : now(),
         ])->save();
 
         return response()->json(['success' => true]);

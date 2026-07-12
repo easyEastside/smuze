@@ -35,6 +35,8 @@ class Server extends Model
         'agent_last_seen_at',
         'agent_status',
         'agent_transport',
+        'agent_metrics',
+        'agent_metrics_collected_at',
         'execution_driver',
         'notes',
         'status',
@@ -55,6 +57,8 @@ class Server extends Model
             'agent_enabled' => 'boolean',
             'agent_token' => 'encrypted',
             'agent_last_seen_at' => 'datetime',
+            'agent_metrics' => 'array',
+            'agent_metrics_collected_at' => 'datetime',
             'credentials' => 'encrypted',
             'key_content' => 'encrypted',
         ];
