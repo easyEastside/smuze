@@ -6,24 +6,21 @@ use App\Models\Server;
 use App\Modules\Server\Github\Actions\GithubAction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class GithubController
 {
     public function index(Request $request, Server $server): View
     {
-        if ($server->user_id !== $request->user()->id) {
-            abort(403);
-        }
+        Gate::authorize('view', $server);
 
         return view('modules.server.github.index', compact('server'));
     }
 
     public function deploy(Request $request, Server $server, GithubAction $action): JsonResponse
     {
-        if ($server->user_id !== $request->user()->id) {
-            abort(403);
-        }
+        Gate::authorize('update', $server);
 
         $data = $request->validate([
             'repo_url' => ['required', 'string', 'max:500'],

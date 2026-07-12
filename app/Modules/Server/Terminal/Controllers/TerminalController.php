@@ -8,24 +8,21 @@ use App\Services\SshService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class TerminalController
 {
     public function index(Request $request, Server $server): View
     {
-        if ($server->user_id !== $request->user()->id) {
-            abort(403);
-        }
+        Gate::authorize('view', $server);
 
         return view('modules.server.terminal.index', compact('server'));
     }
 
     public function socket(Request $request, Server $server, CreateTerminalSession $createTerminalSession): JsonResponse
     {
-        if ($server->user_id !== $request->user()->id) {
-            abort(403);
-        }
+        Gate::authorize('view', $server);
 
         return response()->json($createTerminalSession->handle(
             $server,

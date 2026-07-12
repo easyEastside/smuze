@@ -9,6 +9,7 @@ use App\Modules\Server\Firewall\Actions\FirewallAction;
 use App\Modules\Server\Mysql\Actions\MysqlAction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class InternalProxyController
@@ -21,6 +22,8 @@ class InternalProxyController
         if ($secret === '' || ! hash_equals($secret, $providedSecret)) {
             abort(403);
         }
+
+        Gate::authorize('view', $server);
 
         $result = match ("{$module}.{$action}") {
             'system.refresh' => app(RefreshSystem::class)->handle($server),
