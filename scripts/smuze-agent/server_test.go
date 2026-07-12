@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -151,6 +152,46 @@ func TestExecuteEndpoint(t *testing.T) {
 	}
 	if lastChunk["exit_code"] != float64(0) {
 		t.Fatalf("expected exit_code=0, got %v", lastChunk["exit_code"])
+	}
+}
+
+func TestActionEndpointRejectsUnknownAction(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	body := `{"action":"system.unknown","payload":{}}`
+	req, _ := http.NewRequest("POST", ts.URL+"/actions", strings.NewReader(body))
+	req.Header.Set(authHeader())
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /actions: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 404 {
+		t.Fatalf("expected 404, got %d", res.StatusCode)
+	}
+}
+
+func TestRunActionExecutesWhitelistedDefinition(t *testing.T) {
+	srv := NewServer(Config{Token: "test-token", Port: 9300})
+
+	result := srv.runAction(context.Background(), "test.echo", actionDefinition{
+		Command: "echo action-ok",
+		Timeout: 10,
+		UseSudo: false,
+	})
+
+	if !result.Success {
+		t.Fatalf("expected success, got error %q", result.Error)
+	}
+	if result.ExitCode != 0 {
+		t.Fatalf("expected exit_code=0, got %d", result.ExitCode)
+	}
+	if !strings.Contains(result.Stdout, "action-ok") {
+		t.Fatalf("expected stdout to contain action-ok, got %q", result.Stdout)
 	}
 }
 

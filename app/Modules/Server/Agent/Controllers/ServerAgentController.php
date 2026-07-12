@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class ServerAgentController
 {
@@ -290,6 +291,32 @@ class ServerAgentController
 
             return response()->json(['success' => false, 'error' => 'Agent nicht erreichbar'], 503);
         }
+    }
+
+    public function proxyAction(Request $request, Server $server): JsonResponse
+    {
+        Gate::authorize('update', $server);
+
+        $data = $request->validate([
+            'action' => ['required', 'string', Rule::in([
+                'system.apt_update',
+                'system.apt_upgrade',
+                'system.reboot',
+                'system.shutdown',
+            ])],
+            'payload' => ['nullable', 'array'],
+        ]);
+
+        $result = $this->agent->action($server, $data['action'], $data['payload'] ?? []);
+
+        return response()->json([
+            'success' => $result->success,
+            'action' => $data['action'],
+            'exit_code' => $result->exitCode,
+            'stdout' => $result->stdout,
+            'stderr' => $result->stderr,
+            'error' => $result->success ? null : ($result->stderr ?: 'Agent-Action fehlgeschlagen.'),
+        ], $result->success ? 200 : 422);
     }
 
     private function agentBaseUrl(Server $server): string

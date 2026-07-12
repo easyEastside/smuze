@@ -219,3 +219,73 @@ test('agent engine records command audit log', function () {
         ->and($command->success)->toBeTrue()
         ->and($command->stdout)->toBe("ok\n");
 });
+
+test('agent engine records action audit log', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/actions' => Http::response([
+            'success' => true,
+            'action' => 'system.apt_update',
+            'exit_code' => 0,
+            'stdout' => 'ok',
+            'stderr' => '',
+            'duration_ms' => 10,
+        ]),
+    ]);
+
+    $this->actingAs($user);
+
+    $result = app(PushAgentEngine::class)->action($server, 'system.apt_update');
+
+    expect($result->success)->toBeTrue()
+        ->and(ServerAgentCommand::query()->count())->toBe(1);
+
+    $command = ServerAgentCommand::query()->firstOrFail();
+
+    expect($command->server_id)->toBe($server->id)
+        ->and($command->user_id)->toBe($user->id)
+        ->and($command->source)->toBe('action')
+        ->and($command->action)->toBe('system.apt_update')
+        ->and($command->command)->toBeNull()
+        ->and($command->exit_code)->toBe(0)
+        ->and($command->success)->toBeTrue()
+        ->and($command->stdout)->toBe('ok');
+});
+
+test('user can trigger whitelisted agent action', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/actions' => Http::response([
+            'success' => true,
+            'action' => 'system.apt_update',
+            'exit_code' => 0,
+            'stdout' => 'updated',
+            'stderr' => '',
+            'duration_ms' => 10,
+        ]),
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('server.agent.action', $server), [
+            'action' => 'system.apt_update',
+        ])
+        ->assertSuccessful()
+        ->assertJson([
+            'success' => true,
+            'action' => 'system.apt_update',
+            'exit_code' => 0,
+            'stdout' => 'updated',
+        ]);
+});

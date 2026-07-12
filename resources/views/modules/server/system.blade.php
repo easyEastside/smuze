@@ -99,16 +99,16 @@
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <p class="text-sm text-[#f53003] dark:text-[#FF4433]">System-Aktionen</p>
                     <div class="mt-4 flex flex-wrap gap-2">
-                        <button type="button" onclick="systemAction('apt update', 'apt update ausführen?')" class="rounded-lg bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                        <button type="button" onclick="systemAction('system.apt_update', 'apt update ausführen?')" class="rounded-lg bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
                             APT Update
                         </button>
-                        <button type="button" onclick="systemAction('apt upgrade -y', 'System-Upgrade ausführen? Dies kann einige Minuten dauern.')" class="rounded-lg bg-[#f59e0b] px-4 py-2 text-sm font-medium text-white hover:bg-[#d97706]">
+                        <button type="button" onclick="systemAction('system.apt_upgrade', 'System-Upgrade ausführen? Dies kann einige Minuten dauern.')" class="rounded-lg bg-[#f59e0b] px-4 py-2 text-sm font-medium text-white hover:bg-[#d97706]">
                             APT Upgrade
                         </button>
-                        <button type="button" onclick="systemAction('reboot', 'Server neu starten?')" class="rounded-lg bg-[#f53003] px-4 py-2 text-sm font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:hover:bg-[#e63a2e]">
+                        <button type="button" onclick="systemAction('system.reboot', 'Server neu starten?')" class="rounded-lg bg-[#f53003] px-4 py-2 text-sm font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:hover:bg-[#e63a2e]">
                             Neustart
                         </button>
-                        <button type="button" onclick="systemAction('shutdown -h now', 'Server herunterfahren?')" class="rounded-lg border border-[#19140035] px-4 py-2 text-sm font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                        <button type="button" onclick="systemAction('system.shutdown', 'Server herunterfahren?')" class="rounded-lg border border-[#19140035] px-4 py-2 text-sm font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                             Herunterfahren
                         </button>
                     </div>
@@ -152,7 +152,7 @@
                                             <td class="py-3 pr-4 text-xs text-[#706f6c] dark:text-[#A1A09A]">{{ $command->source }}</td>
                                             <td class="py-3 pr-4 text-xs text-[#706f6c] dark:text-[#A1A09A]">{{ $command->user?->name ?? 'System' }}</td>
                                             <td class="max-w-[320px] py-3 pr-4 font-mono text-xs">
-                                                <span class="block truncate" title="{{ $command->command }}">{{ $command->command }}</span>
+                                                <span class="block truncate" title="{{ $command->action ?? $command->command }}">{{ $command->action ?? $command->command }}</span>
                                             </td>
                                             <td class="py-3 text-right text-xs text-[#706f6c] dark:text-[#A1A09A]">{{ $command->duration_ms ?? 0 }} ms</td>
                                         </tr>
@@ -412,29 +412,29 @@
         result.classList.remove('hidden');
     }
 
-    function systemAction(command, confirmMsg) {
+    function systemAction(action, confirmMsg) {
         if (!confirm(confirmMsg)) return;
 
         const result = document.getElementById('action-result');
         result.className = 'mt-3 rounded-xl p-3 text-sm';
-        result.textContent = 'Führe Befehl aus...';
+        result.textContent = 'Führe Action aus...';
         result.classList.remove('hidden');
 
-        fetch('{{ route('server.agent.execute', $server) }}', {
+        fetch('{{ route('server.agent.action', $server) }}', {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}',
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
             },
-            body: JSON.stringify({ command, timeout: 120, use_sudo: true }),
+            body: JSON.stringify({ action, payload: {} }),
         })
         .then(r => r.json())
         .then(data => {
             const ok = data.success && data.exit_code === 0;
-            const output = data.data ? data.data.map(c => c.data || '').join('') : '';
+            const output = [data.stdout || '', data.stderr || ''].join('');
             result.className = 'mt-3 rounded-xl p-3 text-sm ' + (ok ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
-            result.textContent = ok ? (output || 'Befehl ausgeführt.') : (data.error || output || 'Fehler bei Ausführung.');
+            result.textContent = ok ? (output || 'Action ausgeführt.') : (data.error || output || 'Fehler bei Ausführung.');
         })
         .catch(err => {
             result.className = 'mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';

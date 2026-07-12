@@ -13,7 +13,9 @@ return new class extends Migration
             $table->foreignId('server_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $table->string('source', 40)->default('agent');
-            $table->text('command');
+            $table->string('action')->nullable()->index();
+            $table->json('payload')->nullable();
+            $table->text('command')->nullable();
             $table->unsignedSmallInteger('timeout')->default(30);
             $table->boolean('use_sudo')->default(true);
             $table->integer('exit_code')->nullable();

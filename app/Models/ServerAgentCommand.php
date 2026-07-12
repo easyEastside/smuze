@@ -14,6 +14,8 @@ class ServerAgentCommand extends Model
         'server_id',
         'user_id',
         'source',
+        'action',
+        'payload',
         'command',
         'timeout',
         'use_sudo',
@@ -43,6 +45,7 @@ class ServerAgentCommand extends Model
     {
         return [
             'timeout' => 'integer',
+            'payload' => 'array',
             'use_sudo' => 'boolean',
             'exit_code' => 'integer',
             'success' => 'boolean',
