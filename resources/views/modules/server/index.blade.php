@@ -110,15 +110,7 @@
                 </table>
             </div>
 
-            <div class="mt-3 text-right">
-                <button
-                    type="button"
-                    onclick="navigator.clipboard.writeText('@foreach($servers as $server)ssh {{ $server->username }}@{{ $server->host }} -p {{ $server->port }}' + '\n' + '@endforeach'.trim())"
-                    class="rounded-lg border border-[#19140035] px-3 py-1.5 text-xs transition hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
-                >
-                    Alle SSH-Befehle kopieren
-                </button>
-            </div>
+
         @endif
     </section>
 </x-layouts.app>
