@@ -51,9 +51,8 @@ async function writeKeyFile(keyContent) {
     return file;
 }
 
-function buildSshArgs(server, keyFile) {
+function buildSshArgs(server, keyFile, options = {}) {
     const args = [
-        '-tt',
         '-o', 'StrictHostKeyChecking=no',
         '-o', 'UserKnownHostsFile=/dev/null',
         '-o', 'LogLevel=ERROR',
@@ -62,6 +61,10 @@ function buildSshArgs(server, keyFile) {
         '-o', 'ControlPersist=10m',
         '-p', String(server.port),
     ];
+
+    if (options.tty !== false) {
+        args.unshift('-tt');
+    }
 
     if (server.auth_type === 'key' && keyFile) {
         args.push('-i', keyFile, '-o', 'IdentitiesOnly=yes');
@@ -106,6 +109,10 @@ function parseKeyValueMetrics(raw) {
     }
 
     return metrics;
+}
+
+function shellQuote(value) {
+    return `'${String(value).replaceAll("'", "'\\''")}'`;
 }
 
 function metricsScript() {
@@ -182,9 +189,10 @@ function handleTerminalConnection(ws, server, cols, rows, keyFile) {
 }
 
 function handleMetricsConnection(ws, server, keyFile) {
-    const sshArgs = [...buildSshArgs(server, keyFile || server.key_path), 'sh', '-lc', metricsScript()];
+    const sshArgs = [...buildSshArgs(server, keyFile || server.key_path, { tty: false }), 'sh', '-lc', shellQuote(metricsScript())];
     let terminal = null;
     let retryTimer = null;
+    let lastOutput = '';
 
     const start = () => {
         let passwordWritten = false;
@@ -210,19 +218,21 @@ function handleMetricsConnection(ws, server, keyFile) {
             }
 
             buffer += data.replace(/\r/g, '');
+            lastOutput = buffer.slice(-500);
 
             while (buffer.includes('__SMUZE_METRICS_BEGIN__') && buffer.includes('__SMUZE_METRICS_END__')) {
                 const begin = buffer.indexOf('__SMUZE_METRICS_BEGIN__') + '__SMUZE_METRICS_BEGIN__'.length;
                 const end = buffer.indexOf('__SMUZE_METRICS_END__');
                 const rawMetrics = buffer.slice(begin, end);
                 buffer = buffer.slice(end + '__SMUZE_METRICS_END__'.length);
+                lastOutput = '';
                 send(ws, { channel: 'metrics', type: 'metrics', data: parseKeyValueMetrics(rawMetrics), collected_at: new Date().toISOString() });
             }
         });
 
         terminal.onExit(({ exitCode, signal }) => {
             terminal = null;
-            send(ws, { channel: 'metrics', type: 'metrics_error', exit_code: exitCode, signal });
+            send(ws, { channel: 'metrics', type: 'metrics_error', exit_code: exitCode, signal, message: lastOutput.trim() || null });
 
             if (ws.readyState === ws.OPEN) {
                 retryTimer = setTimeout(start, 5000);

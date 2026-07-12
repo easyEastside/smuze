@@ -130,6 +130,10 @@
                             <dd id="conn-status" class="font-medium text-[#706f6c] dark:text-[#A1A09A]">Unbekannt</dd>
                         </div>
                         <div class="flex justify-between">
+                            <dt class="text-[#706f6c] dark:text-[#A1A09A]">Aktualisierung</dt>
+                            <dd id="update-mode" class="font-medium text-[#706f6c] dark:text-[#A1A09A]">-</dd>
+                        </div>
+                        <div class="flex justify-between">
                             <dt class="text-[#706f6c] dark:text-[#A1A09A]">Auth</dt>
                             <dd class="font-medium">{{ $server->auth_type === 'key' ? 'SSH-Key' : 'Passwort' }}</dd>
                         </div>
@@ -194,7 +198,19 @@
         text.textContent = `${pct}% | ${formatBytes(used)} / ${formatBytes(total)}`;
     }
 
-    function renderSystemData(data) {
+    function setConnectionStatus(label, className) {
+        const status = document.getElementById('conn-status');
+        status.textContent = label;
+        status.className = className;
+    }
+
+    function setUpdateMode(label, className) {
+        const mode = document.getElementById('update-mode');
+        mode.textContent = label;
+        mode.className = className;
+    }
+
+    function renderSystemData(data, source = 'initial') {
         window.lastSystemData = data;
 
         document.getElementById('sys-hostname').textContent = data.hostname || '-';
@@ -249,8 +265,15 @@
             servicesList.appendChild(div);
         }
 
-        document.getElementById('conn-status').textContent = (typeof SmuzeServerSocket !== 'undefined' && SmuzeServerSocket.isConnected) ? 'Live' : 'Online';
-        document.getElementById('conn-status').className = 'font-medium text-green-500';
+        setConnectionStatus(source === 'websocket' ? 'Live' : 'Online', 'font-medium text-green-500');
+
+        if (source === 'websocket') {
+            setUpdateMode('Live-Metrics', 'font-medium text-green-500');
+        }
+
+        if (source === 'polling') {
+            setUpdateMode('Polling', 'font-medium text-yellow-600 dark:text-yellow-400');
+        }
     }
 
     function showSystemContent() {
@@ -279,15 +302,15 @@
                     return;
                 }
 
-                renderSystemData(data);
+                renderSystemData(data, refreshInterval ? 'polling' : 'initial');
                 content.classList.remove('hidden');
             })
             .catch(err => {
                 loading.classList.add('hidden');
                 error.textContent = 'Verbindungsfehler: ' + err.message;
                 error.classList.remove('hidden');
-                document.getElementById('conn-status').textContent = 'Offline';
-                document.getElementById('conn-status').className = 'font-medium text-red-500';
+                setConnectionStatus('Offline', 'font-medium text-red-500');
+                setUpdateMode('Fehler', 'font-medium text-red-500');
             });
     }
 
@@ -299,9 +322,7 @@
         fetch('{{ route('server.system.test-connection', $server) }}')
             .then(r => r.json())
             .then(data => {
-                const status = document.getElementById('conn-status');
-                status.textContent = data.success ? 'Online (' + data.latency_ms + ' ms)' : 'Offline';
-                status.className = data.success ? 'font-medium text-green-500' : 'font-medium text-red-500';
+                setConnectionStatus(data.success ? 'Online (' + data.latency_ms + ' ms)' : 'Offline', data.success ? 'font-medium text-green-500' : 'font-medium text-red-500');
                 btn.textContent = 'Verbindung testen';
                 btn.disabled = false;
             })
@@ -355,8 +376,7 @@
 
             if (connected) {
                 stopPollingFallback();
-                document.getElementById('conn-status').textContent = 'Live';
-                document.getElementById('conn-status').className = 'font-medium text-green-500';
+                setUpdateMode('WebSocket verbunden', 'font-medium text-green-500');
                 SmuzeServerSocket.send('metrics', 'subscribe');
             }
         });
@@ -364,13 +384,13 @@
         SmuzeServerSocket.onMessage((payload) => {
             if (payload.channel === 'metrics' && payload.type === 'metrics') {
                 stopPollingFallback();
-                renderSystemData(payload.data);
+                renderSystemData(payload.data, 'websocket');
                 showSystemContent();
             }
 
             if (payload.channel === 'metrics' && payload.type === 'metrics_error') {
-                document.getElementById('conn-status').textContent = 'Polling';
-                document.getElementById('conn-status').className = 'font-medium text-yellow-600 dark:text-yellow-400';
+                const detail = payload.message ? ` (${payload.message})` : '';
+                setUpdateMode(`WebSocket verbunden, Metrics per Polling${detail}`, 'max-w-[180px] text-right font-medium text-yellow-600 dark:text-yellow-400');
                 startPollingFallback();
             }
 
