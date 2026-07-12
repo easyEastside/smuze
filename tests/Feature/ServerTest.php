@@ -227,21 +227,6 @@ test('user cannot view another users server system', function () {
         ->assertForbidden();
 });
 
-test('guest cannot refresh server system', function () {
-    $server = Server::factory()->create();
-
-    $this->get(route('server.system.refresh', $server))->assertRedirect(route('login', absolute: false));
-});
-
-test('user cannot refresh another users server system', function () {
-    $otherUser = User::factory()->create();
-    $server = Server::factory()->create(['user_id' => $otherUser->id]);
-
-    $this->actingAs($this->user)
-        ->get(route('server.system.refresh', $server))
-        ->assertForbidden();
-});
-
 test('user can update server with sudo disabled', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,

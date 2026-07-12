@@ -3,7 +3,7 @@
 namespace App\Modules\Server\Github\Actions;
 
 use App\Models\Server;
-use App\Services\ExecutionEngine\ExecutionEngine;
+use App\Services\ExecutionEngine\PushAgentEngine;
 
 class GithubAction
 {
@@ -14,7 +14,7 @@ class GithubAction
     private const SAFE_NAME_REGEX = '/^[A-Za-z0-9._-]+$/';
 
     public function __construct(
-        private ExecutionEngine $engine,
+        private PushAgentEngine $engine,
     ) {}
 
     public function defaultTargetName(string $repoUrl): string

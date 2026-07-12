@@ -30,7 +30,6 @@ class Server extends Model
         'agent_port',
         'agent_metrics',
         'agent_metrics_collected_at',
-        'execution_driver',
         'notes',
         'status',
     ];
@@ -46,7 +45,6 @@ class Server extends Model
             'agent_metrics' => 'array',
             'agent_metrics_collected_at' => 'datetime',
             'credentials' => 'encrypted',
-            'key_content' => 'encrypted',
         ];
     }
 

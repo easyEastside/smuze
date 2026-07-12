@@ -6,7 +6,7 @@ use App\Models\Server;
 use App\Services\ConnectionResult;
 use Illuminate\Support\Facades\Http;
 
-class PushAgentEngine implements ExecutionEngine
+class PushAgentEngine
 {
     public function execute(
         Server $server,
@@ -133,11 +133,6 @@ class PushAgentEngine implements ExecutionEngine
                 errorMessage: $e->getMessage(),
             );
         }
-    }
-
-    public function supports(string $feature): bool
-    {
-        return in_array($feature, ['agent', 'push', 'live-output']);
     }
 
     public function getMetrics(Server $server): ?array

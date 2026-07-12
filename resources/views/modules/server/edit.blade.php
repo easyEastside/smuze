@@ -80,14 +80,11 @@
                         <select
                             name="auth_type"
                             id="auth_type"
-                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('auth_type') border-[#f53003] @enderror"
+                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC]"
                         >
                             <option value="key" @selected(old('auth_type', $server->auth_type) === 'key')>SSH-Key</option>
                             <option value="password" @selected(old('auth_type', $server->auth_type) === 'password')>Passwort</option>
                         </select>
-                        @error('auth_type')
-                            <p class="mt-1 text-sm text-[#f53003]">{{ $message }}</p>
-                        @enderror
                     </div>
 
                     <div id="credentials-password" class="sm:col-span-2">
@@ -98,11 +95,8 @@
                             id="credentials"
                             value="{{ old('credentials', $server->auth_type === 'password' ? '' : '') }}"
                             placeholder="Neues Passwort (leer lassen, um nicht zu ändern)"
-                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('credentials') border-[#f53003] @enderror"
+                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC]"
                         />
-                        @error('credentials')
-                            <p class="mt-1 text-sm text-[#f53003]">{{ $message }}</p>
-                        @enderror
                     </div>
 
                     <div id="credentials-key" class="sm:col-span-2">
@@ -112,27 +106,8 @@
                             id="key_content"
                             rows="6"
                             placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
-                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm font-mono text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('key_content') border-[#f53003] @enderror"
+                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm font-mono text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC]"
                         >{{ old('key_content', $server->auth_type === 'key' && $server->key_content ? '' : '') }}</textarea>
-                        @error('key_content')
-                            <p class="mt-1 text-sm text-[#f53003]">{{ $message }}</p>
-                        @enderror
-                        <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">Füge den Inhalt deines privaten SSH-Keys ein oder lasse leer, um den bestehenden Key zu behalten.</p>
-                    </div>
-
-                    <div class="sm:col-span-2">
-                        <label for="key_path" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">SSH-Key Pfad (optional)</label>
-                        <input
-                            type="text"
-                            name="key_path"
-                            id="key_path"
-                            value="{{ old('key_path', $server->key_path) }}"
-                            placeholder="/home/user/.ssh/id_ed25519"
-                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('key_path') border-[#f53003] @enderror"
-                        />
-                        @error('key_path')
-                            <p class="mt-1 text-sm text-[#f53003]">{{ $message }}</p>
-                        @enderror
                     </div>
 
                     <div class="sm:col-span-2">
@@ -176,11 +151,8 @@
                             name="notes"
                             id="notes"
                             rows="2"
-                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('notes') border-[#f53003] @enderror"
+                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC]"
                         >{{ old('notes', $server->notes) }}</textarea>
-                        @error('notes')
-                            <p class="mt-1 text-sm text-[#f53003]">{{ $message }}</p>
-                        @enderror
                     </div>
                 </div>
 

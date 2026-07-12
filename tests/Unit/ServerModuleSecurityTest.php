@@ -3,8 +3,8 @@
 use App\Models\Server;
 use App\Modules\Server\Apache\Actions\ApacheAction;
 use App\Modules\Server\Firewall\Actions\FirewallAction;
-use App\Services\ExecutionEngine\ExecutionEngine;
 use App\Services\ExecutionEngine\ExecutionResult;
+use App\Services\ExecutionEngine\PushAgentEngine;
 use Tests\TestCase;
 
 uses(TestCase::class);
@@ -14,7 +14,7 @@ test('apache site config writes encoded content', function () {
     $content = '<VirtualHost *:80>example</VirtualHost>';
     $encoded = base64_encode($content);
 
-    $engine = Mockery::mock(ExecutionEngine::class);
+    $engine = Mockery::mock(PushAgentEngine::class);
     $engine->shouldReceive('execute')
         ->once()
         ->withArgs(function (Server $serverArgument, string $command, int $timeout, bool $useSudo) use ($server, $encoded): bool {
@@ -34,7 +34,7 @@ test('apache site config writes encoded content', function () {
 });
 
 test('apache module action rejects unsafe module names', function () {
-    $engine = Mockery::mock(ExecutionEngine::class);
+    $engine = Mockery::mock(PushAgentEngine::class);
     $engine->shouldReceive('execute')->never();
 
     $result = (new ApacheAction($engine))->enableModule(new Server, 'rewrite; reboot');
@@ -49,7 +49,7 @@ test('apache module action rejects unsafe module names', function () {
 test('firewall allow escapes port specification', function () {
     $server = new Server;
 
-    $engine = Mockery::mock(ExecutionEngine::class);
+    $engine = Mockery::mock(PushAgentEngine::class);
     $engine->shouldReceive('execute')
         ->once()
         ->withArgs(function (Server $serverArgument, string $command, int $timeout, bool $useSudo) use ($server): bool {
@@ -66,7 +66,7 @@ test('firewall allow escapes port specification', function () {
 });
 
 test('firewall allow rejects unsafe protocols', function () {
-    $engine = Mockery::mock(ExecutionEngine::class);
+    $engine = Mockery::mock(PushAgentEngine::class);
     $engine->shouldReceive('execute')->never();
 
     $result = (new FirewallAction($engine))->allow(new Server, '80', 'tcp; reboot');

@@ -3,7 +3,7 @@
 namespace App\Modules\Server\Services\Actions;
 
 use App\Models\Server;
-use App\Services\ExecutionEngine\ExecutionEngine;
+use App\Services\ExecutionEngine\PushAgentEngine;
 
 class InstallService
 {
@@ -76,7 +76,7 @@ class InstallService
     ];
 
     public function __construct(
-        private ExecutionEngine $engine,
+        private PushAgentEngine $engine,
     ) {}
 
     /** @return array<string, mixed> */

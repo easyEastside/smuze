@@ -5,16 +5,9 @@ namespace App\Modules\Server\Controllers;
 use App\Models\Server;
 use App\Modules\Server\Actions\CreateServer;
 use App\Modules\Server\Actions\DeleteServer;
-use App\Modules\Server\Actions\RefreshSystem;
-use App\Modules\Server\Actions\SystemRestart;
-use App\Modules\Server\Actions\SystemStop;
-use App\Modules\Server\Actions\SystemUpdate;
-use App\Modules\Server\Actions\SystemUpgrade;
-use App\Modules\Server\Actions\TestConnection;
 use App\Modules\Server\Actions\UpdateServer;
 use App\Modules\Server\Requests\StoreServerRequest;
 use App\Modules\Server\Requests\UpdateServerRequest;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -24,17 +17,7 @@ class ServerController
 {
     public function index(Request $request): View
     {
-        $servers = $request->user()->servers()->orderByDesc('created_at')->get()->map(function (Server $server) {
-            $connection = @fsockopen($server->host, $server->port, $errno, $errstr, 2);
-
-            $server->is_reachable = $connection !== false;
-
-            if ($connection !== false) {
-                fclose($connection);
-            }
-
-            return $server;
-        });
+        $servers = $request->user()->servers()->orderByDesc('created_at')->get();
 
         return view('modules.server.index', compact('servers'));
     }
@@ -84,47 +67,5 @@ class ServerController
         Gate::authorize('view', $server);
 
         return view('modules.server.system', compact('server'));
-    }
-
-    public function systemRefresh(Server $server, RefreshSystem $refreshSystem): JsonResponse
-    {
-        Gate::authorize('view', $server);
-
-        return response()->json($refreshSystem->handle($server));
-    }
-
-    public function systemTestConnection(Server $server, TestConnection $testConnection): JsonResponse
-    {
-        Gate::authorize('view', $server);
-
-        return response()->json($testConnection->handle($server));
-    }
-
-    public function updatePackages(Server $server, SystemUpdate $systemUpdate): JsonResponse
-    {
-        Gate::authorize('update', $server);
-
-        return response()->json($systemUpdate->handle($server));
-    }
-
-    public function upgradePackages(Server $server, SystemUpgrade $systemUpgrade): JsonResponse
-    {
-        Gate::authorize('update', $server);
-
-        return response()->json($systemUpgrade->handle($server));
-    }
-
-    public function restartServer(Server $server, SystemRestart $systemRestart): JsonResponse
-    {
-        Gate::authorize('update', $server);
-
-        return response()->json($systemRestart->handle($server));
-    }
-
-    public function stopServer(Server $server, SystemStop $systemStop): JsonResponse
-    {
-        Gate::authorize('update', $server);
-
-        return response()->json($systemStop->handle($server));
     }
 }

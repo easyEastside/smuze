@@ -28,7 +28,7 @@
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <div class="flex items-center justify-between gap-3">
                         <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Systeminformationen</p>
-                        <button type="button" onclick="refreshSystem()" class="rounded-lg border border-[#19140035] px-3 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                        <button type="button" onclick="fetchMetrics()" class="rounded-lg border border-[#19140035] px-3 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                             Aktualisieren
                         </button>
                     </div>
@@ -99,16 +99,16 @@
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <p class="text-sm text-[#f53003] dark:text-[#FF4433]">System-Aktionen</p>
                     <div class="mt-4 flex flex-wrap gap-2">
-                        <button type="button" onclick="systemAction('{{ route('server.update-packages', $server) }}', 'apt update ausführen?')" class="rounded-lg bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                        <button type="button" onclick="systemAction('apt update', 'apt update ausführen?')" class="rounded-lg bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
                             APT Update
                         </button>
-                        <button type="button" onclick="systemAction('{{ route('server.upgrade-packages', $server) }}', 'System-Upgrade ausführen? Dies kann einige Minuten dauern.')" class="rounded-lg bg-[#f59e0b] px-4 py-2 text-sm font-medium text-white hover:bg-[#d97706]">
+                        <button type="button" onclick="systemAction('apt upgrade -y', 'System-Upgrade ausführen? Dies kann einige Minuten dauern.')" class="rounded-lg bg-[#f59e0b] px-4 py-2 text-sm font-medium text-white hover:bg-[#d97706]">
                             APT Upgrade
                         </button>
-                        <button type="button" onclick="systemAction('{{ route('server.restart', $server) }}', 'Server neu starten?')" class="rounded-lg bg-[#f53003] px-4 py-2 text-sm font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:hover:bg-[#e63a2e]">
+                        <button type="button" onclick="systemAction('reboot', 'Server neu starten?')" class="rounded-lg bg-[#f53003] px-4 py-2 text-sm font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:hover:bg-[#e63a2e]">
                             Neustart
                         </button>
-                        <button type="button" onclick="systemAction('{{ route('server.stop', $server) }}', 'Server herunterfahren?')" class="rounded-lg border border-[#19140035] px-4 py-2 text-sm font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                        <button type="button" onclick="systemAction('shutdown -h now', 'Server herunterfahren?')" class="rounded-lg border border-[#19140035] px-4 py-2 text-sm font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                             Herunterfahren
                         </button>
                     </div>
@@ -224,8 +224,8 @@
 
     @push('scripts')
     <script>
-    let refreshInterval = null;
-    const systemCacheKey = 'smuze:server:{{ $server->id }}:system-info';
+    const host = '{{ $server->host }}';
+    const port = '{{ $server->agent_port ?? 9300 }}';
 
     function formatBytes(mb) {
         if (mb >= 1024) return (mb / 1024).toFixed(1) + ' GB';
@@ -255,21 +255,7 @@
         status.className = className;
     }
 
-    function setUpdateMode(label, className) {
-        const mode = document.getElementById('update-mode');
-        mode.textContent = label;
-        mode.className = className;
-    }
-
-    function renderSystemData(data, source = 'initial') {
-        window.lastSystemData = data;
-
-        try {
-            sessionStorage.setItem(systemCacheKey, JSON.stringify({ data, cached_at: Date.now() }));
-        } catch {
-            // Ignore unavailable storage.
-        }
-
+    function renderSystemData(data) {
         document.getElementById('sys-hostname').textContent = data.hostname || '-';
         document.getElementById('sys-os').textContent = data.os || '-';
         document.getElementById('sys-uptime').textContent = data.uptime || '-';
@@ -323,19 +309,9 @@
         }
 
         setConnectionStatus('Online', 'font-medium text-green-500');
-
-        if (source === 'polling') {
-            setUpdateMode('Polling', 'font-medium text-yellow-600 dark:text-yellow-400');
-        }
     }
 
-    function showSystemContent() {
-        document.getElementById('system-loading').classList.add('hidden');
-        document.getElementById('system-error').classList.add('hidden');
-        document.getElementById('system-content').classList.remove('hidden');
-    }
-
-    function refreshSystem() {
+    function fetchMetrics() {
         const loading = document.getElementById('system-loading');
         const content = document.getElementById('system-content');
         const error = document.getElementById('system-error');
@@ -344,7 +320,7 @@
         content.classList.add('hidden');
         error.classList.add('hidden');
 
-        fetch('{{ route('server.system.refresh', $server) }}')
+        fetch(`http://${host}:${port}/metrics`)
             .then(r => r.json())
             .then(data => {
                 loading.classList.add('hidden');
@@ -355,7 +331,7 @@
                     return;
                 }
 
-                renderSystemData(data, refreshInterval ? 'polling' : 'initial');
+                renderSystemData(data);
                 content.classList.remove('hidden');
             })
             .catch(err => {
@@ -363,7 +339,6 @@
                 error.textContent = 'Verbindungsfehler: ' + err.message;
                 error.classList.remove('hidden');
                 setConnectionStatus('Offline', 'font-medium text-red-500');
-                setUpdateMode('Fehler', 'font-medium text-red-500');
             });
     }
 
@@ -372,10 +347,11 @@
         btn.disabled = true;
         btn.textContent = 'Teste...';
 
-        fetch('{{ route('server.system.test-connection', $server) }}')
+        fetch(`http://${host}:${port}/health`)
             .then(r => r.json())
             .then(data => {
-                setConnectionStatus(data.success ? 'Online (' + data.latency_ms + ' ms)' : 'Offline', data.success ? 'font-medium text-green-500' : 'font-medium text-red-500');
+                const ok = data.status === 'ok' || data.status === 'healthy';
+                setConnectionStatus(ok ? 'Online' : 'Offline', ok ? 'font-medium text-green-500' : 'font-medium text-red-500');
                 btn.textContent = 'Verbindung testen';
                 btn.disabled = false;
             })
@@ -390,6 +366,30 @@
         result.className = 'mt-3 rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
         result.textContent = message;
         result.classList.remove('hidden');
+    }
+
+    function systemAction(command, confirmMsg) {
+        if (!confirm(confirmMsg)) return;
+
+        const result = document.getElementById('action-result');
+        result.className = 'mt-3 rounded-xl p-3 text-sm';
+        result.textContent = 'Führe Befehl aus...';
+        result.classList.remove('hidden');
+
+        fetch(`http://${host}:${port}/execute`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command, timeout: 120, use_sudo: true }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            result.className = 'mt-3 rounded-xl p-3 text-sm ' + (data.success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
+            result.textContent = data.message || data.output || 'Befehl ausgeführt.';
+        })
+        .catch(err => {
+            result.className = 'mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+            result.textContent = 'Fehler: ' + err.message;
+        });
     }
 
     async function installAgent() {
@@ -471,26 +471,6 @@
         setTimeout(() => window.location.reload(), 800);
     }
 
-    function systemAction(url, confirmMsg) {
-        if (!confirm(confirmMsg)) return;
-
-        const result = document.getElementById('action-result');
-        result.className = 'mt-3 rounded-xl p-3 text-sm';
-        result.textContent = 'Führe Befehl aus...';
-        result.classList.remove('hidden');
-
-        fetch(url, { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
-            .then(r => r.json())
-            .then(data => {
-                result.className = 'mt-3 rounded-xl p-3 text-sm ' + (data.success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
-                result.textContent = data.message;
-            })
-            .catch(err => {
-                result.className = 'mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
-                result.textContent = 'Fehler: ' + err.message;
-            });
-    }
-
     async function checkAgentUpdate() {
         if (!document.getElementById('agent-update-section')) return;
 
@@ -539,7 +519,7 @@
         }
     }
 
-    refreshSystem();
+    fetchMetrics();
 
     if (@json($server->agent_enabled)) {
         checkAgentUpdate();

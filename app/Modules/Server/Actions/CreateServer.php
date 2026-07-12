@@ -4,7 +4,6 @@ namespace App\Modules\Server\Actions;
 
 use App\Models\Server;
 use App\Modules\Server\Requests\StoreServerRequest;
-use App\Services\ExecutionEngine\PushAgentEngine;
 use App\Services\SshService;
 use Illuminate\Support\Str;
 
@@ -12,14 +11,12 @@ class CreateServer
 {
     public function __construct(
         private SshService $ssh,
-        private PushAgentEngine $agent,
     ) {}
 
     public function handle(StoreServerRequest $request): Server
     {
         $data = $request->validated();
         $data['use_sudo'] = $request->boolean('use_sudo');
-        $data['execution_driver'] = 'ssh';
 
         $server = $request->user()->servers()->create($data);
 
@@ -62,25 +59,6 @@ class CreateServer
             'systemctl restart smuze-agent',
         ]);
 
-        $result = $this->ssh->execute($server, $script, timeout: 120, useSudo: true);
-
-        if ($result->success) {
-            for ($i = 0; $i < 3; $i++) {
-                if ($i > 0) {
-                    sleep(1);
-                }
-
-                $connectionResult = $this->agent->test($server);
-
-                if ($connectionResult->success) {
-                    $server->forceFill([
-                        'agent_status' => 'connected',
-                        'execution_driver' => 'agent',
-                    ])->save();
-
-                    return;
-                }
-            }
-        }
+        $this->ssh->execute($server, $script, timeout: 120, useSudo: true);
     }
 }

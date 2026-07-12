@@ -13,13 +13,6 @@ Route::middleware('auth')->group(function (): void {
     Route::delete('servers/{server}', [ServerController::class, 'destroy'])->name('server.destroy');
 
     Route::get('servers/{server}/system', [ServerController::class, 'system'])->name('server.system');
-    Route::get('servers/{server}/system/refresh', [ServerController::class, 'systemRefresh'])->name('server.system.refresh');
-    Route::get('servers/{server}/system/test-connection', [ServerController::class, 'systemTestConnection'])->name('server.system.test-connection');
-
-    Route::post('servers/{server}/update', [ServerController::class, 'updatePackages'])->name('server.update-packages');
-    Route::post('servers/{server}/upgrade', [ServerController::class, 'upgradePackages'])->name('server.upgrade-packages');
-    Route::post('servers/{server}/restart', [ServerController::class, 'restartServer'])->name('server.restart');
-    Route::post('servers/{server}/stop', [ServerController::class, 'stopServer'])->name('server.stop');
 
     Route::post('servers/{server}/agent/token', [ServerAgentController::class, 'rotateToken'])->name('server.agent.token');
     Route::post('servers/{server}/agent/install', [ServerAgentController::class, 'install'])->name('server.agent.install');

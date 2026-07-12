@@ -3,12 +3,12 @@
 namespace App\Modules\Server\Firewall\Actions;
 
 use App\Models\Server;
-use App\Services\ExecutionEngine\ExecutionEngine;
+use App\Services\ExecutionEngine\PushAgentEngine;
 
 class FirewallAction
 {
     public function __construct(
-        private ExecutionEngine $engine,
+        private PushAgentEngine $engine,
     ) {}
 
     public function status(Server $server): array

@@ -79,15 +79,13 @@
             content.classList.add('hidden');
         }
 
-        fetch('{{ route('server.system.refresh', $server) }}')
+        const agentPort = {{ $server->agent_port ?? config('agent.push_port', 9300) }};
+        const agentUrl = `http://{{ $server->host }}:${agentPort}/metrics`;
+
+        fetch(agentUrl)
             .then(r => r.json())
             .then(data => {
                 loading.classList.add('hidden');
-                if (data.error) {
-                    content.innerHTML = `<div class="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">${data.error}</div>`;
-                    content.classList.remove('hidden');
-                    return;
-                }
                 cacheSystemData(data);
                 renderServicesView(data);
             })

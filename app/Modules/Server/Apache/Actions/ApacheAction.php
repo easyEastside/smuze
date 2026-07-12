@@ -3,14 +3,14 @@
 namespace App\Modules\Server\Apache\Actions;
 
 use App\Models\Server;
-use App\Services\ExecutionEngine\ExecutionEngine;
+use App\Services\ExecutionEngine\PushAgentEngine;
 
 class ApacheAction
 {
     private const HOST_REGEX = '/^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?)*$/';
 
     public function __construct(
-        private ExecutionEngine $engine,
+        private PushAgentEngine $engine,
     ) {}
 
     public function status(Server $server): array
