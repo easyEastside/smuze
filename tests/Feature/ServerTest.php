@@ -529,8 +529,18 @@ test('user can view their own services page', function () {
         ->assertSuccessful()
         ->assertSee('Dienstverwaltung')
         ->assertSee($server->name)
-        ->assertSee('Terminal Logs: '.$server->name)
-        ->assertSee('data-server-id="'.$server->id.'"', false);
+        ->assertSee('Terminal: '.$server->name)
+        ->assertSee('data-server-id="'.$server->id.'"', false)
+        ->assertSee('data-session-endpoint=', false);
+});
+
+test('floating command log is hidden on terminal page', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.terminal.index', $server))
+        ->assertSuccessful()
+        ->assertDontSee('floating-command-log');
 });
 
 test('server overview does not show floating command log without selected server', function () {

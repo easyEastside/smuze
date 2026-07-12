@@ -125,18 +125,39 @@ function initializeFloatingCommandLog() {
         return;
     }
 
-    const output = panel.querySelector('[data-command-log-output]');
+    const container = panel.querySelector('[data-command-log-output]');
+    const body = panel.querySelector('[data-command-log-body]');
     const status = panel.querySelector('[data-command-log-status]');
     const toggles = panel.querySelectorAll('[data-command-log-toggle]');
     const clearButton = panel.querySelector('[data-command-log-clear]');
+    const connectButton = panel.querySelector('[data-command-log-connect]');
+    const disconnectButton = panel.querySelector('[data-command-log-disconnect]');
     const serverId = panel.dataset.serverId;
     const debugEnabled = panel.dataset.debugEnabled === '1';
+    const sessionEndpoint = panel.dataset.sessionEndpoint;
+    const csrfToken = panel.dataset.csrfToken;
     const storageKey = `smuze:server:${serverId}:command-log`;
     const collapsedKey = `smuze:server:${serverId}:command-log-collapsed`;
 
-    if (! output || ! status || ! serverId) {
+    if (! container || ! body || ! status || ! serverId || ! sessionEndpoint || ! csrfToken || ! window.SmuzeTerminal) {
         return;
     }
+
+    const term = new window.SmuzeTerminal.Terminal({
+        cursorBlink: true,
+        convertEol: true,
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+        fontSize: 12,
+        theme: {
+            background: '#0b0f14',
+            foreground: '#d6deeb',
+            cursor: '#f53003',
+            selectionBackground: '#334155',
+        },
+    });
+    const fitAddon = new window.SmuzeTerminal.FitAddon();
+    let socket = null;
+    let isConnected = false;
 
     const readLog = () => {
         try {
@@ -154,8 +175,22 @@ function initializeFloatingCommandLog() {
         }
     };
 
+    const appendRaw = (value) => {
+        const nextLog = `${readLog()}${value}`;
+
+        writeLog(nextLog);
+        term.write(value);
+    };
+
+    const setConnectionStatus = (label, connected = false) => {
+        isConnected = connected;
+        status.textContent = label;
+        connectButton?.classList.toggle('hidden', connected);
+        disconnectButton?.classList.toggle('hidden', ! connected);
+    };
+
     const setCollapsed = (collapsed) => {
-        output.classList.toggle('hidden', collapsed);
+        body.classList.toggle('hidden', collapsed);
         toggles.forEach((toggle) => {
             toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
 
@@ -178,28 +213,137 @@ function initializeFloatingCommandLog() {
 
         const timestamp = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const prefix = level === 'error' ? 'ERR' : level === 'success' ? 'OK ' : 'CMD';
-        const nextLog = `${readLog()}[${timestamp}] ${prefix} ${message}\n`;
+        const line = `[${timestamp}] ${prefix} ${message}\r\n`;
 
-        writeLog(nextLog);
-        output.textContent = readLog();
-        output.scrollTop = output.scrollHeight;
+        appendRaw(line);
         panel.classList.remove('hidden');
     };
 
-    output.textContent = readLog();
+    const resizeTerminal = () => {
+        if (body.classList.contains('hidden')) {
+            return;
+        }
+
+        fitAddon.fit();
+
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ channel: 'terminal', type: 'resize', cols: term.cols, rows: term.rows }));
+        }
+    };
+
+    const disconnect = () => {
+        if (socket) {
+            socket.close();
+        }
+
+        socket = null;
+        setConnectionStatus('Getrennt');
+    };
+
+    const connect = () => {
+        if (isConnected || socket) {
+            return;
+        }
+
+        setCollapsed(false);
+        setConnectionStatus('Verbinde...');
+        append('SSH-Terminal wird verbunden...');
+
+        fetch(sessionEndpoint, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                Accept: 'application/json',
+            },
+        })
+            .then((response) => {
+                if (! response.ok) {
+                    throw new Error('Terminal-Session konnte nicht erstellt werden.');
+                }
+
+                return response.json();
+            })
+            .then((data) => {
+                const url = new URL(data.websocket_url);
+                url.searchParams.set('token', data.token);
+                url.searchParams.set('cols', term.cols);
+                url.searchParams.set('rows', term.rows);
+
+                socket = new WebSocket(url.toString());
+                socket.addEventListener('open', () => {
+                    setConnectionStatus('Verbunden', true);
+                    socket.send(JSON.stringify({ channel: 'terminal', type: 'open', cols: term.cols, rows: term.rows }));
+                    term.focus();
+                });
+                socket.addEventListener('message', (event) => {
+                    const payload = JSON.parse(event.data);
+
+                    if (payload.channel === 'terminal' && payload.type === 'output') {
+                        appendRaw(payload.data);
+                    }
+
+                    if (payload.type === 'error') {
+                        setConnectionStatus('Fehler');
+                        append(payload.message || 'Terminal-Fehler.', 'error');
+                    }
+
+                    if (payload.channel === 'terminal' && payload.type === 'exit') {
+                        setConnectionStatus('Beendet');
+                        append(`Session beendet (Exit ${payload.exit_code ?? 'unbekannt'}).`);
+                    }
+                });
+                socket.addEventListener('close', () => {
+                    socket = null;
+                    setConnectionStatus('Getrennt');
+                });
+                socket.addEventListener('error', () => {
+                    setConnectionStatus('Fehler');
+                    append('WebSocket-Verbindung fehlgeschlagen. Läuft npm run terminal oder composer run dev?', 'error');
+                });
+            })
+            .catch((error) => {
+                socket = null;
+                setConnectionStatus('Fehler');
+                append(`Fehler: ${error.message}`, 'error');
+            });
+    };
+
+    term.loadAddon(fitAddon);
+    term.open(container);
+    term.write(readLog());
+
+    const resizeObserver = new ResizeObserver(resizeTerminal);
+    resizeObserver.observe(container);
+
+    term.onData((data) => {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ channel: 'terminal', type: 'input', data }));
+        }
+    });
+
     panel.classList.remove('hidden');
     setCollapsed(readStoredBoolean(collapsedKey));
-    output.scrollTop = output.scrollHeight;
+    resizeTerminal();
 
     toggles.forEach((toggle) => {
         toggle.addEventListener('click', () => {
-            setCollapsed(! output.classList.contains('hidden'));
+            const collapsed = ! body.classList.contains('hidden');
+
+            setCollapsed(collapsed);
+
+            if (! collapsed) {
+                resizeTerminal();
+                term.focus();
+            }
         });
     });
 
+    connectButton?.addEventListener('click', connect);
+    disconnectButton?.addEventListener('click', disconnect);
+
     clearButton?.addEventListener('click', () => {
         writeLog('');
-        output.textContent = '';
+        term.clear();
         status.textContent = 'Logs geleert';
     });
 
@@ -207,6 +351,8 @@ function initializeFloatingCommandLog() {
         open() {
             panel.classList.remove('hidden');
             setCollapsed(false);
+            resizeTerminal();
+            term.focus();
         },
         write(message, level = 'info') {
             append(message, level);
@@ -222,9 +368,11 @@ function initializeFloatingCommandLog() {
         status(message) {
             status.textContent = message;
         },
+        connect,
+        disconnect,
         clear() {
             writeLog('');
-            output.textContent = '';
+            term.clear();
             status.textContent = 'Logs geleert';
         },
     };
