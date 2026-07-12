@@ -1,5 +1,4 @@
 <x-layouts.app title="Firewall: {{ $server->name }}">
-    <div id="websocket-status-bar" class="fixed inset-x-0 top-0 z-50 h-1 bg-red-600 transition-colors duration-200" title="WebSocket getrennt"></div>
     <section class="w-full max-w-6xl">
         <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
             <div class="flex items-center justify-between">
@@ -151,32 +150,6 @@
 
     @push('scripts')
     <script>
-    function wsInit() {
-        SmuzeServerSocket.onStatus((status) => {
-            const bar = document.getElementById('websocket-status-bar');
-            if (!bar) return;
-            const connected = status === 'connected';
-            bar.classList.toggle('bg-green-500', connected);
-            bar.classList.toggle('bg-red-600', !connected);
-            bar.title = connected ? 'WebSocket verbunden' : 'WebSocket getrennt';
-        });
-
-        SmuzeServerSocket.connect({{ $server->id }}, '{{ route('server.socket.session', $server) }}', '{{ csrf_token() }}');
-    }
-
-    if (typeof SmuzeServerSocket !== 'undefined') {
-        wsInit();
-    } else {
-        document.addEventListener('DOMContentLoaded', wsInit);
-    }
-
-    function wsFetch(channel, action) {
-        if (typeof SmuzeServerSocket !== 'undefined' && SmuzeServerSocket.isConnected) {
-            return SmuzeServerSocket.request(channel, action).then(p => p.data);
-        }
-        return Promise.reject(new Error('WS not connected'));
-    }
-
     function getProto() {
         const el = document.querySelector('input[name="fw-proto"]:checked');
         return el ? el.value : 'tcp';
@@ -214,34 +187,8 @@
         content.classList.add('hidden');
         installOverlay.classList.add('hidden');
 
-        const doHttp = () => {
-            fetch('{{ route('server.firewall.status', $server) }}')
-                .then(r => r.json())
-                .then(data => {
-                    loading.classList.add('hidden');
-
-                    if (!data.success) {
-                        loading.textContent = 'Fehler: ' + (data.error || 'Unbekannter Fehler');
-                        loading.classList.remove('hidden');
-                        return;
-                    }
-
-                    if (!data.installed) {
-                        installOverlay.classList.remove('hidden');
-                        return;
-                    }
-
-                    content.classList.remove('hidden');
-                    renderStatus(data.active);
-                    loadRules();
-                })
-                .catch(err => {
-                    loading.textContent = 'Verbindungsfehler: ' + err.message;
-                    loading.classList.remove('hidden');
-                });
-        };
-
-        wsFetch('firewall', 'status')
+        fetch('{{ route('server.firewall.status', $server) }}')
+            .then(r => r.json())
             .then(data => {
                 loading.classList.add('hidden');
 
@@ -260,7 +207,10 @@
                 renderStatus(data.active);
                 loadRules();
             })
-            .catch(doHttp);
+            .catch(err => {
+                loading.textContent = 'Verbindungsfehler: ' + err.message;
+                loading.classList.remove('hidden');
+            });
     }
 
     function renderStatus(active) {
@@ -282,10 +232,7 @@
     }
 
     function loadRules() {
-        const wsLoad = () => wsFetch('firewall', 'rules').then(data => data);
-        const httpLoad = () => fetch('{{ route('server.firewall.rules', $server) }}').then(r => r.json());
-
-        (typeof SmuzeServerSocket !== 'undefined' && SmuzeServerSocket.isConnected ? wsLoad() : httpLoad())
+        fetch('{{ route('server.firewall.rules', $server) }}').then(r => r.json())
             .then(data => {
                 const empty = document.getElementById('fw-rules-empty');
                 const table = document.getElementById('fw-rules-table');

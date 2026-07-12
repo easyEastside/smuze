@@ -1,5 +1,4 @@
 <x-layouts.app title="Dienste: {{ $server->name }}">
-    <div id="websocket-status-bar" class="fixed inset-x-0 top-0 z-50 h-1 bg-red-600 transition-colors duration-200" title="WebSocket getrennt"></div>
     <section class="w-full max-w-4xl">
         <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
             <div class="flex items-center justify-between">
@@ -30,25 +29,6 @@
 
     @push('scripts')
     <script>
-    function wsInit() {
-        SmuzeServerSocket.onStatus((status) => {
-            const bar = document.getElementById('websocket-status-bar');
-            if (!bar) return;
-            const connected = status === 'connected';
-            bar.classList.toggle('bg-green-500', connected);
-            bar.classList.toggle('bg-red-600', !connected);
-            bar.title = connected ? 'WebSocket verbunden' : 'WebSocket getrennt';
-        });
-
-        SmuzeServerSocket.connect({{ $server->id }}, '{{ route('server.socket.session', $server) }}', '{{ csrf_token() }}');
-    }
-
-    if (typeof SmuzeServerSocket !== 'undefined') {
-        wsInit();
-    } else {
-        document.addEventListener('DOMContentLoaded', wsInit);
-    }
-
     const SERVICES = [
         { key: 'php', label: 'PHP', versionField: 'php_version' },
         { key: 'apache', label: 'Apache', versionField: 'apache_version' },
@@ -99,43 +79,23 @@
             content.classList.add('hidden');
         }
 
-        const doHttp = () => {
-            fetch('{{ route('server.system.refresh', $server) }}')
-                .then(r => r.json())
-                .then(data => {
-                    loading.classList.add('hidden');
-                    if (data.error) {
-                        content.innerHTML = `<div class="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">${data.error}</div>`;
-                        content.classList.remove('hidden');
-                        return;
-                    }
-                    cacheSystemData(data);
-                    renderServicesView(data);
-                })
-                .catch(err => {
-                    loading.classList.add('hidden');
-                    content.innerHTML = `<div class="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">Verbindungsfehler: ${err.message}</div>`;
+        fetch('{{ route('server.system.refresh', $server) }}')
+            .then(r => r.json())
+            .then(data => {
+                loading.classList.add('hidden');
+                if (data.error) {
+                    content.innerHTML = `<div class="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">${data.error}</div>`;
                     content.classList.remove('hidden');
-                });
-        };
-
-        if (typeof SmuzeServerSocket !== 'undefined' && SmuzeServerSocket.isConnected) {
-            SmuzeServerSocket.request('system', 'refresh')
-                .then(p => p.data)
-                .then(data => {
-                    loading.classList.add('hidden');
-                    if (data.error) {
-                        content.innerHTML = `<div class="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">${data.error}</div>`;
-                        content.classList.remove('hidden');
-                        return;
-                    }
-                    cacheSystemData(data);
-                    renderServicesView(data);
-                })
-                .catch(doHttp);
-        } else {
-            doHttp();
-        }
+                    return;
+                }
+                cacheSystemData(data);
+                renderServicesView(data);
+            })
+            .catch(err => {
+                loading.classList.add('hidden');
+                content.innerHTML = `<div class="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">Verbindungsfehler: ${err.message}</div>`;
+                content.classList.remove('hidden');
+            });
     }
 
     function renderServicesView(data) {
@@ -199,10 +159,6 @@
         btn.textContent = action === 'install' ? 'Installiert...' : 'Deinstalliert...';
         btn.style.opacity = '1';
 
-        window.SmuzeCommandLog?.open();
-        window.SmuzeCommandLog?.status(`${label}: ${action === 'install' ? 'Installation läuft' : 'Deinstallation läuft'}`);
-        window.SmuzeCommandLog?.write(`${label}: ${action === 'install' ? 'Installation gestartet' : 'Deinstallation gestartet'}`);
-
         const installUrlTemplate = '{{ route('server.services.install.stream', ['server' => $server, 'service' => '__SERVICE__']) }}';
         const deinstallUrlTemplate = '{{ route('server.services.deinstall.stream', ['server' => $server, 'service' => '__SERVICE__']) }}';
         const finalUrl = (action === 'deinstall' ? deinstallUrlTemplate : installUrlTemplate).replace('__SERVICE__', key);
@@ -219,16 +175,14 @@
                 const status = document.getElementById('services-live-status');
                 if (status) status.textContent = data.message;
 
-                window.SmuzeCommandLog?.status(data.message);
-                window.SmuzeCommandLog?.write(data.message, data.success ? 'success' : 'error');
+        
             })
             .catch(err => {
                 result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
                 const status = document.getElementById('services-live-status');
                 if (status) status.textContent = 'Fehler: ' + err.message;
 
-                window.SmuzeCommandLog?.status('Fehler: ' + err.message);
-                window.SmuzeCommandLog?.write(`${label}: Fehler: ${err.message}`, 'error');
+
             })
             .finally(() => {
                 btn.textContent = originalButtonText;
@@ -289,14 +243,11 @@
 
         if (event.type === 'status' && status) {
             status.textContent = `${label}: ${event.data}`;
-            window.SmuzeCommandLog?.status(`${label}: ${event.data}`);
-            window.SmuzeCommandLog?.write(`${label}: ${event.data}`);
             return null;
         }
 
         if ((event.type === 'stdout' || event.type === 'stderr') && log) {
             appendServiceLog(log, event.data);
-            window.SmuzeCommandLog?.debug(String(event.data || '').trimEnd(), event.type === 'stderr' ? 'error' : 'info');
             return null;
         }
 

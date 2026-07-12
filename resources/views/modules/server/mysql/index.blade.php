@@ -1,5 +1,4 @@
 <x-layouts.app title="MySQL: {{ $server->name }}">
-    <div id="websocket-status-bar" class="fixed inset-x-0 top-0 z-50 h-1 bg-red-600 transition-colors duration-200" title="WebSocket getrennt"></div>
     <section class="w-full max-w-6xl">
         <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
             <div class="flex items-center justify-between">
@@ -139,32 +138,6 @@
 
     @push('scripts')
     <script>
-    function wsInit() {
-        SmuzeServerSocket.onStatus((status) => {
-            const bar = document.getElementById('websocket-status-bar');
-            if (!bar) return;
-            const connected = status === 'connected';
-            bar.classList.toggle('bg-green-500', connected);
-            bar.classList.toggle('bg-red-600', !connected);
-            bar.title = connected ? 'WebSocket verbunden' : 'WebSocket getrennt';
-        });
-
-        SmuzeServerSocket.connect({{ $server->id }}, '{{ route('server.socket.session', $server) }}', '{{ csrf_token() }}');
-    }
-
-    if (typeof SmuzeServerSocket !== 'undefined') {
-        wsInit();
-    } else {
-        document.addEventListener('DOMContentLoaded', wsInit);
-    }
-
-    function wsFetch(channel, action) {
-        if (typeof SmuzeServerSocket !== 'undefined' && SmuzeServerSocket.isConnected) {
-            return SmuzeServerSocket.request(channel, action).then(p => p.data);
-        }
-        return Promise.reject(new Error('WS not connected'));
-    }
-
     function showResult(msg, success) {
         const el = document.getElementById('my-result');
         el.className = 'rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
@@ -181,32 +154,8 @@
         content.classList.add('hidden');
         installOverlay.classList.add('hidden');
 
-        const doHttp = () => {
-            fetch('{{ route('server.mysql.status', $server) }}')
-                .then(r => r.json())
-                .then(data => {
-                    loading.classList.add('hidden');
-                    if (!data.success) {
-                        loading.textContent = 'Fehler: ' + (data.error || 'Unbekannter Fehler');
-                        loading.classList.remove('hidden');
-                        return;
-                    }
-                    if (!data.installed) {
-                        installOverlay.classList.remove('hidden');
-                        return;
-                    }
-                    content.classList.remove('hidden');
-                    renderMysqlStatus(data);
-                    loadDatabases();
-                    loadUsers();
-                })
-                .catch(err => {
-                    loading.textContent = 'Verbindungsfehler: ' + err.message;
-                    loading.classList.remove('hidden');
-                });
-        };
-
-        wsFetch('mysql', 'status')
+        fetch('{{ route('server.mysql.status', $server) }}')
+            .then(r => r.json())
             .then(data => {
                 loading.classList.add('hidden');
                 if (!data.success) {
@@ -223,7 +172,10 @@
                 loadDatabases();
                 loadUsers();
             })
-            .catch(doHttp);
+            .catch(err => {
+                loading.textContent = 'Verbindungsfehler: ' + err.message;
+                loading.classList.remove('hidden');
+            });
     }
 
     function renderMysqlStatus(data) {
@@ -260,10 +212,7 @@
     }
 
     function loadDatabases() {
-        const wsLoad = () => wsFetch('mysql', 'databases').then(data => data);
-        const httpLoad = () => fetch('{{ route('server.mysql.databases', $server) }}').then(r => r.json());
-
-        (typeof SmuzeServerSocket !== 'undefined' && SmuzeServerSocket.isConnected ? wsLoad() : httpLoad())
+        fetch('{{ route('server.mysql.databases', $server) }}').then(r => r.json())
             .then(data => {
                 const empty = document.getElementById('my-dbs-empty');
                 const table = document.getElementById('my-dbs-table');
@@ -357,10 +306,7 @@
     }
 
     function loadUsers() {
-        const wsLoad = () => wsFetch('mysql', 'users').then(data => data);
-        const httpLoad = () => fetch('{{ route('server.mysql.users', $server) }}').then(r => r.json());
-
-        (typeof SmuzeServerSocket !== 'undefined' && SmuzeServerSocket.isConnected ? wsLoad() : httpLoad())
+        fetch('{{ route('server.mysql.users', $server) }}').then(r => r.json())
             .then(data => {
                 const empty = document.getElementById('my-users-empty');
                 const table = document.getElementById('my-users-table');

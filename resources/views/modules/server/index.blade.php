@@ -73,12 +73,6 @@
                             >
                                 System
                             </a>
-                            <a
-                                href="{{ route('server.terminal.index', $server) }}"
-                                class="inline-flex items-center gap-2 rounded-lg border border-[#19140035] px-4 py-2 text-sm font-medium transition hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
-                            >
-                                Terminal
-                            </a>
                             <button
                                 type="button"
                                 onclick="navigator.clipboard.writeText('ssh {{ $server->username }}@{{ $server->host }} -p {{ $server->port }}').then(() => { this.textContent = 'Kopiert!'; setTimeout(() => this.textContent = 'SSH verbinden', 2000); })"

@@ -33,4 +33,3 @@ require __DIR__.'/Apache/routes.php';
 require __DIR__.'/Mysql/routes.php';
 require __DIR__.'/Github/routes.php';
 require __DIR__.'/Services/routes.php';
-require __DIR__.'/Terminal/routes.php';

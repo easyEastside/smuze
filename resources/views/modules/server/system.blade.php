@@ -1,6 +1,4 @@
 <x-layouts.app title="System: {{ $server->name }}">
-    <div id="websocket-status-bar" class="fixed inset-x-0 top-0 z-50 h-1 bg-red-600 transition-colors duration-200" title="WebSocket getrennt"></div>
-
     <section class="w-full max-w-6xl">
         <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
             <div class="flex flex-wrap items-center justify-between gap-4">
@@ -15,9 +13,6 @@
                     <button type="button" id="btn-test-connection" onclick="testConnection()" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                         Verbindung testen
                     </button>
-                    <a href="{{ route('server.terminal.index', $server) }}" class="rounded-lg bg-[#1b1b18] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
-                        Terminal
-                    </a>
                     <a href="{{ route('server.edit', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                         Bearbeiten
                     </a>
@@ -167,7 +162,6 @@
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Module</p>
                     <div class="mt-4 flex flex-col gap-2 text-sm">
-                        <a href="{{ route('server.terminal.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Terminal</a>
                         <a href="{{ route('server.services.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Dienste</a>
                         <a href="{{ route('server.firewall.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Firewall</a>
                         <a href="{{ route('server.apache.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Apache</a>
@@ -314,11 +308,7 @@
             servicesList.appendChild(div);
         }
 
-        setConnectionStatus(source === 'websocket' ? 'Live' : 'Online', 'font-medium text-green-500');
-
-        if (source === 'websocket') {
-            setUpdateMode('Live-Metrics', 'font-medium text-green-500');
-        }
+        setConnectionStatus('Online', 'font-medium text-green-500');
 
         if (source === 'polling') {
             setUpdateMode('Polling', 'font-medium text-yellow-600 dark:text-yellow-400');
@@ -485,62 +475,6 @@
                 result.className = 'mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
                 result.textContent = 'Fehler: ' + err.message;
             });
-    }
-
-    function startPollingFallback() {
-        if (refreshInterval) return;
-
-        refreshInterval = setInterval(refreshSystem, 30000);
-    }
-
-    function stopPollingFallback() {
-        if (!refreshInterval) return;
-
-        clearInterval(refreshInterval);
-        refreshInterval = null;
-    }
-
-    function wsInit() {
-        SmuzeServerSocket.onStatus((status) => {
-            const bar = document.getElementById('websocket-status-bar');
-            if (!bar) return;
-            const connected = status === 'connected';
-            bar.classList.toggle('bg-green-500', connected);
-            bar.classList.toggle('bg-red-600', !connected);
-            bar.title = connected ? 'WebSocket verbunden' : 'WebSocket getrennt';
-
-            if (connected) {
-                stopPollingFallback();
-                setUpdateMode('WebSocket verbunden', 'font-medium text-green-500');
-                SmuzeServerSocket.send('metrics', 'subscribe');
-            }
-        });
-
-        SmuzeServerSocket.onMessage((payload) => {
-            if (payload.channel === 'metrics' && payload.type === 'metrics') {
-                stopPollingFallback();
-                renderSystemData(payload.data, 'websocket');
-                showSystemContent();
-            }
-
-            if (payload.channel === 'metrics' && payload.type === 'metrics_error') {
-                const detail = payload.message ? ` (${payload.message})` : '';
-                setUpdateMode(`WebSocket verbunden, Metrics per Polling${detail}`, 'max-w-[180px] text-right font-medium text-yellow-600 dark:text-yellow-400');
-                startPollingFallback();
-            }
-
-            if (payload.type === 'error') {
-                startPollingFallback();
-            }
-        });
-
-        SmuzeServerSocket.connect({{ $server->id }}, '{{ route('server.socket.session', $server) }}', '{{ csrf_token() }}');
-    }
-
-    if (typeof SmuzeServerSocket !== 'undefined') {
-        wsInit();
-    } else {
-        document.addEventListener('DOMContentLoaded', wsInit);
     }
 
     refreshSystem();

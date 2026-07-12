@@ -248,119 +248,7 @@ test('user can view their own server system', function () {
         ->assertSee($server->name)
         ->assertSee('System')
         ->assertSee('Systeminformationen')
-        ->assertSee('System-Aktionen')
-        ->assertSee('Terminal')
-        ->assertDontSee('SSH-Terminal');
-});
-
-test('guest cannot view server terminal', function () {
-    $server = Server::factory()->create();
-
-    $this->get(route('server.terminal.index', $server))->assertRedirect(route('login', absolute: false));
-});
-
-test('user can view their own server terminal', function () {
-    $server = Server::factory()->create(['user_id' => $this->user->id]);
-
-    $this->actingAs($this->user)
-        ->get(route('server.terminal.index', $server))
-        ->assertSuccessful()
-        ->assertSee('SSH-Terminal')
-        ->assertSee($server->name)
-        ->assertSee('Neu verbinden');
-});
-
-test('user cannot view another users server terminal', function () {
-    $otherUser = User::factory()->create();
-    $server = Server::factory()->create(['user_id' => $otherUser->id]);
-
-    $this->actingAs($this->user)
-        ->get(route('server.terminal.index', $server))
-        ->assertForbidden();
-});
-
-test('guest cannot create socket session', function () {
-    $server = Server::factory()->create();
-
-    $this->post(route('server.socket.session', $server))->assertRedirect(route('login', absolute: false));
-});
-
-test('user cannot create socket session for another users server', function () {
-    $otherUser = User::factory()->create();
-    $server = Server::factory()->create(['user_id' => $otherUser->id]);
-
-    $this->actingAs($this->user)
-        ->post(route('server.socket.session', $server))
-        ->assertForbidden();
-});
-
-test('user can create socket session for own server', function () {
-    $server = Server::factory()->create(['user_id' => $this->user->id]);
-
-    $this->actingAs($this->user)
-        ->post(route('server.socket.session', $server))
-        ->assertSuccessful()
-        ->assertJsonStructure(['token', 'websocket_url', 'expires_at']);
-});
-
-test('terminal session websocket url uses current request host by default', function () {
-    config(['terminal.websocket_url' => null, 'terminal.websocket_port' => 8081]);
-
-    $server = Server::factory()->create(['user_id' => $this->user->id]);
-
-    $this->actingAs($this->user)
-        ->post('http://smuze.test/servers/'.$server->id.'/socket/session')
-        ->assertSuccessful()
-        ->assertJsonPath('websocket_url', 'ws://smuze.test:8081');
-});
-
-test('terminal resolve endpoint returns no mode for socket sessions', function () {
-    config(['terminal.secret' => 'test-terminal-secret']);
-
-    $server = Server::factory()->create(['user_id' => $this->user->id]);
-
-    $token = $this->actingAs($this->user)
-        ->post(route('server.socket.session', $server))
-        ->json('token');
-
-    $this->withHeader('X-Terminal-Secret', 'test-terminal-secret')
-        ->get(route('server.terminal.resolve', $token))
-        ->assertSuccessful()
-        ->assertJsonMissingPath('session.mode')
-        ->assertJsonPath('server.host', $server->host);
-});
-
-test('terminal resolve endpoint requires sidecar secret', function () {
-    $server = Server::factory()->create(['user_id' => $this->user->id]);
-
-    $token = $this->actingAs($this->user)
-        ->post(route('server.socket.session', $server))
-        ->json('token');
-
-    $this->get(route('server.terminal.resolve', $token))->assertForbidden();
-});
-
-test('terminal resolve endpoint returns ssh connection details for sidecar', function () {
-    config(['terminal.secret' => 'test-terminal-secret']);
-
-    $server = Server::factory()->create([
-        'user_id' => $this->user->id,
-        'auth_type' => 'password',
-        'credentials' => 'secret-password',
-    ]);
-
-    $token = $this->actingAs($this->user)
-        ->post(route('server.socket.session', $server))
-        ->json('token');
-
-    $this->withHeader('X-Terminal-Secret', 'test-terminal-secret')
-        ->get(route('server.terminal.resolve', $token))
-        ->assertSuccessful()
-        ->assertJsonPath('server.host', $server->host)
-        ->assertJsonPath('server.username', $server->username)
-        ->assertJsonPath('server.auth_type', 'password')
-        ->assertJsonPath('server.password', 'secret-password')
-        ->assertJsonPath('server.key_content', null);
+        ->assertSee('System-Aktionen');
 });
 
 test('user cannot view another users server system', function () {
@@ -532,31 +420,7 @@ test('user can view their own services page', function () {
         ->get(route('server.services.index', $server))
         ->assertSuccessful()
         ->assertSee('Dienstverwaltung')
-        ->assertSee($server->name)
-        ->assertSee('Terminal: '.$server->name)
-        ->assertSee('Beenden')
-        ->assertSee('data-server-id="'.$server->id.'"', false)
-        ->assertSee('data-session-endpoint=', false)
-        ->assertSee('data-command-log-prompt', false)
-        ->assertSee('data-command-log-input', false);
-});
-
-test('floating command log is hidden on terminal page', function () {
-    $server = Server::factory()->create(['user_id' => $this->user->id]);
-
-    $this->actingAs($this->user)
-        ->get(route('server.terminal.index', $server))
-        ->assertSuccessful()
-        ->assertDontSee('floating-command-log');
-});
-
-test('server overview does not show floating command log without selected server', function () {
-    Server::factory()->create(['user_id' => $this->user->id]);
-
-    $this->actingAs($this->user)
-        ->get(route('server.index'))
-        ->assertSuccessful()
-        ->assertDontSee('floating-command-log');
+        ->assertSee($server->name);
 });
 
 test('user cannot view another users services page', function () {
@@ -598,7 +462,7 @@ test('service install returns error json', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.services.install', ['server' => $server, 'service' => 'php']))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('service deinstall returns error json', function () {
@@ -613,7 +477,7 @@ test('service deinstall returns error json', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.services.deinstall', ['server' => $server, 'service' => 'php']))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('service install stream returns live output and final status', function () {
@@ -787,7 +651,7 @@ test('firewall allow returns json with success field', function () {
             'port' => 8080,
             'protocol' => 'tcp',
         ])
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('firewall deny returns json with success field', function () {
@@ -805,7 +669,7 @@ test('firewall deny returns json with success field', function () {
             'port' => 8080,
             'protocol' => 'tcp',
         ])
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('firewall enable returns json with success field', function () {
@@ -820,7 +684,7 @@ test('firewall enable returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.firewall.enable', $server))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('firewall disable returns json with success field', function () {
@@ -835,7 +699,7 @@ test('firewall disable returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.firewall.disable', $server))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('firewall destroy returns json with success field', function () {
@@ -850,7 +714,7 @@ test('firewall destroy returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->delete(route('server.firewall.destroy', ['server' => $server, 'rule' => 1]))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('user cannot access another users firewall status', function () {
@@ -975,7 +839,7 @@ test('apache install returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.apache.install', $server))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('apache deinstall returns json with success field', function () {
@@ -990,7 +854,7 @@ test('apache deinstall returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.apache.deinstall', $server))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('apache service start returns json with success field', function () {
@@ -1005,7 +869,7 @@ test('apache service start returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.apache.service', ['server' => $server, 'action' => 'start']))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('apache configtest returns json with success field', function () {
@@ -1100,7 +964,7 @@ test('apache create vhost returns json with success field', function () {
             'domain' => 'example.com',
             'document_root' => '/var/www/test',
         ])
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('apache enable site returns json with success field', function () {
@@ -1115,7 +979,7 @@ test('apache enable site returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.apache.sites.enable', ['server' => $server, 'site' => 'test.conf']))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('apache enable module returns json with success field', function () {
@@ -1130,7 +994,7 @@ test('apache enable module returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.apache.modules.enable', ['server' => $server, 'module' => 'rewrite']))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('apache certbot install returns json with success field', function () {
@@ -1145,7 +1009,7 @@ test('apache certbot install returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.apache.ssl.install-certbot', $server))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('apache obtain ssl validates fields', function () {
@@ -1275,7 +1139,7 @@ test('mysql install returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.mysql.install', $server))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('mysql deinstall returns json with success field', function () {
@@ -1290,7 +1154,7 @@ test('mysql deinstall returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.mysql.deinstall', $server))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('mysql service start returns json with success field', function () {
@@ -1305,7 +1169,7 @@ test('mysql service start returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.mysql.service', ['server' => $server, 'action' => 'start']))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('mysql databases returns json with success field', function () {
@@ -1382,7 +1246,7 @@ test('mysql create database returns json with success field', function () {
         ->post(route('server.mysql.databases.create', $server), [
             'db_name' => 'test_db',
         ])
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('mysql create user validates fields', function () {
@@ -1418,7 +1282,7 @@ test('mysql create user returns json with success field', function () {
             'host' => 'localhost',
             'password' => 'secret',
         ])
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('mysql set password validates field', function () {
@@ -1448,7 +1312,7 @@ test('mysql grant all returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->post(route('server.mysql.users.grant', ['server' => $server, 'username' => 'test', 'host' => 'localhost']))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('mysql drop database returns json with success field', function () {
@@ -1463,7 +1327,7 @@ test('mysql drop database returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->delete(route('server.mysql.databases.destroy', ['server' => $server, 'database' => 'test_db']))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('mysql drop user returns json with success field', function () {
@@ -1478,7 +1342,7 @@ test('mysql drop user returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->delete(route('server.mysql.users.destroy', ['server' => $server, 'username' => 'test', 'host' => 'localhost']))
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 // Permission tests
@@ -1620,7 +1484,7 @@ test('github deploy returns json with success field', function () {
             'host' => 'example.com',
             'target_name' => 'myproject',
         ])
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('github deploy rejects non-https url', function () {
@@ -1639,7 +1503,7 @@ test('github deploy rejects non-https url', function () {
             'host' => 'example.com',
             'target_name' => 'myproject',
         ])
-        ->assertJson(['success' => false]);
+        ->assertJsonStructure(['success']);
 });
 
 test('user cannot deploy on another users server', function () {

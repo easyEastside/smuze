@@ -196,9 +196,7 @@ class SshService
             mkdir($dir, 0700, true);
         }
 
-        $suffix = $server->id ?? md5($server->host.'-'.$server->port.'-'.$server->username);
-
-        return "{$dir}/server_{$suffix}";
+        return "{$dir}/server_".md5($server->host.'-'.$server->port.'-'.$server->username);
     }
 
     private function commandTimeout(Server $server, int $timeout): int
