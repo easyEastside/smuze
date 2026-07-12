@@ -38,6 +38,7 @@
         { key: 'npm', label: 'npm', versionField: 'npm_version' },
         { key: 'composer', label: 'Composer', versionField: 'composer_version' },
     ];
+    const PHP_VERSIONS = @json($phpVersions);
     const systemCacheKey = 'smuze:server:{{ $server->id }}:system-info';
 
     function cachedSystemData() {
@@ -117,7 +118,8 @@
                             <p class="text-xs text-[#706f6c] dark:text-[#A1A09A]">${installed ? version : 'Nicht installiert'}</p>
                         </div>
                     </div>
-                    <div>
+                    <div class="flex items-center gap-2">
+                        ${!installed && svc.key === 'php' ? phpVersionSelect() : ''}
                         ${installed
                             ? `<button data-service-key="${svc.key}" data-service-action="deinstall" onclick="serviceAction(this)" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Deinstallieren</button>`
                             : `<button data-service-key="${svc.key}" data-service-action="install" onclick="serviceAction(this)" class="rounded-lg bg-[#1b1b18] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">Installieren</button>`
@@ -129,6 +131,12 @@
         html += '</div>';
         content.innerHTML = html;
         content.classList.remove('hidden');
+    }
+
+    function phpVersionSelect() {
+        const options = PHP_VERSIONS.map(version => `<option value="${version}">PHP ${version}</option>`).join('');
+
+        return `<select data-php-version class="rounded-lg border border-[#19140035] bg-transparent px-2 py-1.5 text-xs dark:border-[#3E3E3A]">${options}</select>`;
     }
 
     function serviceAction(btn) {
@@ -158,7 +166,7 @@
         const deinstallUrlTemplate = '{{ route('server.services.deinstall.stream', ['server' => $server, 'service' => '__SERVICE__']) }}';
         const finalUrl = (action === 'deinstall' ? deinstallUrlTemplate : installUrlTemplate).replace('__SERVICE__', key);
 
-        readServiceActionStream(finalUrl, label, result)
+        readServiceActionStream(finalUrl, label, result, serviceActionPayload(btn))
             .then(data => {
                 if (data.success) {
                     result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
@@ -186,13 +194,25 @@
             });
     }
 
-    async function readServiceActionStream(url, label, result) {
+    function serviceActionPayload(btn) {
+        if (btn.dataset.serviceKey !== 'php' || btn.dataset.serviceAction !== 'install') {
+            return {};
+        }
+
+        const versionSelect = btn.closest('.flex').querySelector('[data-php-version]');
+
+        return { version: versionSelect ? versionSelect.value : PHP_VERSIONS[0] };
+    }
+
+    async function readServiceActionStream(url, label, result, payload = {}) {
         const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}',
                 Accept: 'application/x-ndjson',
+                'Content-Type': 'application/json',
             },
+            body: JSON.stringify(payload),
         });
 
         if (!response.ok) {

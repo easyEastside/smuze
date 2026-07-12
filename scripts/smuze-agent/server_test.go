@@ -503,10 +503,88 @@ func TestServicesInstallNpmUpdatesNpmToLatest(t *testing.T) {
 	}
 }
 
+func TestServicesInstallPhpBuildsSelectedVersionCommand(t *testing.T) {
+	command, err := servicesInstallAction().command(map[string]any{"service": "php", "version": "8.5"})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+
+	if !strings.Contains(command, "php8.5-cli") || !strings.Contains(command, "php8.5-fpm") || !strings.Contains(command, "update-alternatives --set php /usr/bin/php8.5") {
+		t.Fatalf("expected php 8.5 install command, got %s", command)
+	}
+	if strings.Contains(command, " php-cli ") || strings.Contains(command, " php-fpm ") {
+		t.Fatalf("expected versioned php packages, got %s", command)
+	}
+}
+
+func TestServicesInstallPhpSupportsLastFourVersions(t *testing.T) {
+	for _, version := range []string{"8.5", "8.4", "8.3", "8.2"} {
+		command, err := servicesInstallAction().command(map[string]any{"service": "php", "version": version})
+		if err != nil {
+			t.Fatalf("expected php %s command, got error %v", version, err)
+		}
+		if !strings.Contains(command, "php"+version+"-cli") {
+			t.Fatalf("expected php %s packages, got %s", version, command)
+		}
+	}
+}
+
+func TestServicesInstallPhpRejectsUnsupportedVersion(t *testing.T) {
+	_, err := servicesInstallAction().command(map[string]any{"service": "php", "version": "8.5; reboot"})
+	if err == nil {
+		t.Fatal("expected unsafe php version to be rejected")
+	}
+}
+
 func TestServicesInstallRejectsUnknownService(t *testing.T) {
 	_, err := servicesInstallAction().command(map[string]any{"service": "unknown"})
 	if err == nil {
 		t.Fatal("expected unknown service to be rejected")
+	}
+}
+
+func TestServicesDeinstallMysqlRemovesInstalledMysqlFamilyPackages(t *testing.T) {
+	command, err := servicesDeinstallAction().command(map[string]any{"service": "mysql"})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+
+	if !strings.Contains(command, "dpkg-query") || !strings.Contains(command, "mariadb") || !strings.Contains(command, "percona") {
+		t.Fatalf("expected robust mysql family removal command, got %s", command)
+	}
+}
+
+func TestServicesDeinstallNodeRemovesNvmAndAptNodePackages(t *testing.T) {
+	definition := servicesDeinstallAction()
+	command, err := definition.command(map[string]any{"service": "node"})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+	useSudo, err := definition.useSudo(map[string]any{"service": "node"})
+	if err != nil {
+		t.Fatalf("expected sudo flag, got error %v", err)
+	}
+
+	if !strings.Contains(command, `rm -rf "$NVM_DIR"`) || !strings.Contains(command, "dpkg-query") || !strings.Contains(command, "nodejs") || !strings.Contains(command, "npm") {
+		t.Fatalf("expected nvm and apt node removal command, got %s", command)
+	}
+	if useSudo {
+		t.Fatal("expected node deinstall command to manage sudo internally")
+	}
+}
+
+func TestServicesDeinstallNpmUsesNodeRemovalCommand(t *testing.T) {
+	nodeCommand, err := servicesDeinstallAction().command(map[string]any{"service": "node"})
+	if err != nil {
+		t.Fatalf("expected node command, got error %v", err)
+	}
+	npmCommand, err := servicesDeinstallAction().command(map[string]any{"service": "npm"})
+	if err != nil {
+		t.Fatalf("expected npm command, got error %v", err)
+	}
+
+	if npmCommand != nodeCommand {
+		t.Fatal("expected npm deinstall to remove the same node/npm runtime")
 	}
 }
 

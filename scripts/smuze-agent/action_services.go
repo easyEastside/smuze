@@ -11,9 +11,39 @@ type serviceCommand struct {
 	UseSudo bool
 }
 
+var allowedPHPVersions = map[string]bool{
+	"8.5": true,
+	"8.4": true,
+	"8.3": true,
+	"8.2": true,
+}
+
+var phpPackages = []string{
+	"cli",
+	"common",
+	"curl",
+	"mbstring",
+	"xml",
+	"zip",
+	"intl",
+	"mysql",
+	"opcache",
+	"fpm",
+	"bcmath",
+	"gd",
+	"pgsql",
+	"sqlite3",
+	"soap",
+	"readline",
+}
+
+const mysqlDeinstallCommand = `systemctl stop mysql mariadb 2>/dev/null || true && packages="$(dpkg-query -W -f='${binary:Package}\n' 2>/dev/null | grep -E '^(mysql|mariadb|percona)[A-Za-z0-9+_.:-]*$' || true)" && if [ -n "$packages" ]; then DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $packages; fi && DEBIAN_FRONTEND=noninteractive apt-get autoremove -y && DEBIAN_FRONTEND=noninteractive apt-get autoclean && rm -rf /etc/mysql /var/lib/mysql /var/lib/mariadb && DEBIAN_FRONTEND=noninteractive apt-get update`
+
+const nodeDeinstallCommand = `export NVM_DIR="$HOME/.nvm" && if [ -s "$NVM_DIR/nvm.sh" ]; then . "$NVM_DIR/nvm.sh" && nvm deactivate 2>/dev/null || true; fi && rm -rf "$NVM_DIR" "$HOME/.npm" "$HOME/.node-gyp" && for profile in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do [ -f "$profile" ] && sed -i '/NVM_DIR/d;/nvm.sh/d;/bash_completion/d' "$profile" || true; done && SUDO="" && if [ "$(id -u)" != "0" ]; then SUDO="sudo"; fi && packages="$(dpkg-query -W -f='${binary:Package}\n' 2>/dev/null | grep -E '^(nodejs|npm|libnode[0-9]*|nodejs-doc)(:|$)' || true)" && if [ -n "$packages" ]; then $SUDO DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $packages; fi && $SUDO DEBIAN_FRONTEND=noninteractive apt-get autoremove -y && $SUDO DEBIAN_FRONTEND=noninteractive apt-get autoclean`
+
 var serviceInstallCommands = map[string]serviceCommand{
 	"php": {
-		Command: "DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y php php-cli php-common php-fpm php-cgi php-mysql php-pgsql php-sqlite3 php-curl php-gd php-mbstring php-xml php-zip php-bcmath php-intl php-soap php-xmlrpc php-opcache php-readline php-pear",
+		Command: "",
 		Timeout: 300,
 		UseSudo: true,
 	},
@@ -61,12 +91,12 @@ var serviceDeinstallCommands = map[string]serviceCommand{
 		UseSudo: true,
 	},
 	"mysql": {
-		Command: "systemctl stop mysql 2>/dev/null || true && DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y mysql-server mysql-client mysql-common && DEBIAN_FRONTEND=noninteractive apt-get autoremove -y && DEBIAN_FRONTEND=noninteractive apt-get autoclean && rm -rf /etc/mysql /var/lib/mysql && DEBIAN_FRONTEND=noninteractive apt-get update",
-		Timeout: 120,
+		Command: mysqlDeinstallCommand,
+		Timeout: 180,
 		UseSudo: true,
 	},
 	"node": {
-		Command: `export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" || true && nvm deactivate 2>/dev/null || true && rm -rf "$NVM_DIR" && sed -i "/NVM_DIR/d" ~/.bashrc ~/.zshrc ~/.profile 2>/dev/null || true`,
+		Command: nodeDeinstallCommand,
 		Timeout: 120,
 		UseSudo: false,
 	},
@@ -76,7 +106,7 @@ var serviceDeinstallCommands = map[string]serviceCommand{
 		UseSudo: false,
 	},
 	"npm": {
-		Command: `export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" || true && nvm deactivate 2>/dev/null || true && rm -rf "$NVM_DIR" && sed -i "/NVM_DIR/d" ~/.bashrc ~/.zshrc ~/.profile 2>/dev/null || true`,
+		Command: nodeDeinstallCommand,
 		Timeout: 120,
 		UseSudo: false,
 	},
@@ -88,7 +118,41 @@ var serviceDeinstallCommands = map[string]serviceCommand{
 }
 
 func servicesInstallAction() actionDefinition {
-	return serviceAction("services.install", serviceInstallCommands)
+	return actionDefinition{
+		Name: "services.install",
+		BuildCommand: func(payload map[string]any) (string, error) {
+			service, err := servicePayloadName(payload)
+			if err != nil {
+				return "", err
+			}
+			if service == "php" {
+				return phpInstallCommand(payload)
+			}
+
+			definition, exists := serviceInstallCommands[service]
+			if !exists {
+				return "", errors.New("unknown service")
+			}
+
+			return definition.Command, nil
+		},
+		BuildTimeout: func(payload map[string]any) (int, error) {
+			definition, err := servicePayloadCommand(payload, serviceInstallCommands)
+			if err != nil {
+				return 0, err
+			}
+
+			return definition.Timeout, nil
+		},
+		BuildUseSudo: func(payload map[string]any) (bool, error) {
+			definition, err := servicePayloadCommand(payload, serviceInstallCommands)
+			if err != nil {
+				return false, err
+			}
+
+			return definition.UseSudo, nil
+		},
+	}
 }
 
 func servicesDeinstallAction() actionDefinition {
@@ -149,4 +213,34 @@ func servicePayloadName(payload map[string]any) (string, error) {
 	}
 
 	return service, nil
+}
+
+func phpInstallCommand(payload map[string]any) (string, error) {
+	version, err := phpPayloadVersion(payload)
+	if err != nil {
+		return "", err
+	}
+
+	packages := make([]string, 0, len(phpPackages)+1)
+	for _, name := range phpPackages {
+		packages = append(packages, "php"+version+"-"+name)
+	}
+	packages = append(packages, "php"+version+"-pear")
+	packageList := strings.Join(packages, " ")
+	module := "php" + version
+
+	return `DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common ca-certificates lsb-release apt-transport-https && if [ -f /etc/os-release ]; then . /etc/os-release; if [ "${ID:-}" = "ubuntu" ] && [ "${VERSION_ID:-}" != "26.04" ]; then add-apt-repository -y ppa:ondrej/php; fi; fi && DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y ` + packageList + ` && if [ -x /usr/bin/php` + version + ` ]; then update-alternatives --set php /usr/bin/php` + version + ` || update-alternatives --install /usr/bin/php php /usr/bin/php` + version + ` 85; fi && systemctl enable --now php` + version + `-fpm && if command -v apache2 >/dev/null 2>&1; then DEBIAN_FRONTEND=noninteractive apt-get install -y libapache2-mod-` + module + ` && for enabled_module in $(find /etc/apache2/mods-enabled -maxdepth 1 -name 'php*.load' -printf '%f\n' 2>/dev/null | sed 's/\.load$//'); do [ "$enabled_module" = "` + module + `" ] || a2dismod "$enabled_module" || true; done && a2enmod ` + module + ` && systemctl restart apache2; fi && php --version`, nil
+}
+
+func phpPayloadVersion(payload map[string]any) (string, error) {
+	version, err := payloadString(payload, "version")
+	if err != nil {
+		version = "8.5"
+	}
+	version = strings.TrimSpace(version)
+	if !allowedPHPVersions[version] {
+		return "", errors.New("unsupported php version")
+	}
+
+	return version, nil
 }

@@ -8,6 +8,7 @@ use App\Modules\Server\Services\Actions\InstallService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -17,21 +18,27 @@ class ServicesController
     {
         Gate::authorize('view', $server);
 
-        return view('modules.server.services.index', compact('server'));
+        $phpVersions = InstallService::PHP_VERSIONS;
+
+        return view('modules.server.services.index', compact('server', 'phpVersions'));
     }
 
     public function install(Request $request, Server $server, string $service, InstallService $installService): JsonResponse
     {
         Gate::authorize('update', $server);
 
-        return response()->json($installService->handle($server, $service));
+        $data = $this->validateInstallRequest($request, $service);
+
+        return response()->json($installService->handle($server, $service, phpVersion: $data['version'] ?? null));
     }
 
     public function installStream(Request $request, Server $server, string $service, InstallService $installService): StreamedResponse
     {
         Gate::authorize('update', $server);
 
-        return $this->streamServiceAction(fn (callable $emit): array => $installService->handle($server, $service, $emit));
+        $data = $this->validateInstallRequest($request, $service);
+
+        return $this->streamServiceAction(fn (callable $emit): array => $installService->handle($server, $service, $emit, $data['version'] ?? null));
     }
 
     public function deinstall(Request $request, Server $server, string $service, DeinstallService $deinstallService): JsonResponse
@@ -62,6 +69,18 @@ class ServicesController
             'Content-Type' => 'application/x-ndjson',
             'Cache-Control' => 'no-cache, no-transform',
             'X-Accel-Buffering' => 'no',
+        ]);
+    }
+
+    /** @return array{version?: string} */
+    private function validateInstallRequest(Request $request, string $service): array
+    {
+        if ($service !== 'php') {
+            return [];
+        }
+
+        return $request->validate([
+            'version' => ['nullable', 'string', Rule::in(InstallService::PHP_VERSIONS)],
         ]);
     }
 

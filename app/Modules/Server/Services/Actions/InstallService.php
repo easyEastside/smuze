@@ -7,6 +7,8 @@ use App\Services\ExecutionEngine\PushAgentEngine;
 
 class InstallService
 {
+    public const PHP_VERSIONS = ['8.5', '8.4', '8.3', '8.2'];
+
     private const LABELS = [
         'php' => 'PHP',
         'apache' => 'Apache',
@@ -22,13 +24,19 @@ class InstallService
     ) {}
 
     /** @return array<string, mixed> */
-    public function handle(Server $server, string $service, ?callable $onOutput = null): array
+    public function handle(Server $server, string $service, ?callable $onOutput = null, ?string $phpVersion = null): array
     {
         if (! array_key_exists($service, self::LABELS)) {
             return ['success' => false, 'message' => "Unbekannter Service: {$service}"];
         }
 
-        $result = $this->engine->action($server, 'services.install', ['service' => $service], $onOutput);
+        $payload = ['service' => $service];
+
+        if ($service === 'php') {
+            $payload['version'] = $phpVersion ?: self::PHP_VERSIONS[0];
+        }
+
+        $result = $this->engine->action($server, 'services.install', $payload, $onOutput);
 
         $label = self::LABELS[$service] ?? $service;
 

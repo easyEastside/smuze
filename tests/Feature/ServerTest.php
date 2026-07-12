@@ -300,6 +300,9 @@ test('user can view their own services page', function () {
         ->assertSee('Dienstverwaltung')
         ->assertSee($server->name)
         ->assertSee(route('server.agent.metrics', $server), false)
+        ->assertSee('data-php-version', false)
+        ->assertSee('"8.5"', false)
+        ->assertSee('"8.2"', false)
         ->assertSee('sessionStorage.removeItem(systemCacheKey)', false)
         ->assertDontSee("http://{$server->host}:{$server->agent_port}/metrics", false);
 });
@@ -362,7 +365,7 @@ test('service install stream returns live output and final status', function () 
         ->withArgs(function (Server $serverArgument, string $action, array $payload, callable $onOutput) use ($server): bool {
             expect($serverArgument->is($server))->toBeTrue();
             expect($action)->toBe('services.install')
-                ->and($payload)->toBe(['service' => 'php']);
+                ->and($payload)->toBe(['service' => 'php', 'version' => '8.4']);
 
             $onOutput('stdout', "Paketlisten werden gelesen...\n");
 
@@ -378,7 +381,7 @@ test('service install stream returns live output and final status', function () 
     $this->app->instance(PushAgentEngine::class, $engine);
 
     $response = $this->actingAs($this->user)
-        ->post(route('server.services.install.stream', ['server' => $server, 'service' => 'php']))
+        ->post(route('server.services.install.stream', ['server' => $server, 'service' => 'php']), ['version' => '8.4'])
         ->assertSuccessful();
 
     $content = $response->streamedContent();

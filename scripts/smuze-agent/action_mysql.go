@@ -50,7 +50,7 @@ func mysqlInstallAction() actionDefinition {
 func mysqlDeinstallAction() actionDefinition {
 	return actionDefinition{
 		Name:    "mysql.deinstall",
-		Command: "systemctl stop mysql 2>/dev/null || true && DEBIAN_FRONTEND=noninteractive apt remove --purge mysql-server mysql-client mysql-common -y && DEBIAN_FRONTEND=noninteractive apt autoremove -y && DEBIAN_FRONTEND=noninteractive apt autoclean && rm -rf /etc/mysql /var/lib/mysql",
+		Command: mysqlDeinstallCommand,
 		Timeout: 180,
 		UseSudo: true,
 	}
