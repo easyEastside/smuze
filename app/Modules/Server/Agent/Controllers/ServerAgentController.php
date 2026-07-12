@@ -3,6 +3,7 @@
 namespace App\Modules\Server\Agent\Controllers;
 
 use App\Models\Server;
+use App\Services\ExecutionEngine\PushAgentEngine;
 use App\Services\SshService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,6 +14,7 @@ class ServerAgentController
 {
     public function __construct(
         private SshService $ssh,
+        private PushAgentEngine $agent,
     ) {}
 
     public function rotateToken(Request $request, Server $server): JsonResponse
@@ -25,7 +27,8 @@ class ServerAgentController
             'agent_enabled' => true,
             'agent_token' => $token,
             'agent_status' => 'disconnected',
-            'agent_transport' => 'polling',
+            'agent_transport' => 'push',
+            'agent_port' => config('agent.push_port', 9300),
             'execution_driver' => $server->execution_driver === 'ssh' ? 'auto' : $server->execution_driver,
         ])->save();
 
@@ -36,6 +39,7 @@ class ServerAgentController
             'token' => $token,
             'server_id' => $server->id,
             'app_url' => $request->getSchemeAndHttpHost(),
+            'port' => $server->agent_port,
             'install_command' => $this->installCommand($request->getSchemeAndHttpHost(), $server, $token),
         ]);
     }
@@ -60,16 +64,18 @@ class ServerAgentController
 
         $token = 'smz_'.Str::random(64);
         $appUrl = $request->getSchemeAndHttpHost();
+        $port = config('agent.push_port', 9300);
 
         $server->forceFill([
             'agent_enabled' => true,
             'agent_token' => $token,
             'agent_status' => 'disconnected',
-            'agent_transport' => 'polling',
+            'agent_transport' => 'push',
+            'agent_port' => $port,
             'execution_driver' => $server->execution_driver === 'ssh' ? 'auto' : $server->execution_driver,
         ])->save();
 
-        $script = $this->buildRemoteInstallScript($appUrl, $server, $token);
+        $script = $this->buildRemoteInstallScript($appUrl, $server, $token, $port);
         $result = $this->ssh->execute($server, $script, timeout: 120, useSudo: true);
 
         return response()->json([
@@ -117,15 +123,9 @@ class ServerAgentController
             ]);
         }
 
-        $script = 'smuze-agent update && systemctl restart smuze-agent';
-        $result = $this->ssh->execute($server, $script, timeout: 120, useSudo: true);
+        $result = $this->agent->triggerUpdate($server);
 
-        return response()->json([
-            'success' => $result->success,
-            'message' => $result->success
-                ? 'Agent-Update gestartet.'
-                : 'Update fehlgeschlagen: '.$result->stderr,
-        ]);
+        return response()->json($result);
     }
 
     public function downloadBinary(): mixed
@@ -147,10 +147,11 @@ class ServerAgentController
             .' --app-url '.escapeshellarg($appUrl)
             .' --server-id '.escapeshellarg((string) $server->id)
             .' --token '.escapeshellarg($token)
+            .' --port '.escapeshellarg((string) $server->agent_port)
             .' && systemctl daemon-reload && systemctl restart smuze-agent';
     }
 
-    private function buildRemoteInstallScript(string $appUrl, Server $server, string $token): string
+    private function buildRemoteInstallScript(string $appUrl, Server $server, string $token, int $port): string
     {
         $downloadUrl = rtrim($appUrl, '/').'/agent/download';
         $binaryPath = '/usr/local/bin/smuze-agent';
@@ -164,7 +165,8 @@ class ServerAgentController
             $binaryPath.' install'
                 .' --app-url '.escapeshellarg($appUrl)
                 .' --server-id '.escapeshellarg((string) $server->id)
-                .' --token '.escapeshellarg($token),
+                .' --token '.escapeshellarg($token)
+                .' --port '.escapeshellarg((string) $port),
             'systemctl daemon-reload',
             'systemctl restart smuze-agent',
         ]);

@@ -11,15 +11,14 @@ import (
 )
 
 type InstallOptions struct {
-	AppURL                 string `json:"app_url"`
-	ServerID               int64  `json:"server_id"`
-	Token                  string `json:"token"`
-	PollIntervalSeconds    int    `json:"poll_interval_seconds"`
-	MetricsIntervalSeconds int    `json:"metrics_interval_seconds"`
-	ConfigPath             string `json:"-"`
-	ServicePath            string `json:"-"`
-	BinaryPath             string `json:"-"`
-	ServiceUser            string `json:"-"`
+	AppURL     string `json:"app_url"`
+	ServerID   int64  `json:"server_id"`
+	Token      string `json:"token"`
+	Port       int    `json:"port"`
+	ConfigPath string `json:"-"`
+	ServicePath string `json:"-"`
+	BinaryPath string `json:"-"`
+	ServiceUser string `json:"-"`
 }
 
 func runInstall(args []string) error {
@@ -28,12 +27,11 @@ func runInstall(args []string) error {
 	flags.StringVar(&options.AppURL, "app-url", "", "Smuze application URL")
 	flags.Int64Var(&options.ServerID, "server-id", 0, "Smuze server ID")
 	flags.StringVar(&options.Token, "token", "", "Smuze agent token")
+	flags.IntVar(&options.Port, "port", 9300, "Agent HTTP server port")
 	flags.StringVar(&options.ConfigPath, "config", "/etc/smuze/agent.json", "Agent config path")
 	flags.StringVar(&options.ServicePath, "service", "/etc/systemd/system/smuze-agent.service", "systemd service path")
 	flags.StringVar(&options.BinaryPath, "binary", "/usr/local/bin/smuze-agent", "Agent binary path")
 	flags.StringVar(&options.ServiceUser, "user", "root", "systemd service user")
-	flags.IntVar(&options.PollIntervalSeconds, "poll-interval", 2, "Polling interval in seconds")
-	flags.IntVar(&options.MetricsIntervalSeconds, "metrics-interval", 10, "Metrics interval in seconds")
 
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -73,12 +71,6 @@ func validateInstallOptions(options InstallOptions) error {
 	if strings.TrimSpace(options.BinaryPath) == "" {
 		return errors.New("--binary is required")
 	}
-	if options.PollIntervalSeconds <= 0 {
-		return errors.New("--poll-interval must be greater than zero")
-	}
-	if options.MetricsIntervalSeconds <= 0 {
-		return errors.New("--metrics-interval must be greater than zero")
-	}
 
 	return nil
 }
@@ -92,11 +84,10 @@ func writeInstallFiles(options InstallOptions) error {
 	}
 
 	configContent, err := json.MarshalIndent(fileConfig{
-		AppURL:                 strings.TrimRight(options.AppURL, "/"),
-		ServerID:               options.ServerID,
-		Token:                  options.Token,
-		PollIntervalSeconds:    options.PollIntervalSeconds,
-		MetricsIntervalSeconds: options.MetricsIntervalSeconds,
+		AppURL:   strings.TrimRight(options.AppURL, "/"),
+		ServerID: options.ServerID,
+		Token:    options.Token,
+		Port:     options.Port,
 	}, "", "  ")
 	if err != nil {
 		return err

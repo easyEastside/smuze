@@ -14,15 +14,14 @@ func TestWriteInstallFilesCreatesConfigAndService(t *testing.T) {
 	servicePath := filepath.Join(dir, "systemd", "smuze-agent.service")
 
 	options := InstallOptions{
-		AppURL:                 "https://app.example/",
-		ServerID:               42,
-		Token:                  "token",
-		PollIntervalSeconds:    2,
-		MetricsIntervalSeconds: 10,
-		ConfigPath:             configPath,
-		ServicePath:            servicePath,
-		BinaryPath:             "/usr/local/bin/smuze-agent",
-		ServiceUser:            "smuze",
+		AppURL:      "https://app.example/",
+		ServerID:    42,
+		Token:       "token",
+		Port:        9300,
+		ConfigPath:  configPath,
+		ServicePath: servicePath,
+		BinaryPath:  "/usr/local/bin/smuze-agent",
+		ServiceUser: "smuze",
 	}
 
 	if err := writeInstallFiles(options); err != nil {
@@ -39,7 +38,7 @@ func TestWriteInstallFilesCreatesConfigAndService(t *testing.T) {
 		t.Fatalf("failed to decode config: %v", err)
 	}
 
-	if cfg.AppURL != "https://app.example" || cfg.ServerID != 42 || cfg.Token != "token" {
+	if cfg.AppURL != "https://app.example" || cfg.ServerID != 42 || cfg.Token != "token" || cfg.Port != 9300 {
 		t.Fatalf("unexpected config: %+v", cfg)
 	}
 

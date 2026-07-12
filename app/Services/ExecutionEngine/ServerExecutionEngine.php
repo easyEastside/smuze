@@ -9,7 +9,7 @@ class ServerExecutionEngine implements ExecutionEngine
 {
     public function __construct(
         private SshEngine $ssh,
-        private AgentEngine $agent,
+        private PushAgentEngine $agent,
     ) {}
 
     public function execute(

@@ -4,8 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 )
@@ -33,19 +35,9 @@ func main() {
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
 
-			client := NewClient(config, "")
-			info, err := client.CheckForUpdate(ctx)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "update check failed: %v\n", err)
-				os.Exit(1)
-			}
+			downloadURL := config.AppURL + "/agent/download"
 
-			if info == nil {
-				fmt.Println("No update available")
-				return
-			}
-
-			if err := PerformUpdate(ctx, info, version); err != nil {
+			if err := performDirectUpdate(ctx, downloadURL); err != nil {
 				fmt.Fprintf(os.Stderr, "update failed: %v\n", err)
 				os.Exit(1)
 			}
@@ -55,7 +47,6 @@ func main() {
 	}
 
 	configPath := flag.String("config", "", "Path to JSON config file")
-	once := flag.Bool("once", false, "Run one polling iteration and exit")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
 
@@ -73,69 +64,62 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	client := NewClient(config, *configPath)
-	executor := NewExecutor(client)
+	srv := NewServer(config)
+	httpServer := &http.Server{
+		Addr:    fmt.Sprintf(":%d", config.Port),
+		Handler: srv.Handler(),
+	}
 
-	if update, err := client.Heartbeat(ctx, version); err != nil {
-		fmt.Fprintf(os.Stderr, "heartbeat failed: %v\n", err)
-	} else if update != nil {
-		if err := PerformUpdate(ctx, update, version); err != nil {
-			fmt.Fprintf(os.Stderr, "update failed: %v\n", err)
+	go func() {
+		fmt.Printf("Agent listening on port %d\n", config.Port)
+
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Fprintf(os.Stderr, "server error: %v\n", err)
+			os.Exit(1)
 		}
-	}
-	if err := client.Metrics(ctx, collectMetrics(), time.Now()); err != nil {
-		fmt.Fprintf(os.Stderr, "metrics failed: %v\n", err)
-	}
+	}()
 
-	if *once {
-		runPoll(ctx, client, executor)
-		return
-	}
+	<-ctx.Done()
 
-	pollTicker := time.NewTicker(config.PollInterval)
-	defer pollTicker.Stop()
-	metricsTicker := time.NewTicker(config.MetricsInterval)
-	defer metricsTicker.Stop()
-	heartbeatTicker := time.NewTicker(30 * time.Second)
-	defer heartbeatTicker.Stop()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-pollTicker.C:
-			runPoll(ctx, client, executor)
-		case <-metricsTicker.C:
-			if err := client.Metrics(ctx, collectMetrics(), time.Now()); err != nil {
-				fmt.Fprintf(os.Stderr, "metrics failed: %v\n", err)
-			}
-		case <-heartbeatTicker.C:
-			if update, err := client.Heartbeat(ctx, version); err != nil {
-				fmt.Fprintf(os.Stderr, "heartbeat failed: %v\n", err)
-			} else if update != nil {
-				if err := PerformUpdate(ctx, update, version); err != nil {
-					fmt.Fprintf(os.Stderr, "update failed: %v\n", err)
-				}
-			}
-		}
-	}
+	httpServer.Shutdown(shutdownCtx)
 }
 
-func runPoll(ctx context.Context, client *Client, executor *Executor) {
-	commands, err := client.PendingCommands(ctx, 1)
+func performDirectUpdate(ctx context.Context, downloadURL string) error {
+	executable, err := os.Executable()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "poll failed: %v\n", err)
-		return
+		return fmt.Errorf("get executable path: %w", err)
 	}
 
-	for _, command := range commands {
-		result := executor.Execute(ctx, command)
-		status := "completed"
-		if result.ExitCode != 0 {
-			status = "failed"
-		}
-		if err := client.CompleteCommand(ctx, command.ID, status, result.ExitCode, result.Stdout, result.Stderr); err != nil {
-			fmt.Fprintf(os.Stderr, "complete command %d failed: %v\n", command.ID, err)
-		}
+	absExec, err := filepath.Abs(executable)
+	if err != nil {
+		return fmt.Errorf("absolute path: %w", err)
 	}
+
+	tmpFile := absExec + ".update"
+
+	downloaded, err := downloadBinary(ctx, downloadURL, tmpFile)
+	if err != nil {
+		return fmt.Errorf("download binary: %w", err)
+	}
+
+	if len(downloaded) < 1024 {
+		os.Remove(tmpFile)
+
+		return fmt.Errorf("downloaded file too small (%d bytes), aborting", len(downloaded))
+	}
+
+	if err := os.Rename(tmpFile, absExec); err != nil {
+		return fmt.Errorf("replace binary: %w", err)
+	}
+
+	if err := os.Chmod(absExec, 0755); err != nil {
+		return fmt.Errorf("chmod binary: %w", err)
+	}
+
+	fmt.Println("Update downloaded, restarting...")
+
+	return syscall.Exec(absExec, os.Args, os.Environ())
 }

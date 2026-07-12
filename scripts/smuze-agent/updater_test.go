@@ -17,24 +17,29 @@ func TestPerformUpdateSkipsWhenNil(t *testing.T) {
 	}
 }
 
-func TestPerformUpdateDownloadsAndReplacesBinary(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("skipping exec test as root")
+func TestPerformUpdateSkipsWhenNoDownloadURL(t *testing.T) {
+	info := &UpdateInfo{LatestVersion: "0.2.0"}
+	if err := PerformUpdate(context.Background(), info, "0.1.0"); err != nil {
+		t.Fatalf("expected nil error for empty download URL, got: %v", err)
 	}
+}
 
-	originalContent := []byte("#!/bin/sh\necho old\n")
-	updatedContent := []byte("#!/bin/sh\necho new\n")
+func TestPerformUpdateSkipsCurrentVersion(t *testing.T) {
+	info := &UpdateInfo{LatestVersion: "0.1.0", DownloadURL: "http://example.test/binary"}
+	if err := PerformUpdate(context.Background(), info, "0.1.0"); err != nil {
+		t.Fatalf("expected nil error when versions match, got: %v", err)
+	}
+}
 
-	updateChecksum := sha256Hex(updatedContent)
-
+func TestPerformUpdateChecksumMismatch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(updatedContent)
+		w.Write([]byte("updated"))
 	}))
 	defer server.Close()
 
 	dir := t.TempDir()
 	oldBinary := filepath.Join(dir, "smuze-agent")
-	if err := os.WriteFile(oldBinary, originalContent, 0755); err != nil {
+	if err := os.WriteFile(oldBinary, []byte("original"), 0755); err != nil {
 		t.Fatalf("write old binary: %v", err)
 	}
 
@@ -51,46 +56,10 @@ func TestPerformUpdateDownloadsAndReplacesBinary(t *testing.T) {
 	info := &UpdateInfo{
 		LatestVersion: "0.2.0",
 		DownloadURL:   server.URL,
-		Checksum:      updateChecksum,
-	}
-
-	err = PerformUpdate(context.Background(), info, "0.1.0")
-
-	if err != nil && err.Error() != "replace binary: "+oldBinary+": device or resource busy" && err.Error() != "replace binary: "+oldBinary+": permission denied" {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	content, readErr := os.ReadFile(oldBinary)
-	if readErr != nil {
-		t.Fatalf("read old binary: %v", readErr)
-	}
-
-	if len(content) == len(updatedContent) {
-		t.Fatal("binary should not have been replaced when running as different binary")
-	}
-}
-
-func TestPerformUpdateChecksumMismatch(t *testing.T) {
-	originalContent := []byte("original")
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("updated"))
-	}))
-	defer server.Close()
-
-	dir := t.TempDir()
-	oldBinary := filepath.Join(dir, "smuze-agent")
-	if err := os.WriteFile(oldBinary, originalContent, 0755); err != nil {
-		t.Fatalf("write old binary: %v", err)
-	}
-
-	info := &UpdateInfo{
-		LatestVersion: "0.2.0",
-		DownloadURL:   server.URL + "/bad-checksum",
 		Checksum:      "0000000000000000000000000000000000000000000000000000000000000000",
 	}
 
-	err := PerformUpdate(context.Background(), info, "0.1.0")
+	err = PerformUpdate(context.Background(), info, "0.1.0")
 	if err == nil {
 		t.Fatal("expected checksum mismatch error")
 	}
@@ -136,90 +105,5 @@ func TestSha256Hex(t *testing.T) {
 
 	if got != hex.EncodeToString(expected[:]) {
 		t.Fatalf("sha256Hex mismatch: got %s, expected %s", got, hex.EncodeToString(expected[:]))
-	}
-}
-
-func TestHeartbeatReturnsUpdateInfo(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/agent/heartbeat" {
-			t.Fatalf("unexpected path: %s", r.URL.Path)
-		}
-
-		w.Write([]byte(`{
-			"success": true,
-			"update": {
-				"latest_version": "0.2.0",
-				"download_url": "https://example.test/agent/download",
-				"checksum": "abc123"
-			}
-		}`))
-	}))
-	defer server.Close()
-
-	client := NewClient(Config{AppURL: server.URL, ServerID: 42, Token: "token"}, "")
-	update, err := client.Heartbeat(context.Background(), "0.1.0")
-	if err != nil {
-		t.Fatalf("Heartbeat error: %v", err)
-	}
-
-	if update == nil {
-		t.Fatal("expected update info, got nil")
-	}
-
-	if update.LatestVersion != "0.2.0" {
-		t.Fatalf("unexpected latest version: %s", update.LatestVersion)
-	}
-	if update.DownloadURL != "https://example.test/agent/download" {
-		t.Fatalf("unexpected download URL: %s", update.DownloadURL)
-	}
-	if update.Checksum != "abc123" {
-		t.Fatalf("unexpected checksum: %s", update.Checksum)
-	}
-}
-
-func TestHeartbeatNoUpdate(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"success": true}`))
-	}))
-	defer server.Close()
-
-	client := NewClient(Config{AppURL: server.URL, ServerID: 42, Token: "token"}, "")
-	update, err := client.Heartbeat(context.Background(), "0.1.0")
-	if err != nil {
-		t.Fatalf("Heartbeat error: %v", err)
-	}
-
-	if update != nil {
-		t.Fatal("expected no update when not present in response")
-	}
-}
-
-func TestCheckForUpdateEndpoint(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/agent/update-check" {
-			t.Fatalf("unexpected path: %s", r.URL.Path)
-		}
-
-		w.Write([]byte(`{
-			"update": {
-				"latest_version": "0.3.0",
-				"download_url": "https://example.test/agent/download",
-				"checksum": "def456"
-			}
-		}`))
-	}))
-	defer server.Close()
-
-	client := NewClient(Config{AppURL: server.URL, ServerID: 42, Token: "token"}, "")
-	update, err := client.CheckForUpdate(context.Background())
-	if err != nil {
-		t.Fatalf("CheckForUpdate error: %v", err)
-	}
-
-	if update == nil {
-		t.Fatal("expected update info")
-	}
-	if update.LatestVersion != "0.3.0" {
-		t.Fatalf("unexpected latest version: %s", update.LatestVersion)
 	}
 }

@@ -35,6 +35,7 @@ class Server extends Model
         'agent_last_seen_at',
         'agent_status',
         'agent_transport',
+        'agent_port',
         'agent_metrics',
         'agent_metrics_collected_at',
         'execution_driver',

@@ -2,6 +2,7 @@
 
 use App\Models\Server;
 use App\Models\User;
+use App\Services\ExecutionEngine\PushAgentEngine;
 use App\Services\SshResult;
 use App\Services\SshService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -156,18 +157,18 @@ test('agent check-update returns update when newer version available', function 
     restoreVersionFile($saved);
 });
 
-test('agent update endpoint triggers update via ssh', function () {
+test('agent update endpoint triggers update via push', function () {
     $user = User::factory()->create();
     $server = Server::factory()->withAgent()->create([
         'user_id' => $user->id,
     ]);
 
-    $ssh = Mockery::mock(SshService::class);
-    $ssh->shouldReceive('execute')
+    $agent = Mockery::mock(PushAgentEngine::class);
+    $agent->shouldReceive('triggerUpdate')
         ->once()
-        ->with(Mockery::on(fn ($s) => $s->id === $server->id), 'smuze-agent update && systemctl restart smuze-agent', Mockery::any(), true)
-        ->andReturn(new SshResult(stdout: 'Updated to 0.2.0', stderr: '', exitCode: 0, success: true));
-    $this->app->instance(SshService::class, $ssh);
+        ->with(Mockery::on(fn ($s) => $s->is($server)))
+        ->andReturn(['success' => true, 'message' => 'Agent-Update gestartet.']);
+    $this->app->instance(PushAgentEngine::class, $agent);
 
     $this->actingAs($user)
         ->postJson(route('server.agent.update', $server))

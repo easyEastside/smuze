@@ -18,30 +18,20 @@ type UpdateInfo struct {
 	Checksum      string `json:"checksum,omitempty"`
 }
 
-type heartbeatResponse struct {
-	Success bool       `json:"success"`
-	Update  *UpdateInfo `json:"update,omitempty"`
-}
-
-func (c *Client) CheckForUpdate(ctx context.Context) (*UpdateInfo, error) {
-	var response heartbeatResponse
-	if err := c.get(ctx, "/api/agent/update-check", &response); err != nil {
-		return nil, err
-	}
-
-	return response.Update, nil
-}
-
 func PerformUpdate(ctx context.Context, info *UpdateInfo, currentVersion string) error {
-	if info == nil {
+	if info == nil || info.DownloadURL == "" {
 		return nil
 	}
 
-	if info.LatestVersion <= currentVersion {
+	if info.LatestVersion != "" && info.LatestVersion <= currentVersion {
 		return nil
 	}
 
-	fmt.Printf("Updating agent: %s -> %s\n", currentVersion, info.LatestVersion)
+	if info.LatestVersion != "" {
+		fmt.Printf("Updating agent: %s -> %s\n", currentVersion, info.LatestVersion)
+	} else {
+		fmt.Println("Updating agent...")
+	}
 
 	executable, err := os.Executable()
 	if err != nil {

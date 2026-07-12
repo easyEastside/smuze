@@ -7,31 +7,29 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type Config struct {
-	AppURL          string        `json:"app_url"`
-	ServerID        int64         `json:"server_id"`
-	Token           string        `json:"token"`
-	PollInterval    time.Duration `json:"-"`
-	MetricsInterval time.Duration `json:"-"`
+	AppURL   string `json:"app_url"`
+	ServerID int64  `json:"server_id"`
+	Token    string `json:"token"`
+	Port     int    `json:"port"`
 }
 
 type fileConfig struct {
-	AppURL                 string `json:"app_url"`
-	ServerID               int64  `json:"server_id"`
-	Token                  string `json:"token"`
-	PollIntervalSeconds    int    `json:"poll_interval_seconds"`
-	MetricsIntervalSeconds int    `json:"metrics_interval_seconds"`
+	AppURL   string `json:"app_url"`
+	ServerID int64  `json:"server_id"`
+	Token    string `json:"token"`
+	Port     int    `json:"port"`
 }
 
 func loadConfig(path string) (Config, error) {
+	port := intEnv("SMUZE_AGENT_PORT", 9300)
+
 	cfg := Config{
-		AppURL:          os.Getenv("SMUZE_APP_URL"),
-		Token:           os.Getenv("SMUZE_AGENT_TOKEN"),
-		PollInterval:    durationFromEnv("SMUZE_POLL_INTERVAL_SECONDS", 2*time.Second),
-		MetricsInterval: durationFromEnv("SMUZE_METRICS_INTERVAL_SECONDS", 10*time.Second),
+		AppURL: os.Getenv("SMUZE_APP_URL"),
+		Token:  os.Getenv("SMUZE_AGENT_TOKEN"),
+		Port:   port,
 	}
 
 	if value := os.Getenv("SMUZE_SERVER_ID"); value != "" {
@@ -57,11 +55,8 @@ func loadConfig(path string) (Config, error) {
 		if fileCfg.Token != "" {
 			cfg.Token = fileCfg.Token
 		}
-		if fileCfg.PollIntervalSeconds > 0 {
-			cfg.PollInterval = time.Duration(fileCfg.PollIntervalSeconds) * time.Second
-		}
-		if fileCfg.MetricsIntervalSeconds > 0 {
-			cfg.MetricsInterval = time.Duration(fileCfg.MetricsIntervalSeconds) * time.Second
+		if fileCfg.Port > 0 {
+			cfg.Port = fileCfg.Port
 		}
 	}
 
@@ -94,16 +89,16 @@ func loadFileConfig(path string) (fileConfig, error) {
 	return cfg, nil
 }
 
-func durationFromEnv(key string, fallback time.Duration) time.Duration {
+func intEnv(key string, fallback int) int {
 	value := os.Getenv(key)
 	if value == "" {
 		return fallback
 	}
 
-	seconds, err := strconv.Atoi(value)
-	if err != nil || seconds <= 0 {
+	n, err := strconv.Atoi(value)
+	if err != nil || n <= 0 {
 		return fallback
 	}
 
-	return time.Duration(seconds) * time.Second
+	return n
 }
