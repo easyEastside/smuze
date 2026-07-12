@@ -4,6 +4,8 @@ use App\Models\Server;
 use App\Models\ServerCommand;
 use App\Services\ExecutionEngine\AgentEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Sleep;
+use Symfony\Component\Process\Process;
 
 uses(RefreshDatabase::class);
 
@@ -30,6 +32,52 @@ test('agent engine connection test succeeds for fresh connected agent', function
 
     expect($result->success)->toBeTrue()
         ->and($result->errorMessage)->toBeNull();
+});
+
+test('agent engine streams new output chunks while waiting for completion', function () {
+    Sleep::fake();
+
+    $server = Server::factory()->withAgent()->create();
+    $sleeps = 0;
+    $output = [];
+
+    Sleep::whenFakingSleep(function () use (&$sleeps): void {
+        $sleeps++;
+        $command = ServerCommand::query()->first();
+
+        if (! $command) {
+            return;
+        }
+
+        if ($sleeps === 1) {
+            $command->forceFill([
+                'status' => ServerCommand::StatusRunning,
+                'stdout' => 'step one ',
+            ])->save();
+        }
+
+        if ($sleeps === 2) {
+            $command->forceFill([
+                'status' => ServerCommand::StatusCompleted,
+                'stdout' => 'step one done',
+                'stderr' => 'warning',
+                'exit_code' => 0,
+                'completed_at' => now(),
+            ])->save();
+        }
+    });
+
+    $result = (new AgentEngine)->execute($server, 'deploy', timeout: 5, onOutput: function (string $type, string $buffer) use (&$output): void {
+        $output[] = [$type, $buffer];
+    });
+
+    expect($result->success)->toBeTrue()
+        ->and($result->stdout)->toBe('step one done')
+        ->and($output)->toBe([
+            [Process::OUT, 'step one '],
+            [Process::OUT, 'done'],
+            [Process::ERR, 'warning'],
+        ]);
 });
 
 test('agent engine connection test fails for stale agent', function () {

@@ -7,6 +7,7 @@ use App\Models\ServerCommand;
 use App\Services\ConnectionResult;
 use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 
 class AgentEngine implements ExecutionEngine
 {
@@ -30,9 +31,12 @@ class AgentEngine implements ExecutionEngine
         ]);
 
         $deadline = microtime(true) + $timeout;
+        $stdoutOffset = 0;
+        $stderrOffset = 0;
 
         while (microtime(true) < $deadline) {
             $serverCommand->refresh();
+            [$stdoutOffset, $stderrOffset] = $this->emitOutput($serverCommand, $stdoutOffset, $stderrOffset, $onOutput);
 
             if ($serverCommand->status === ServerCommand::StatusCompleted) {
                 return $this->resultFromCommand($serverCommand, true);
@@ -51,6 +55,8 @@ class AgentEngine implements ExecutionEngine
             'exit_code' => -1,
             'failed_at' => now(),
         ])->save();
+
+        [$stdoutOffset, $stderrOffset] = $this->emitOutput($serverCommand, $stdoutOffset, $stderrOffset, $onOutput);
 
         return $this->resultFromCommand($serverCommand, false);
     }
@@ -88,5 +94,29 @@ class AgentEngine implements ExecutionEngine
             exitCode: $command->exit_code ?? -1,
             success: $success,
         );
+    }
+
+    /** @return array{0: int, 1: int} */
+    private function emitOutput(ServerCommand $command, int $stdoutOffset, int $stderrOffset, ?callable $onOutput): array
+    {
+        if ($onOutput === null) {
+            return [$stdoutOffset, $stderrOffset];
+        }
+
+        $stdout = $command->stdout ?? '';
+        if (strlen($stdout) > $stdoutOffset) {
+            $chunk = substr($stdout, $stdoutOffset);
+            $stdoutOffset = strlen($stdout);
+            $onOutput(Process::OUT, $chunk);
+        }
+
+        $stderr = $command->stderr ?? '';
+        if (strlen($stderr) > $stderrOffset) {
+            $chunk = substr($stderr, $stderrOffset);
+            $stderrOffset = strlen($stderr);
+            $onOutput(Process::ERR, $chunk);
+        }
+
+        return [$stdoutOffset, $stderrOffset];
     }
 }
