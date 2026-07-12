@@ -20,26 +20,35 @@ var allowedPHPVersions = map[string]bool{
 
 var phpPackages = []string{
 	"cli",
+	"fpm",
 	"common",
+	"mysql",
 	"curl",
 	"mbstring",
 	"xml",
 	"zip",
-	"intl",
-	"mysql",
-	"opcache",
-	"fpm",
-	"bcmath",
 	"gd",
-	"pgsql",
-	"sqlite3",
-	"soap",
-	"readline",
+	"intl",
+	"bcmath",
 }
 
-const mysqlDeinstallCommand = `systemctl stop mysql mariadb 2>/dev/null || true && packages="$(dpkg-query -W -f='${binary:Package}\n' 2>/dev/null | grep -E '^(mysql|mariadb|percona)[A-Za-z0-9+_.:-]*$' || true)" && if [ -n "$packages" ]; then DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $packages; fi && DEBIAN_FRONTEND=noninteractive apt-get autoremove -y && DEBIAN_FRONTEND=noninteractive apt-get autoclean && rm -rf /etc/mysql /var/lib/mysql /var/lib/mariadb && DEBIAN_FRONTEND=noninteractive apt-get update`
+var phpFpmVersions = []string{"8.2", "8.3", "8.4", "8.5"}
 
-const nodeDeinstallCommand = `export NVM_DIR="$HOME/.nvm" && if [ -s "$NVM_DIR/nvm.sh" ]; then . "$NVM_DIR/nvm.sh" && nvm deactivate 2>/dev/null || true; fi && rm -rf "$NVM_DIR" "$HOME/.npm" "$HOME/.node-gyp" && for profile in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do [ -f "$profile" ] && sed -i '/NVM_DIR/d;/nvm.sh/d;/bash_completion/d' "$profile" || true; done && SUDO="" && if [ "$(id -u)" != "0" ]; then SUDO="sudo"; fi && packages="$(dpkg-query -W -f='${binary:Package}\n' 2>/dev/null | grep -E '^(nodejs|npm|libnode[0-9]*|nodejs-doc)(:|$)' || true)" && if [ -n "$packages" ]; then $SUDO DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $packages; fi && $SUDO DEBIAN_FRONTEND=noninteractive apt-get autoremove -y && $SUDO DEBIAN_FRONTEND=noninteractive apt-get autoclean`
+const apacheDeinstallCommand = `systemctl disable --now apache2 2>/dev/null || true && DEBIAN_FRONTEND=noninteractive apt-get purge -y apache2 apache2-bin apache2-data apache2-utils && DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y && rm -rf /etc/apache2 && apt-get clean && systemctl daemon-reload && systemctl reset-failed`
+
+const mysqlDeinstallCommand = `systemctl disable --now mysql 2>/dev/null || true && DEBIAN_FRONTEND=noninteractive apt-get purge -y mysql-server mysql-client mysql-common && packages="$(dpkg-query -W -f='${binary:Package}\n' 2>/dev/null | grep -E '^(mysql|mariadb|percona)[A-Za-z0-9+_.:-]*$' || true)" && if [ -n "$packages" ]; then DEBIAN_FRONTEND=noninteractive apt-get purge -y $packages; fi && DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y && rm -rf /var/lib/mysql /etc/mysql /var/log/mysql /var/log/mysql.* && apt-get clean && systemctl daemon-reload && systemctl reset-failed`
+
+const nodeDeinstallCommand = `export NVM_DIR="$HOME/.nvm" && if [ -s "$NVM_DIR/nvm.sh" ]; then . "$NVM_DIR/nvm.sh" && nvm deactivate 2>/dev/null || true; fi && rm -rf "$NVM_DIR" "$HOME/.npm" "$HOME/.node-gyp" && for profile in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do [ -f "$profile" ] && sed -i '/NVM_DIR/d;/nvm.sh/d;/bash_completion/d' "$profile" || true; done && SUDO="" && if [ "$(id -u)" != "0" ]; then SUDO="sudo"; fi && packages="$(dpkg-query -W -f='${binary:Package}\n' 2>/dev/null | grep -E '^(nodejs|npm|libnode[0-9]*|nodejs-doc)(:|$)' || true)" && if [ -n "$packages" ]; then $SUDO env DEBIAN_FRONTEND=noninteractive apt-get purge -y $packages; fi && $SUDO env DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y && $SUDO apt-get clean && $SUDO systemctl daemon-reload && $SUDO systemctl reset-failed`
+
+const nvmDeinstallCommand = `export NVM_DIR="$HOME/.nvm" && if [ -s "$NVM_DIR/nvm.sh" ]; then . "$NVM_DIR/nvm.sh" && nvm deactivate 2>/dev/null || true; fi && rm -rf "$NVM_DIR" && for profile in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do [ -f "$profile" ] && sed -i '/NVM_DIR/d;/nvm.sh/d;/bash_completion/d' "$profile" || true; done`
+
+const composerDeinstallCommand = `SUDO="" && if [ "$(id -u)" != "0" ]; then SUDO="sudo"; fi && $SUDO rm -f /usr/local/bin/composer && if dpkg-query -W composer >/dev/null 2>&1; then $SUDO env DEBIAN_FRONTEND=noninteractive apt-get purge -y composer; fi && $SUDO env DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y && $SUDO apt-get clean && rm -rf "$HOME/.composer" "$HOME/.cache/composer" "$HOME/.config/composer" && $SUDO systemctl daemon-reload && $SUDO systemctl reset-failed`
+
+var phpDeinstallCommand = `for version in ` + strings.Join(phpFpmVersions, " ") + `; do a2disconf "php${version}-fpm" 2>/dev/null || true; systemctl disable --now "php${version}-fpm" 2>/dev/null || true; done && packages="$(dpkg-query -W -f='${binary:Package}\n' 2>/dev/null | grep -E '^php8\.[2345][A-Za-z0-9+_.:-]*$' || true)" && if [ -n "$packages" ]; then DEBIAN_FRONTEND=noninteractive apt-get purge -y $packages; fi && generic_packages="$(dpkg-query -W -f='${binary:Package}\n' 2>/dev/null | grep -E '^php([:-]|$)' || true)" && if [ -n "$generic_packages" ]; then DEBIAN_FRONTEND=noninteractive apt-get purge -y $generic_packages; fi && DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y && systemctl reload apache2 2>/dev/null || true && rm -f /etc/apt/sources.list.d/php.list /usr/share/keyrings/debsuryorg-archive-keyring.gpg && if dpkg-query -W debsuryorg-archive-keyring >/dev/null 2>&1; then DEBIAN_FRONTEND=noninteractive apt-get purge -y debsuryorg-archive-keyring; fi && DEBIAN_FRONTEND=noninteractive apt-get update && apt-get clean && systemctl daemon-reload && systemctl reset-failed`
+
+const nvmInstallCommand = `export NVM_DIR="$HOME/.nvm" && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.5/install.sh | bash && . "$NVM_DIR/nvm.sh"`
+
+const nodeInstallCommand = nvmInstallCommand + ` && nvm install 24 && nvm alias default 24 && nvm use 24 && node -v && npm -v`
 
 var serviceInstallCommands = map[string]serviceCommand{
 	"php": {
@@ -58,17 +67,17 @@ var serviceInstallCommands = map[string]serviceCommand{
 		UseSudo: true,
 	},
 	"node": {
-		Command: `export NVM_DIR="$HOME/.nvm" && curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash && . "$NVM_DIR/nvm.sh" && nvm install node && nvm alias default node && node --version && npm --version`,
+		Command: nodeInstallCommand,
 		Timeout: 300,
 		UseSudo: false,
 	},
 	"nvm": {
-		Command: `export NVM_DIR="$HOME/.nvm" && curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash && . "$NVM_DIR/nvm.sh" && nvm --version`,
+		Command: nvmInstallCommand + ` && nvm --version`,
 		Timeout: 120,
 		UseSudo: false,
 	},
 	"npm": {
-		Command: `export NVM_DIR="$HOME/.nvm" && curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash && . "$NVM_DIR/nvm.sh" && nvm install node && nvm use node && npm install -g npm@latest && npm --version`,
+		Command: nodeInstallCommand,
 		Timeout: 300,
 		UseSudo: false,
 	},
@@ -81,12 +90,12 @@ var serviceInstallCommands = map[string]serviceCommand{
 
 var serviceDeinstallCommands = map[string]serviceCommand{
 	"php": {
-		Command: "systemctl stop php*-fpm php*-cgi 2>/dev/null || true && DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y 'php*' && DEBIAN_FRONTEND=noninteractive apt-get autoremove -y && DEBIAN_FRONTEND=noninteractive apt-get autoclean && rm -rf /etc/php && DEBIAN_FRONTEND=noninteractive apt-get update",
-		Timeout: 120,
+		Command: phpDeinstallCommand,
+		Timeout: 180,
 		UseSudo: true,
 	},
 	"apache": {
-		Command: "systemctl stop apache2 2>/dev/null || true && DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y apache2 apache2-bin apache2-data apache2-utils && DEBIAN_FRONTEND=noninteractive apt-get autoremove -y && DEBIAN_FRONTEND=noninteractive apt-get autoclean && rm -rf /etc/apache2",
+		Command: apacheDeinstallCommand,
 		Timeout: 180,
 		UseSudo: true,
 	},
@@ -101,7 +110,7 @@ var serviceDeinstallCommands = map[string]serviceCommand{
 		UseSudo: false,
 	},
 	"nvm": {
-		Command: `rm -rf "$HOME/.nvm" && sed -i "/NVM_DIR/d" ~/.bashrc ~/.zshrc ~/.profile 2>/dev/null || true`,
+		Command: nvmDeinstallCommand,
 		Timeout: 60,
 		UseSudo: false,
 	},
@@ -111,9 +120,9 @@ var serviceDeinstallCommands = map[string]serviceCommand{
 		UseSudo: false,
 	},
 	"composer": {
-		Command: "rm -f /usr/local/bin/composer && rm -rf ~/.composer ~/.cache/composer 2>/dev/null || true",
+		Command: composerDeinstallCommand,
 		Timeout: 60,
-		UseSudo: true,
+		UseSudo: false,
 	},
 }
 
@@ -221,15 +230,14 @@ func phpInstallCommand(payload map[string]any) (string, error) {
 		return "", err
 	}
 
-	packages := make([]string, 0, len(phpPackages)+1)
+	packages := make([]string, 0, len(phpPackages))
 	for _, name := range phpPackages {
 		packages = append(packages, "php"+version+"-"+name)
 	}
-	packages = append(packages, "php"+version+"-pear")
 	packageList := strings.Join(packages, " ")
-	module := "php" + version
+	fpmConf := "php" + version + "-fpm"
 
-	return `DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common ca-certificates lsb-release apt-transport-https && if [ -f /etc/os-release ]; then . /etc/os-release; if [ "${ID:-}" = "ubuntu" ] && [ "${VERSION_ID:-}" != "26.04" ]; then add-apt-repository -y ppa:ondrej/php; fi; fi && DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y ` + packageList + ` && if [ -x /usr/bin/php` + version + ` ]; then update-alternatives --set php /usr/bin/php` + version + ` || update-alternatives --install /usr/bin/php php /usr/bin/php` + version + ` 85; fi && systemctl enable --now php` + version + `-fpm && if command -v apache2 >/dev/null 2>&1; then DEBIAN_FRONTEND=noninteractive apt-get install -y libapache2-mod-` + module + ` && for enabled_module in $(find /etc/apache2/mods-enabled -maxdepth 1 -name 'php*.load' -printf '%f\n' 2>/dev/null | sed 's/\.load$//'); do [ "$enabled_module" = "` + module + `" ] || a2dismod "$enabled_module" || true; done && a2enmod ` + module + ` && systemctl restart apache2; fi && php --version`, nil
+	return `DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y lsb-release ca-certificates curl && curl -sSLo /tmp/debsuryorg-archive-keyring.deb https://packages.sury.org/debsuryorg-archive-keyring.deb && dpkg -i /tmp/debsuryorg-archive-keyring.deb && echo "deb [signed-by=/usr/share/keyrings/debsuryorg-archive-keyring.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list && DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y ` + packageList + ` && systemctl enable --now php` + version + `-fpm && if [ -x /usr/bin/php` + version + ` ]; then update-alternatives --set php /usr/bin/php` + version + ` || update-alternatives --install /usr/bin/php php /usr/bin/php` + version + ` 85; fi && if command -v apache2 >/dev/null 2>&1; then a2enmod proxy_fcgi setenvif && for version in ` + strings.Join(phpFpmVersions, " ") + `; do a2disconf "php${version}-fpm" 2>/dev/null || true; done && a2enconf ` + fpmConf + ` && systemctl reload apache2; fi && php` + version + ` -v && php --version`, nil
 }
 
 func phpPayloadVersion(payload map[string]any) (string, error) {

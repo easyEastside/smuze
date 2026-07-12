@@ -7,7 +7,7 @@ func applySudo(command string) string {
 		return command
 	}
 
-	return "sudo DEBIAN_FRONTEND=noninteractive sh -lc " + shellQuote(command)
+	return "sudo env DEBIAN_FRONTEND=noninteractive sh -lc " + shellQuote(command)
 }
 
 func shellQuote(value string) string {

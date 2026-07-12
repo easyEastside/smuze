@@ -484,22 +484,31 @@ func TestServicesInstallNodeUsesLatestNode(t *testing.T) {
 		t.Fatalf("expected sudo flag, got error %v", err)
 	}
 
-	if !strings.Contains(command, "nvm install node") || strings.Contains(command, "nvm install 24") {
-		t.Fatalf("expected latest node install command, got %s", command)
+	if !strings.Contains(command, "nvm/v0.40.5/install.sh") || !strings.Contains(command, "nvm install 24") {
+		t.Fatalf("expected node 24 nvm install command, got %s", command)
+	}
+	if !strings.Contains(command, "node -v") || !strings.Contains(command, "npm -v") {
+		t.Fatalf("expected node and npm verification command, got %s", command)
+	}
+	if strings.Contains(command, "nvm install node") || strings.Contains(command, "apt-get install") {
+		t.Fatalf("expected node install to avoid latest alias and apt, got %s", command)
 	}
 	if useSudo {
 		t.Fatal("expected node install to run without sudo")
 	}
 }
 
-func TestServicesInstallNpmUpdatesNpmToLatest(t *testing.T) {
+func TestServicesInstallNpmUsesNode24Npm(t *testing.T) {
 	command, err := servicesInstallAction().command(map[string]any{"service": "npm"})
 	if err != nil {
 		t.Fatalf("expected command, got error %v", err)
 	}
 
-	if !strings.Contains(command, "npm install -g npm@latest") {
-		t.Fatalf("expected npm latest install command, got %s", command)
+	if !strings.Contains(command, "nvm/v0.40.5/install.sh") || !strings.Contains(command, "nvm install 24") || !strings.Contains(command, "npm -v") {
+		t.Fatalf("expected npm install via node 24 command, got %s", command)
+	}
+	if strings.Contains(command, "npm install -g npm@latest") || strings.Contains(command, "apt-get install") {
+		t.Fatalf("expected npm install to use bundled node 24 npm, got %s", command)
 	}
 }
 
@@ -512,8 +521,22 @@ func TestServicesInstallPhpBuildsSelectedVersionCommand(t *testing.T) {
 	if !strings.Contains(command, "php8.5-cli") || !strings.Contains(command, "php8.5-fpm") || !strings.Contains(command, "update-alternatives --set php /usr/bin/php8.5") {
 		t.Fatalf("expected php 8.5 install command, got %s", command)
 	}
-	if strings.Contains(command, " php-cli ") || strings.Contains(command, " php-fpm ") {
-		t.Fatalf("expected versioned php packages, got %s", command)
+	if !strings.Contains(command, "packages.sury.org/php/") || !strings.Contains(command, "debsuryorg-archive-keyring.deb") {
+		t.Fatalf("expected sury repository setup, got %s", command)
+	}
+	if !strings.Contains(command, "a2enmod proxy_fcgi setenvif") || !strings.Contains(command, "a2enconf php8.5-fpm") {
+		t.Fatalf("expected apache fpm configuration, got %s", command)
+	}
+	if strings.Contains(command, " php-cli ") || strings.Contains(command, " php-fpm ") || strings.Contains(command, "php-pear") || strings.Contains(command, "php8.5-pear") {
+		t.Fatalf("expected only listed versioned php packages, got %s", command)
+	}
+	if strings.Contains(command, "ppa:ondrej/php") || strings.Contains(command, "libapache2-mod-php") || strings.Contains(command, "a2enmod php8.5") {
+		t.Fatalf("expected no ondrej ppa or mod_php setup, got %s", command)
+	}
+	for _, packageName := range []string{"php8.5-opcache", "php8.5-pgsql", "php8.5-sqlite3", "php8.5-soap", "php8.5-readline"} {
+		if strings.Contains(command, packageName) {
+			t.Fatalf("expected %s to be excluded from listed php packages, got %s", packageName, command)
+		}
 	}
 }
 
@@ -549,8 +572,64 @@ func TestServicesDeinstallMysqlRemovesInstalledMysqlFamilyPackages(t *testing.T)
 		t.Fatalf("expected command, got error %v", err)
 	}
 
+	if !strings.Contains(command, "systemctl disable --now mysql") || !strings.Contains(command, "apt-get purge -y mysql-server mysql-client mysql-common") {
+		t.Fatalf("expected mysql service disable and package purge command, got %s", command)
+	}
 	if !strings.Contains(command, "dpkg-query") || !strings.Contains(command, "mariadb") || !strings.Contains(command, "percona") {
 		t.Fatalf("expected robust mysql family removal command, got %s", command)
+	}
+	if !strings.Contains(command, "/var/lib/mysql") || !strings.Contains(command, "/etc/mysql") || !strings.Contains(command, "/var/log/mysql") {
+		t.Fatalf("expected mysql data and config cleanup command, got %s", command)
+	}
+}
+
+func TestServicesDeinstallApachePurgesPackagesAndKeepsWebroot(t *testing.T) {
+	command, err := servicesDeinstallAction().command(map[string]any{"service": "apache"})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+
+	if !strings.Contains(command, "systemctl disable --now apache2") || !strings.Contains(command, "apt-get purge -y apache2 apache2-bin apache2-data apache2-utils") {
+		t.Fatalf("expected apache disable and purge command, got %s", command)
+	}
+	if !strings.Contains(command, "rm -rf /etc/apache2") {
+		t.Fatalf("expected apache config cleanup command, got %s", command)
+	}
+	if strings.Contains(command, "/var/www") {
+		t.Fatalf("expected apache deinstall to preserve webroot, got %s", command)
+	}
+}
+
+func TestServicesDeinstallPhpRemovesFpmVersionsAndSuryRepository(t *testing.T) {
+	command, err := servicesDeinstallAction().command(map[string]any{"service": "php"})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+
+	for _, version := range []string{"8.2", "8.3", "8.4", "8.5"} {
+		if !strings.Contains(command, version) {
+			t.Fatalf("expected php %s fpm cleanup, got %s", version, command)
+		}
+	}
+	if !strings.Contains(command, "a2disconf") || !strings.Contains(command, "systemctl disable --now") || !strings.Contains(command, "^php8\\.[2345]") {
+		t.Fatalf("expected php fpm and versioned package cleanup command, got %s", command)
+	}
+	if !strings.Contains(command, "/etc/apt/sources.list.d/php.list") || !strings.Contains(command, "debsuryorg-archive-keyring") {
+		t.Fatalf("expected sury repository removal command, got %s", command)
+	}
+}
+
+func TestServicesDeinstallNvmOnlyRemovesNvmFiles(t *testing.T) {
+	command, err := servicesDeinstallAction().command(map[string]any{"service": "nvm"})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+
+	if !strings.Contains(command, `rm -rf "$NVM_DIR"`) || !strings.Contains(command, "NVM_DIR") || !strings.Contains(command, "nvm.sh") {
+		t.Fatalf("expected nvm shell cleanup command, got %s", command)
+	}
+	if strings.Contains(command, "apt-get") || strings.Contains(command, "nodejs") || strings.Contains(command, "npm") {
+		t.Fatalf("expected nvm deinstall to avoid apt node/npm removal, got %s", command)
 	}
 }
 
@@ -565,7 +644,10 @@ func TestServicesDeinstallNodeRemovesNvmAndAptNodePackages(t *testing.T) {
 		t.Fatalf("expected sudo flag, got error %v", err)
 	}
 
-	if !strings.Contains(command, `rm -rf "$NVM_DIR"`) || !strings.Contains(command, "dpkg-query") || !strings.Contains(command, "nodejs") || !strings.Contains(command, "npm") {
+	if !strings.Contains(command, `rm -rf "$NVM_DIR"`) || !strings.Contains(command, `"$HOME/.npm"`) || !strings.Contains(command, `"$HOME/.node-gyp"`) {
+		t.Fatalf("expected nvm and node cache cleanup command, got %s", command)
+	}
+	if !strings.Contains(command, "dpkg-query") || !strings.Contains(command, "nodejs") || !strings.Contains(command, "npm") || !strings.Contains(command, "apt-get purge") {
 		t.Fatalf("expected nvm and apt node removal command, got %s", command)
 	}
 	if useSudo {
@@ -585,6 +667,28 @@ func TestServicesDeinstallNpmUsesNodeRemovalCommand(t *testing.T) {
 
 	if npmCommand != nodeCommand {
 		t.Fatal("expected npm deinstall to remove the same node/npm runtime")
+	}
+}
+
+func TestServicesDeinstallComposerRemovesGlobalBinaryAptPackageAndCaches(t *testing.T) {
+	definition := servicesDeinstallAction()
+	command, err := definition.command(map[string]any{"service": "composer"})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+	useSudo, err := definition.useSudo(map[string]any{"service": "composer"})
+	if err != nil {
+		t.Fatalf("expected sudo flag, got error %v", err)
+	}
+
+	if !strings.Contains(command, "/usr/local/bin/composer") || !strings.Contains(command, "apt-get purge -y composer") {
+		t.Fatalf("expected global and apt composer removal command, got %s", command)
+	}
+	if !strings.Contains(command, `"$HOME/.composer"`) || !strings.Contains(command, `"$HOME/.cache/composer"`) || !strings.Contains(command, `"$HOME/.config/composer"`) {
+		t.Fatalf("expected composer user cache cleanup command, got %s", command)
+	}
+	if useSudo {
+		t.Fatal("expected composer deinstall command to manage sudo internally")
 	}
 }
 

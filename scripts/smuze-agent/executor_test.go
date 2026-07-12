@@ -11,7 +11,7 @@ func TestShellQuoteEscapesSingleQuotes(t *testing.T) {
 
 func TestApplySudoWrapsCommand(t *testing.T) {
 	wrapped := applySudo("apt update && echo 'ok'")
-	expected := "sudo DEBIAN_FRONTEND=noninteractive sh -lc 'apt update && echo '\\''ok'\\'''"
+	expected := "sudo env DEBIAN_FRONTEND=noninteractive sh -lc 'apt update && echo '\\''ok'\\'''"
 	if wrapped != expected {
 		t.Fatalf("unexpected sudo wrapper:\n%s", wrapped)
 	}
