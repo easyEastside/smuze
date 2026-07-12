@@ -221,7 +221,9 @@ class SshService
             return $command;
         }
 
-        return 'sudo DEBIAN_FRONTEND=noninteractive sh -lc '.escapeshellarg($command);
+        $quoted = str_replace("'", "'\\''", $command);
+
+        return "sudo DEBIAN_FRONTEND=noninteractive sh -lc '{$quoted}'";
     }
 
     private function classifyError(string $output, string $command): string

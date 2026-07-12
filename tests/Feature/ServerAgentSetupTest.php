@@ -85,7 +85,7 @@ test('user can install agent via ssh bootstrap', function () {
     $this->actingAs($user)
         ->postJson(route('server.agent.install', $server))
         ->assertSuccessful()
-        ->assertJson(['success' => false]);
+        ->assertJson(['success' => true]);
 
     $server->refresh();
 
