@@ -145,6 +145,10 @@
         el.classList.remove('hidden');
     }
 
+    function routeSegment(value) {
+        return encodeURIComponent(value);
+    }
+
     function refreshMysql() {
         const loading = document.getElementById('my-loading');
         const content = document.getElementById('my-content');
@@ -282,7 +286,7 @@
     function dropDatabase(db) {
         if (!confirm('Datenbank "' + db + '" wirklich löschen? Dies kann nicht rückgängig gemacht werden.')) return;
         showResult('Lösche Datenbank...', true);
-        fetch('{{ route('server.mysql.databases.destroy', ['server' => $server, 'database' => '__DB__']) }}'.replace('__DB__', db), { method: 'DELETE', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+        fetch('{{ route('server.mysql.databases.destroy', ['server' => $server, 'database' => '__DB__']) }}'.replace('__DB__', routeSegment(db)), { method: 'DELETE', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
             .then(r => r.json())
             .then(data => {
                 showResult(data.message, data.success);
@@ -293,7 +297,7 @@
 
     function showTables(db) {
         showResult('Lade Tabellen für ' + db + '...', true);
-        fetch('{{ route('server.mysql.databases.tables', ['server' => $server, 'database' => '__DB__']) }}'.replace('__DB__', db))
+        fetch('{{ route('server.mysql.databases.tables', ['server' => $server, 'database' => '__DB__']) }}'.replace('__DB__', routeSegment(db)))
             .then(r => r.json())
             .then(data => {
                 if (!data.success || !data.tables || data.tables.length === 0) {
@@ -385,7 +389,7 @@
             const pw = prompt('Neues Passwort für ' + username + '@' + host + ':');
             if (!pw) return;
             showResult('Setze Passwort...', true);
-            fetch('{{ route('server.mysql.users.password', ['server' => $server, 'username' => '__USER__', 'host' => '__HOST__']) }}'.replace('__USER__', username).replace('__HOST__', host), {
+            fetch('{{ route('server.mysql.users.password', ['server' => $server, 'username' => '__USER__', 'host' => '__HOST__']) }}'.replace('__USER__', routeSegment(username)).replace('__HOST__', routeSegment(host)), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
                 body: JSON.stringify({ password: pw }),
@@ -399,8 +403,8 @@
             return;
         }
         const url = action === 'grant'
-            ? '{{ route('server.mysql.users.grant', ['server' => $server, 'username' => '__USER__', 'host' => '__HOST__']) }}'.replace('__USER__', username).replace('__HOST__', host)
-            : '{{ route('server.mysql.users.destroy', ['server' => $server, 'username' => '__USER__', 'host' => '__HOST__']) }}'.replace('__USER__', username).replace('__HOST__', host);
+            ? '{{ route('server.mysql.users.grant', ['server' => $server, 'username' => '__USER__', 'host' => '__HOST__']) }}'.replace('__USER__', routeSegment(username)).replace('__HOST__', routeSegment(host))
+            : '{{ route('server.mysql.users.destroy', ['server' => $server, 'username' => '__USER__', 'host' => '__HOST__']) }}'.replace('__USER__', routeSegment(username)).replace('__HOST__', routeSegment(host));
         const method = action === 'drop' ? 'DELETE' : 'POST';
 
         showResult('Führe Befehl aus...', true);

@@ -167,6 +167,10 @@
         el.classList.remove('hidden');
     }
 
+    function routeSegment(value) {
+        return encodeURIComponent(value);
+    }
+
     function refreshApache() {
         const loading = document.getElementById('ap-loading');
         const content = document.getElementById('ap-content');
@@ -292,8 +296,8 @@
         showResult('Site wird ' + label + '...', true);
 
         const url = action === 'enable'
-            ? '{{ route('server.apache.sites.enable', ['server' => $server, 'site' => '__SITE__']) }}'.replace('__SITE__', site)
-            : '{{ route('server.apache.sites.disable', ['server' => $server, 'site' => '__SITE__']) }}'.replace('__SITE__', site);
+            ? '{{ route('server.apache.sites.enable', ['server' => $server, 'site' => '__SITE__']) }}'.replace('__SITE__', routeSegment(site))
+            : '{{ route('server.apache.sites.disable', ['server' => $server, 'site' => '__SITE__']) }}'.replace('__SITE__', routeSegment(site));
 
         fetch(url, { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
             .then(r => r.json())
@@ -308,7 +312,7 @@
         if (!confirm('Site ' + site + ' wirklich löschen?')) return;
         showResult('Lösche Site...', true);
 
-        fetch('{{ route('server.apache.sites.delete', ['server' => $server, 'site' => '__SITE__']) }}'.replace('__SITE__', site), { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+        fetch('{{ route('server.apache.sites.delete', ['server' => $server, 'site' => '__SITE__']) }}'.replace('__SITE__', routeSegment(site)), { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
             .then(r => r.json())
             .then(data => {
                 showResult(data.message, data.success);
@@ -416,8 +420,8 @@
         showResult('Modul wird ' + label + '...', true);
 
         const url = action === 'enable'
-            ? '{{ route('server.apache.modules.enable', ['server' => $server, 'module' => '__MOD__']) }}'.replace('__MOD__', mod)
-            : '{{ route('server.apache.modules.disable', ['server' => $server, 'module' => '__MOD__']) }}'.replace('__MOD__', mod);
+            ? '{{ route('server.apache.modules.enable', ['server' => $server, 'module' => '__MOD__']) }}'.replace('__MOD__', routeSegment(mod))
+            : '{{ route('server.apache.modules.disable', ['server' => $server, 'module' => '__MOD__']) }}'.replace('__MOD__', routeSegment(mod));
 
         fetch(url, { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
             .then(r => r.json())

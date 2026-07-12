@@ -712,7 +712,8 @@ test('user can view their own apache page', function () {
         ->get(route('server.apache.index', $server))
         ->assertSuccessful()
         ->assertSee('Apache-Webserver-Verwaltung')
-        ->assertSee($server->name);
+        ->assertSee($server->name)
+        ->assertSee('encodeURIComponent(value)', false);
 });
 
 test('user cannot view another users apache page', function () {
@@ -962,7 +963,8 @@ test('user can view their own mysql page', function () {
         ->get(route('server.mysql.index', $server))
         ->assertSuccessful()
         ->assertSee('MySQL-Datenbank-Verwaltung')
-        ->assertSee($server->name);
+        ->assertSee($server->name)
+        ->assertSee('encodeURIComponent(value)', false);
 });
 
 test('user cannot view another users mysql page', function () {
