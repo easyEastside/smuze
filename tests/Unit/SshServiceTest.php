@@ -58,3 +58,18 @@ test('ssh service disconnects gracefully', function () {
 
     expect(true)->toBeTrue();
 });
+
+test('ssh service wraps complex commands in sudo shell', function () {
+    $service = new SshService;
+    $method = new ReflectionMethod($service, 'applySudo');
+
+    $command = 'EXPECTED_CHECKSUM="$(curl -sS https://composer.github.io/installer.sig)" && if [ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]; then exit 1; fi && mv composer.phar /usr/local/bin/composer';
+
+    $wrapped = $method->invoke($service, $command);
+
+    expect($wrapped)
+        ->toStartWith('sudo DEBIAN_FRONTEND=noninteractive sh -lc ')
+        ->toContain('EXPECTED_CHECKSUM')
+        ->toContain('mv composer.phar /usr/local/bin/composer')
+        ->not->toContain('sudo DEBIAN_FRONTEND=noninteractive EXPECTED_CHECKSUM');
+});

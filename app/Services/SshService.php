@@ -217,14 +217,7 @@ class SshService
             return $command;
         }
 
-        if (str_starts_with($command, 'sh -c ') || str_starts_with($command, 'bash -c ')) {
-            $inner = substr($command, 6);
-            $inner = trim($inner, "'\" \t\n\r\0\x0B");
-
-            return 'sudo DEBIAN_FRONTEND=noninteractive sh -c '.escapeshellarg($inner);
-        }
-
-        return "sudo DEBIAN_FRONTEND=noninteractive {$command}";
+        return 'sudo DEBIAN_FRONTEND=noninteractive sh -lc '.escapeshellarg($command);
     }
 
     private function classifyError(string $output, string $command): string
