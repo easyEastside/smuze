@@ -31,6 +31,26 @@ func TestPerformUpdateSkipsCurrentVersion(t *testing.T) {
 	}
 }
 
+func TestIsNewerVersion(t *testing.T) {
+	cases := []struct {
+		latest  string
+		current string
+		want    bool
+	}{
+		{latest: "0.2.0", current: "0.1.9", want: true},
+		{latest: "0.10.0", current: "0.2.0", want: true},
+		{latest: "0.2.0", current: "0.2.0", want: false},
+		{latest: "0.1.9", current: "0.2.0", want: false},
+		{latest: "v1.0.0", current: "0.9.9", want: true},
+	}
+
+	for _, tt := range cases {
+		if got := isNewerVersion(tt.latest, tt.current); got != tt.want {
+			t.Fatalf("isNewerVersion(%q, %q) = %v, want %v", tt.latest, tt.current, got, tt.want)
+		}
+	}
+}
+
 func TestPerformUpdateChecksumMismatch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("updated"))

@@ -85,7 +85,11 @@ class ServerAgentController
     {
         Gate::authorize('view', $server);
 
-        $latestVersion = config('agent.latest_version', '0.1.0');
+        $release = $this->agentRelease();
+        $latestVersion = $release['version'] ?? config('agent.latest_version', '0.1.0');
+        $this->refreshAgentHealth($server);
+        $server->refresh();
+
         $currentVersion = $server->agent_version ?? '0.0.0';
         $hasUpdate = version_compare($latestVersion, $currentVersion, '>');
 
@@ -93,18 +97,26 @@ class ServerAgentController
             'has_update' => $hasUpdate,
             'current_version' => $currentVersion,
             'latest_version' => $latestVersion,
+            'download_url' => $request->getSchemeAndHttpHost().'/agent/download',
         ];
 
-        if ($hasUpdate) {
-            $versionPath = storage_path('app/agent/version.json');
-
-            if (file_exists($versionPath)) {
-                $versionData = json_decode(file_get_contents($versionPath), true);
-                $response['checksum'] = $versionData['checksum'] ?? '';
-            }
+        if (($release['checksum'] ?? '') !== '') {
+            $response['checksum'] = $release['checksum'];
         }
 
         return response()->json($response);
+    }
+
+    public function version(Request $request): JsonResponse
+    {
+        $release = $this->agentRelease();
+        $latestVersion = $release['version'] ?? config('agent.latest_version', '0.1.0');
+
+        return response()->json([
+            'latest_version' => $latestVersion,
+            'download_url' => $request->getSchemeAndHttpHost().'/agent/download',
+            'checksum' => $release['checksum'] ?? '',
+        ]);
     }
 
     public function updateAgent(Request $request, Server $server): JsonResponse
@@ -136,6 +148,20 @@ class ServerAgentController
         ]);
     }
 
+    /** @return array{version?: string, checksum?: string} */
+    private function agentRelease(): array
+    {
+        $versionPath = storage_path('app/agent/version.json');
+
+        if (! file_exists($versionPath)) {
+            return [];
+        }
+
+        $release = json_decode(file_get_contents($versionPath), true);
+
+        return is_array($release) ? $release : [];
+    }
+
     private function installCommand(string $appUrl, Server $server, string $token): string
     {
         $downloadUrl = rtrim($appUrl, '/').'/agent/download';
@@ -165,7 +191,13 @@ class ServerAgentController
                 ->acceptJson()
                 ->get($this->agentBaseUrl($server).'/health');
 
-            return response()->json($response->json() ?: ['error' => 'invalid_response'], $response->status());
+            $data = $response->json() ?: ['error' => 'invalid_response'];
+
+            if ($response->successful()) {
+                $this->recordAgentHealth($server, $data);
+            }
+
+            return response()->json($data, $response->status());
         } catch (ConnectionException) {
             return response()->json(['error' => 'Agent nicht erreichbar'], 503);
         }
@@ -325,6 +357,37 @@ class ServerAgentController
         $port = $server->agent_port ?? config('agent.push_port', 9300);
 
         return "http://{$server->host}:{$port}";
+    }
+
+    private function refreshAgentHealth(Server $server): void
+    {
+        if (! $server->agent_enabled || blank($server->agent_token)) {
+            return;
+        }
+
+        try {
+            $response = Http::timeout(2)
+                ->withToken($server->agent_token)
+                ->acceptJson()
+                ->get($this->agentBaseUrl($server).'/health');
+
+            if ($response->successful()) {
+                $this->recordAgentHealth($server, $response->json() ?: []);
+            }
+        } catch (ConnectionException) {
+            // The update check should still return the stored version if the agent is restarting.
+        }
+    }
+
+    /** @param array<string, mixed> $data */
+    private function recordAgentHealth(Server $server, array $data): void
+    {
+        $server->forceFill([
+            'agent_enabled' => true,
+            'agent_version' => $data['version'] ?? $server->agent_version,
+            'agent_last_seen_at' => now(),
+            'agent_status' => 'connected',
+        ])->save();
     }
 
     private function recordProxyCommand(

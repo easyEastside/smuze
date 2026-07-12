@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
 	"sync"
 	"time"
@@ -233,17 +234,31 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var info UpdateInfo
+	r.Body = http.MaxBytesReader(w, r.Body, maxActionBodyBytes)
+	if err := json.NewDecoder(r.Body).Decode(&info); err != nil {
+		http.Error(w, `{"error":"invalid request"}`, http.StatusBadRequest)
+		return
+	}
+
+	if info.DownloadURL == "" {
+		http.Error(w, `{"error":"download_url is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	if info.LatestVersion != "" && !isNewerVersion(info.LatestVersion, version) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"success": true, "message": "Agent is already up to date"})
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]any{"success": true, "message": "Update started"})
 
 	go func() {
-		downloadURL := s.config.AppURL + "/agent/download"
-		info := &UpdateInfo{
-			LatestVersion: "",
-			DownloadURL:   downloadURL,
+		if err := PerformUpdate(context.Background(), &info, version); err != nil {
+			fmt.Fprintf(os.Stderr, "update failed: %v\n", err)
 		}
-
-		PerformUpdate(context.Background(), info, version)
 	}()
 }

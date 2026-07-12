@@ -232,11 +232,21 @@ class PushAgentEngine
 
     public function triggerUpdate(Server $server): array
     {
+        $release = $this->agentRelease();
+
+        if (($release['version'] ?? '') === '') {
+            return ['success' => false, 'message' => 'Kein Agent-Release registriert.'];
+        }
+
         try {
             $response = Http::timeout(5)
                 ->withToken($server->agent_token)
                 ->acceptJson()
-                ->post($this->agentUrl($server).'/update');
+                ->post($this->agentUrl($server).'/update', [
+                    'latest_version' => $release['version'],
+                    'download_url' => url('/agent/download'),
+                    'checksum' => $release['checksum'] ?? '',
+                ]);
 
             if ($response->successful()) {
                 return ['success' => true, 'message' => 'Agent-Update gestartet.'];
@@ -246,6 +256,20 @@ class PushAgentEngine
         } catch (\Throwable $e) {
             return ['success' => false, 'message' => 'Update fehlgeschlagen: '.$e->getMessage()];
         }
+    }
+
+    /** @return array{version?: string, checksum?: string} */
+    private function agentRelease(): array
+    {
+        $versionPath = storage_path('app/agent/version.json');
+
+        if (! file_exists($versionPath)) {
+            return [];
+        }
+
+        $release = json_decode(file_get_contents($versionPath), true);
+
+        return is_array($release) ? $release : [];
     }
 
     private function agentUrl(Server $server): string

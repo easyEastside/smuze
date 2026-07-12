@@ -59,3 +59,47 @@ test('agent release command fails on missing binary', function () {
         '--binary' => '/nonexistent/path',
     ])->assertFailed();
 });
+
+test('agent release command can build versioned binary', function () {
+    $dir = storage_path('app/agent');
+    $versionPath = $dir.'/version.json';
+    $binaryPath = $dir.'/smuze-agent';
+
+    $originalVersion = file_exists($versionPath) ? file_get_contents($versionPath) : null;
+    $originalBinary = file_exists($binaryPath) ? file_get_contents($binaryPath) : null;
+
+    try {
+        $this->artisan('agent:release', [
+            '--release-version' => '9.9.9',
+            '--build' => true,
+        ])->assertSuccessful();
+
+        $checkBinary = tempnam(sys_get_temp_dir(), 'smuze-agent-check');
+        copy($binaryPath, $checkBinary);
+        chmod($checkBinary, 0755);
+
+        expect(shell_exec($checkBinary.' --version'))->toBe("9.9.9\n");
+    } finally {
+        if (isset($checkBinary) && file_exists($checkBinary)) {
+            unlink($checkBinary);
+        }
+
+        if ($originalVersion !== null) {
+            file_put_contents($versionPath, $originalVersion);
+        } elseif (file_exists($versionPath)) {
+            unlink($versionPath);
+        }
+
+        if ($originalBinary !== null) {
+            file_put_contents($binaryPath, $originalBinary);
+            chmod($binaryPath, 0755);
+        } elseif (file_exists($binaryPath)) {
+            unlink($binaryPath);
+        }
+
+        $buildPath = storage_path('app/agent/smuze-agent.build');
+        if (file_exists($buildPath)) {
+            unlink($buildPath);
+        }
+    }
+});

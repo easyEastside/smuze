@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -23,7 +25,7 @@ func PerformUpdate(ctx context.Context, info *UpdateInfo, currentVersion string)
 		return nil
 	}
 
-	if info.LatestVersion != "" && info.LatestVersion <= currentVersion {
+	if info.LatestVersion != "" && !isNewerVersion(info.LatestVersion, currentVersion) {
 		return nil
 	}
 
@@ -61,6 +63,12 @@ func PerformUpdate(ctx context.Context, info *UpdateInfo, currentVersion string)
 		fmt.Println("Checksum verified")
 	}
 
+	if len(downloaded) < 1024 {
+		os.Remove(tmpFile)
+
+		return fmt.Errorf("downloaded file too small (%d bytes), aborting", len(downloaded))
+	}
+
 	if err := os.Rename(tmpFile, absExec); err != nil {
 		return fmt.Errorf("replace binary: %w", err)
 	}
@@ -72,6 +80,59 @@ func PerformUpdate(ctx context.Context, info *UpdateInfo, currentVersion string)
 	fmt.Println("Update downloaded, restarting...")
 
 	return syscall.Exec(absExec, os.Args, os.Environ())
+}
+
+func isNewerVersion(latestVersion string, currentVersion string) bool {
+	latestParts := versionParts(latestVersion)
+	currentParts := versionParts(currentVersion)
+	length := len(latestParts)
+	if len(currentParts) > length {
+		length = len(currentParts)
+	}
+
+	for i := 0; i < length; i++ {
+		latest := 0
+		current := 0
+		if i < len(latestParts) {
+			latest = latestParts[i]
+		}
+		if i < len(currentParts) {
+			current = currentParts[i]
+		}
+
+		if latest > current {
+			return true
+		}
+		if latest < current {
+			return false
+		}
+	}
+
+	return false
+}
+
+func versionParts(value string) []int {
+	value = strings.TrimPrefix(strings.TrimSpace(value), "v")
+	parts := strings.Split(value, ".")
+	result := make([]int, 0, len(parts))
+
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			result = append(result, 0)
+			continue
+		}
+
+		number, err := strconv.Atoi(part)
+		if err != nil {
+			result = append(result, 0)
+			continue
+		}
+
+		result = append(result, number)
+	}
+
+	return result
 }
 
 func downloadBinary(ctx context.Context, url string, destPath string) ([]byte, error) {

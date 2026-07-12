@@ -112,13 +112,24 @@ test('user cannot install agent on another users server', function () {
 });
 
 test('agent check-update returns no update when versions match', function () {
+    $saved = saveVersionFile();
+    writeVersionFile('0.1.0', 'testchecksum123');
+
     $user = User::factory()->create();
     $server = Server::factory()->withAgent()->create([
         'user_id' => $user->id,
         'agent_version' => '0.1.0',
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
     ]);
 
     config()->set('agent.latest_version', '0.1.0');
+    Http::fake([
+        'http://127.0.0.1:9300/health' => Http::response([
+            'status' => 'ok',
+            'version' => '0.1.0',
+        ]),
+    ]);
 
     $this->actingAs($user)
         ->getJson(route('server.agent.check-update', $server))
@@ -127,7 +138,10 @@ test('agent check-update returns no update when versions match', function () {
             'has_update' => false,
             'current_version' => '0.1.0',
             'latest_version' => '0.1.0',
+            'checksum' => 'testchecksum123',
         ]);
+
+    restoreVersionFile($saved);
 });
 
 test('agent check-update returns update when newer version available', function () {
@@ -139,6 +153,15 @@ test('agent check-update returns update when newer version available', function 
     $server = Server::factory()->withAgent()->create([
         'user_id' => $user->id,
         'agent_version' => '0.1.0',
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/health' => Http::response([
+            'status' => 'ok',
+            'version' => '0.1.0',
+        ]),
     ]);
 
     $this->actingAs($user)
@@ -150,6 +173,56 @@ test('agent check-update returns update when newer version available', function 
             'latest_version' => '0.2.0',
             'checksum' => 'testchecksum123',
         ]);
+
+    restoreVersionFile($saved);
+});
+
+test('agent check-update refreshes current version from health endpoint', function () {
+    $saved = saveVersionFile();
+    writeVersionFile('0.2.2', 'checksum-current');
+
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $user->id,
+        'agent_version' => '0.1.0',
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/health' => Http::response([
+            'status' => 'ok',
+            'version' => '0.2.2',
+        ]),
+    ]);
+
+    $this->actingAs($user)
+        ->getJson(route('server.agent.check-update', $server))
+        ->assertSuccessful()
+        ->assertJson([
+            'has_update' => false,
+            'current_version' => '0.2.2',
+            'latest_version' => '0.2.2',
+        ]);
+
+    expect($server->refresh()->agent_version)->toBe('0.2.2')
+        ->and($server->agent_status)->toBe('connected')
+        ->and($server->agent_last_seen_at)->not->toBeNull();
+
+    restoreVersionFile($saved);
+});
+
+test('agent version endpoint returns release metadata', function () {
+    $saved = saveVersionFile();
+    writeVersionFile('0.3.0', 'checksum456');
+
+    $this->getJson('/agent/version')
+        ->assertSuccessful()
+        ->assertJson([
+            'latest_version' => '0.3.0',
+            'checksum' => 'checksum456',
+        ])
+        ->assertJsonPath('download_url', url('/agent/download'));
 
     restoreVersionFile($saved);
 });
@@ -174,6 +247,37 @@ test('agent update endpoint triggers update via push', function () {
             'success' => true,
             'message' => 'Agent-Update gestartet.',
         ]);
+});
+
+test('agent engine sends release metadata when triggering update', function () {
+    $saved = saveVersionFile();
+    writeVersionFile('0.4.0', 'checksum789');
+
+    $server = Server::factory()->withAgent()->create([
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/update' => Http::response([
+            'success' => true,
+            'message' => 'Update started',
+        ]),
+    ]);
+
+    $result = app(PushAgentEngine::class)->triggerUpdate($server);
+
+    expect($result)->toBe([
+        'success' => true,
+        'message' => 'Agent-Update gestartet.',
+    ]);
+
+    Http::assertSent(fn ($request) => $request->url() === 'http://127.0.0.1:9300/update'
+        && $request['latest_version'] === '0.4.0'
+        && $request['download_url'] === url('/agent/download')
+        && $request['checksum'] === 'checksum789');
+
+    restoreVersionFile($saved);
 });
 
 test('agent update fails when agent is not enabled', function () {

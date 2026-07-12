@@ -234,8 +234,10 @@ func TestUpdateEndpoint(t *testing.T) {
 	ts := newTestServer(t)
 	defer ts.Close()
 
-	req, _ := http.NewRequest("POST", ts.URL+"/update", nil)
+	requestBody := `{"latest_version":"0.2.0","download_url":"http://example.test/agent/download","checksum":"abc"}`
+	req, _ := http.NewRequest("POST", ts.URL+"/update", strings.NewReader(requestBody))
 	req.Header.Set(authHeader())
+	req.Header.Set("Content-Type", "application/json")
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -247,13 +249,32 @@ func TestUpdateEndpoint(t *testing.T) {
 		t.Fatalf("expected 200, got %d", res.StatusCode)
 	}
 
-	var body map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+	var responseBody map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&responseBody); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 
-	if body["success"] != true {
+	if responseBody["success"] != true {
 		t.Fatal("expected success")
+	}
+}
+
+func TestUpdateEndpointRejectsMissingDownloadURL(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	req, _ := http.NewRequest("POST", ts.URL+"/update", strings.NewReader(`{"latest_version":"0.2.0"}`))
+	req.Header.Set(authHeader())
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /update: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 400 {
+		t.Fatalf("expected 400, got %d", res.StatusCode)
 	}
 }
 

@@ -2,17 +2,17 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 )
 
-const version = "0.1.0"
+var version = "dev"
 
 func main() {
 	if len(os.Args) > 1 {
@@ -26,7 +26,11 @@ func main() {
 			return
 
 		case "update":
-			config, err := loadConfig("")
+			updateFlags := flag.NewFlagSet("update", flag.ExitOnError)
+			configPath := updateFlags.String("config", "/etc/smuze/agent.json", "Path to JSON config file")
+			updateFlags.Parse(os.Args[2:])
+
+			config, err := loadConfig(*configPath)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
@@ -35,9 +39,13 @@ func main() {
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
 
-			downloadURL := config.AppURL + "/agent/download"
+			info, err := fetchUpdateInfo(ctx, config.AppURL)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "update check failed: %v\n", err)
+				os.Exit(1)
+			}
 
-			if err := performDirectUpdate(ctx, downloadURL); err != nil {
+			if err := PerformUpdate(ctx, info, version); err != nil {
 				fmt.Fprintf(os.Stderr, "update failed: %v\n", err)
 				os.Exit(1)
 			}
@@ -87,39 +95,26 @@ func main() {
 	httpServer.Shutdown(shutdownCtx)
 }
 
-func performDirectUpdate(ctx context.Context, downloadURL string) error {
-	executable, err := os.Executable()
+func fetchUpdateInfo(ctx context.Context, appURL string) (*UpdateInfo, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, appURL+"/agent/version", nil)
 	if err != nil {
-		return fmt.Errorf("get executable path: %w", err)
+		return nil, err
 	}
 
-	absExec, err := filepath.Abs(executable)
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("absolute path: %w", err)
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("version check failed with status %d", res.StatusCode)
 	}
 
-	tmpFile := absExec + ".update"
-
-	downloaded, err := downloadBinary(ctx, downloadURL, tmpFile)
-	if err != nil {
-		return fmt.Errorf("download binary: %w", err)
+	var info UpdateInfo
+	if err := json.NewDecoder(res.Body).Decode(&info); err != nil {
+		return nil, err
 	}
 
-	if len(downloaded) < 1024 {
-		os.Remove(tmpFile)
-
-		return fmt.Errorf("downloaded file too small (%d bytes), aborting", len(downloaded))
-	}
-
-	if err := os.Rename(tmpFile, absExec); err != nil {
-		return fmt.Errorf("replace binary: %w", err)
-	}
-
-	if err := os.Chmod(absExec, 0755); err != nil {
-		return fmt.Errorf("chmod binary: %w", err)
-	}
-
-	fmt.Println("Update downloaded, restarting...")
-
-	return syscall.Exec(absExec, os.Args, os.Environ())
+	return &info, nil
 }
