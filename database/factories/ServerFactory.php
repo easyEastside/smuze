@@ -28,7 +28,26 @@ class ServerFactory extends Factory
             'ssh_server_alive_count_max' => 3,
             'ssh_connection_attempts' => 2,
             'ssh_compression' => false,
+            'agent_enabled' => false,
+            'agent_token' => null,
+            'agent_version' => null,
+            'agent_last_seen_at' => null,
+            'agent_status' => 'disconnected',
+            'agent_transport' => 'polling',
+            'execution_driver' => 'ssh',
             'notes' => fake()->optional()->sentence(),
         ];
+    }
+
+    public function withAgent(): static
+    {
+        return $this->state(fn (): array => [
+            'agent_enabled' => true,
+            'agent_token' => 'smz_'.fake()->sha256(),
+            'agent_version' => '0.1.0',
+            'agent_last_seen_at' => now(),
+            'agent_status' => 'connected',
+            'execution_driver' => 'agent',
+        ]);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Server extends Model
 {
@@ -28,6 +29,13 @@ class Server extends Model
         'ssh_server_alive_count_max',
         'ssh_connection_attempts',
         'ssh_compression',
+        'agent_enabled',
+        'agent_token',
+        'agent_version',
+        'agent_last_seen_at',
+        'agent_status',
+        'agent_transport',
+        'execution_driver',
         'notes',
         'status',
     ];
@@ -44,6 +52,9 @@ class Server extends Model
             'ssh_server_alive_count_max' => 'integer',
             'ssh_connection_attempts' => 'integer',
             'ssh_compression' => 'boolean',
+            'agent_enabled' => 'boolean',
+            'agent_token' => 'encrypted',
+            'agent_last_seen_at' => 'datetime',
             'credentials' => 'encrypted',
             'key_content' => 'encrypted',
         ];
@@ -53,5 +64,11 @@ class Server extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** @return HasMany<ServerCommand, $this> */
+    public function commands(): HasMany
+    {
+        return $this->hasMany(ServerCommand::class);
     }
 }
