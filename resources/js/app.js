@@ -401,10 +401,6 @@ function initializeFloatingCommandLog() {
     setCollapsed(readStoredBoolean(collapsedKey));
     resizeTerminal();
 
-    if (readStoredBoolean(connectedKey)) {
-        connect();
-    }
-
     toggles.forEach((toggle) => {
         toggle.addEventListener('click', () => {
             const collapsed = ! body.classList.contains('hidden');
