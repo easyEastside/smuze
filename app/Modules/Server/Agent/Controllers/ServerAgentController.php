@@ -159,6 +159,8 @@ class ServerAgentController
         $tmpPath = $binaryPath.'.tmp';
 
         return implode(' && ', [
+            // Install curl if missing, then download the binary
+            '(command -v curl >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq curl))',
             'curl -fsSL '.escapeshellarg($downloadUrl).' -o '.$tmpPath,
             'mv '.$tmpPath.' '.$binaryPath,
             'chmod +x '.$binaryPath,
