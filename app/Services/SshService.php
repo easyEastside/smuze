@@ -10,14 +10,20 @@ class SshService
 {
     private const CONTROL_PATH = 'ssh-sockets';
 
-    public function execute(Server $server, string $command, int $timeout = 30, bool $useSudo = true): SshResult
+    public function execute(Server $server, string $command, int $timeout = 30, bool $useSudo = true, ?callable $onOutput = null): SshResult
     {
         try {
             if ($useSudo && $server->use_sudo) {
                 $command = $this->applySudo($command);
             }
 
-            $process = $this->buildSsh($server, $this->commandTimeout($server, $timeout))->execute($command);
+            $ssh = $this->buildSsh($server, $this->commandTimeout($server, $timeout));
+
+            if ($onOutput !== null) {
+                $ssh->onOutput($onOutput);
+            }
+
+            $process = $ssh->execute($command);
 
             $stdout = trim($process->getOutput() ?: '');
             $stderr = trim($process->getErrorOutput() ?: '');

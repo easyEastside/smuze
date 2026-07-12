@@ -2,9 +2,12 @@
 
 use App\Models\Server;
 use App\Models\User;
+use App\Services\SshResult;
+use App\Services\SshService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Symfony\Component\Process\Process;
 
 uses(RefreshDatabase::class);
 
@@ -583,6 +586,50 @@ test('service deinstall returns error json', function () {
     $this->actingAs($this->user)
         ->post(route('server.services.deinstall', ['server' => $server, 'service' => 'php']))
         ->assertJson(['success' => false]);
+});
+
+test('service install stream returns live output and final status', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+    $ssh = Mockery::mock(SshService::class);
+
+    $ssh->shouldReceive('execute')
+        ->once()
+        ->withArgs(function (Server $serverArgument, string $command, int $timeout, bool $useSudo, callable $onOutput) use ($server): bool {
+            expect($serverArgument->is($server))->toBeTrue();
+            expect($command)->toContain('apt install php');
+
+            $onOutput(Process::OUT, "Paketlisten werden gelesen...\n");
+
+            return $timeout === 300 && $useSudo === true;
+        })
+        ->andReturn(new SshResult(
+            stdout: 'Paketlisten werden gelesen...',
+            stderr: '',
+            exitCode: 0,
+            success: true,
+        ));
+
+    $this->app->instance(SshService::class, $ssh);
+
+    $response = $this->actingAs($this->user)
+        ->post(route('server.services.install.stream', ['server' => $server, 'service' => 'php']))
+        ->assertSuccessful();
+
+    $content = $response->streamedContent();
+
+    expect($content)
+        ->toContain('Starte Ausf\u00fchrung')
+        ->toContain('Paketlisten werden gelesen')
+        ->toContain('PHP wurde installiert.');
+});
+
+test('user cannot deinstall service stream on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.services.deinstall.stream', ['server' => $server, 'service' => 'php']))
+        ->assertForbidden();
 });
 
 test('unknown service returns not found', function () {

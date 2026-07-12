@@ -179,6 +179,7 @@
     function serviceAction(btn) {
         const key = btn.dataset.serviceKey;
         const action = btn.dataset.serviceAction;
+        const originalButtonText = btn.textContent;
         const labels = { php: 'PHP', apache: 'Apache', mysql: 'MySQL', node: 'Node.js', nvm: 'nvm', npm: 'npm', composer: 'Composer' };
         const label = labels[key] || key;
         const msg = action === 'install' ? `${label} installieren? Dies kann einige Minuten dauern.` : `${label} deinstallieren?`;
@@ -187,35 +188,123 @@
         const result = document.getElementById('services-result');
         result.className = 'mt-4 rounded-xl bg-[#19140008] p-3 text-sm dark:bg-[#fffaed08]';
         result.classList.remove('hidden');
+        result.innerHTML = `
+            <div id="services-live-status" class="font-medium">Bereite Ausführung vor...</div>
+            <pre id="services-live-log" class="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-[#19140008] p-3 font-mono text-xs text-[#706f6c] dark:bg-black/20 dark:text-[#A1A09A]"></pre>
+        `;
 
         const allBtns = document.querySelectorAll('#services-content button[data-service-key]');
         allBtns.forEach(b => { b.disabled = true; b.style.opacity = '0.5'; b.style.cursor = 'wait'; });
 
-        btn.textContent = 'Warte...';
+        btn.textContent = action === 'install' ? 'Installiert...' : 'Deinstalliert...';
         btn.style.opacity = '1';
-        result.textContent = `${label}: Befehl wird ausgeführt. Bitte warten...`;
 
-        const urlTemplate = '{{ route('server.services.install', ['server' => $server, 'service' => '__SERVICE__']) }}';
-        const url = urlTemplate.replace('__SERVICE__', key);
-        const finalUrl = action === 'deinstall' ? url.replace('install', 'deinstall') : url;
+        const installUrlTemplate = '{{ route('server.services.install.stream', ['server' => $server, 'service' => '__SERVICE__']) }}';
+        const deinstallUrlTemplate = '{{ route('server.services.deinstall.stream', ['server' => $server, 'service' => '__SERVICE__']) }}';
+        const finalUrl = (action === 'deinstall' ? deinstallUrlTemplate : installUrlTemplate).replace('__SERVICE__', key);
 
-        fetch(finalUrl, { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
-            .then(r => r.json())
+        readServiceActionStream(finalUrl, label, result)
             .then(data => {
-                allBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; b.style.cursor = ''; });
                 if (data.success) {
                     result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
                     setTimeout(() => loadServices(), 2000);
                 } else {
                     result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
                 }
-                result.textContent = data.message;
+
+                const status = document.getElementById('services-live-status');
+                if (status) status.textContent = data.message;
             })
             .catch(err => {
-                allBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; b.style.cursor = ''; });
                 result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
-                result.textContent = 'Fehler: ' + err.message;
+                const status = document.getElementById('services-live-status');
+                if (status) status.textContent = 'Fehler: ' + err.message;
+            })
+            .finally(() => {
+                btn.textContent = originalButtonText;
+                allBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; b.style.cursor = ''; });
             });
+    }
+
+    async function readServiceActionStream(url, label, result) {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                Accept: 'application/x-ndjson',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`Request fehlgeschlagen (${response.status}).`);
+        }
+
+        if (!response.body) {
+            throw new Error('Live-Stream wird vom Browser nicht unterstützt.');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let finalData = null;
+
+        while (true) {
+            const { value, done } = await reader.read();
+            buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (line.trim() === '') continue;
+
+                const event = JSON.parse(line);
+                finalData = handleServiceStreamEvent(event, label, result) || finalData;
+            }
+
+            if (done) break;
+        }
+
+        if (buffer.trim() !== '') {
+            const event = JSON.parse(buffer);
+            finalData = handleServiceStreamEvent(event, label, result) || finalData;
+        }
+
+        return finalData || { success: false, message: `${label}: Kein Abschlussstatus empfangen.` };
+    }
+
+    function handleServiceStreamEvent(event, label, result) {
+        const status = document.getElementById('services-live-status');
+        const log = document.getElementById('services-live-log');
+
+        if (event.type === 'status' && status) {
+            status.textContent = `${label}: ${event.data}`;
+            return null;
+        }
+
+        if ((event.type === 'stdout' || event.type === 'stderr') && log) {
+            appendServiceLog(log, event.data);
+            return null;
+        }
+
+        if (event.type === 'finished') {
+            return event.data;
+        }
+
+        return null;
+    }
+
+    function appendServiceLog(log, output) {
+        const text = String(output || '').replace(/\r/g, '');
+        if (text === '') return;
+
+        log.textContent += text;
+
+        if (log.textContent.length > 20000) {
+            log.textContent = log.textContent.slice(-20000);
+        }
+
+        log.scrollTop = log.scrollHeight;
     }
 
     loadServices();

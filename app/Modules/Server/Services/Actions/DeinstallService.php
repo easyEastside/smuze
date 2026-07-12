@@ -85,7 +85,7 @@ class DeinstallService
     ) {}
 
     /** @return array<string, mixed> */
-    public function handle(Server $server, string $service): array
+    public function handle(Server $server, string $service, ?callable $onOutput = null): array
     {
         $commands = self::COMMANDS[$service] ?? null;
 
@@ -97,7 +97,7 @@ class DeinstallService
         $timeout = self::TIMEOUTS[$service] ?? 120;
         $useSudo = ! in_array($service, self::NO_SUDO, true);
 
-        $result = $this->ssh->execute($server, $command, timeout: $timeout, useSudo: $useSudo);
+        $result = $this->ssh->execute($server, $command, timeout: $timeout, useSudo: $useSudo, onOutput: $onOutput);
 
         $label = self::LABELS[$service] ?? $service;
 
