@@ -13,13 +13,45 @@ import (
 const version = "0.1.0"
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "install" {
-		if err := runInstall(os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "install":
+			if err := runInstall(os.Args[2:]); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
 
-		return
+			return
+
+		case "update":
+			config, err := loadConfig("")
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			client := NewClient(config, "")
+			info, err := client.CheckForUpdate(ctx)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "update check failed: %v\n", err)
+				os.Exit(1)
+			}
+
+			if info == nil {
+				fmt.Println("No update available")
+				return
+			}
+
+			if err := PerformUpdate(ctx, info, version); err != nil {
+				fmt.Fprintf(os.Stderr, "update failed: %v\n", err)
+				os.Exit(1)
+			}
+
+			return
+		}
 	}
 
 	configPath := flag.String("config", "", "Path to JSON config file")
@@ -44,8 +76,12 @@ func main() {
 	client := NewClient(config, *configPath)
 	executor := NewExecutor(client)
 
-	if err := client.Heartbeat(ctx, version); err != nil {
+	if update, err := client.Heartbeat(ctx, version); err != nil {
 		fmt.Fprintf(os.Stderr, "heartbeat failed: %v\n", err)
+	} else if update != nil {
+		if err := PerformUpdate(ctx, update, version); err != nil {
+			fmt.Fprintf(os.Stderr, "update failed: %v\n", err)
+		}
 	}
 	if err := client.Metrics(ctx, collectMetrics(), time.Now()); err != nil {
 		fmt.Fprintf(os.Stderr, "metrics failed: %v\n", err)
@@ -74,8 +110,12 @@ func main() {
 				fmt.Fprintf(os.Stderr, "metrics failed: %v\n", err)
 			}
 		case <-heartbeatTicker.C:
-			if err := client.Heartbeat(ctx, version); err != nil {
+			if update, err := client.Heartbeat(ctx, version); err != nil {
 				fmt.Fprintf(os.Stderr, "heartbeat failed: %v\n", err)
+			} else if update != nil {
+				if err := PerformUpdate(ctx, update, version); err != nil {
+					fmt.Fprintf(os.Stderr, "update failed: %v\n", err)
+				}
 			}
 		}
 	}

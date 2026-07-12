@@ -36,6 +36,87 @@ test('agent heartbeat updates server status', function () {
         ->and($server->agent_last_seen_at)->not->toBeNull();
 });
 
+test('agent heartbeat returns update info when newer version available', function () {
+    $saved = saveVersionFile();
+    writeVersionFile('9.9.9', 'abcdef1234567890');
+    config()->set('agent.latest_version', '9.9.9');
+
+    $server = Server::factory()->create([
+        'agent_enabled' => true,
+        'agent_token' => 'agent-secret',
+        'agent_version' => '0.1.0',
+    ]);
+
+    $this->postJson('/api/agent/heartbeat', ['version' => '0.1.0'], agentHeaders($server))
+        ->assertSuccessful()
+        ->assertJson([
+            'success' => true,
+            'update' => [
+                'latest_version' => '9.9.9',
+                'checksum' => 'abcdef1234567890',
+            ],
+        ]);
+
+    restoreVersionFile($saved);
+});
+
+test('agent heartbeat does not include update when agent is current', function () {
+    config()->set('agent.latest_version', '0.1.0');
+
+    $server = Server::factory()->create([
+        'agent_enabled' => true,
+        'agent_token' => 'agent-secret',
+        'agent_version' => '0.1.0',
+    ]);
+
+    $response = $this->postJson('/api/agent/heartbeat', ['version' => '0.1.0'], agentHeaders($server))
+        ->assertSuccessful()
+        ->assertJson(['success' => true]);
+
+    expect($response->json())->not->toHaveKey('update');
+});
+
+test('agent update-check endpoint returns version info', function () {
+    $saved = saveVersionFile();
+    writeVersionFile('0.2.0', 'sha256checksum');
+    config()->set('agent.latest_version', '0.2.0');
+
+    $server = Server::factory()->create([
+        'agent_enabled' => true,
+        'agent_token' => 'agent-secret',
+        'agent_version' => '0.1.0',
+    ]);
+
+    $this->getJson('/api/agent/update-check', agentHeaders($server))
+        ->assertSuccessful()
+        ->assertJson([
+            'success' => true,
+            'update' => [
+                'latest_version' => '0.2.0',
+                'has_update' => true,
+                'checksum' => 'sha256checksum',
+            ],
+        ]);
+
+    restoreVersionFile($saved);
+});
+
+test('agent update-check shows no update when versions match', function () {
+    config()->set('agent.latest_version', '0.1.0');
+
+    $server = Server::factory()->create([
+        'agent_enabled' => true,
+        'agent_token' => 'agent-secret',
+        'agent_version' => '0.1.0',
+    ]);
+
+    $this->getJson('/api/agent/update-check', agentHeaders($server))
+        ->assertSuccessful()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('update.has_update', false)
+        ->assertJsonPath('update.latest_version', '0.1.0');
+});
+
 test('agent metrics endpoint stores latest metrics', function () {
     $server = Server::factory()->create([
         'agent_enabled' => true,

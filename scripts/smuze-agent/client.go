@@ -62,8 +62,13 @@ func (c *Client) reloadConfig() {
 	}
 }
 
-func (c *Client) Heartbeat(ctx context.Context, version string) error {
-	return c.post(ctx, "/api/agent/heartbeat", map[string]any{"version": version}, nil)
+func (c *Client) Heartbeat(ctx context.Context, version string) (*UpdateInfo, error) {
+	var response heartbeatResponse
+	if err := c.post(ctx, "/api/agent/heartbeat", map[string]any{"version": version}, &response); err != nil {
+		return nil, err
+	}
+
+	return response.Update, nil
 }
 
 func (c *Client) Metrics(ctx context.Context, metrics map[string]any, collectedAt time.Time) error {

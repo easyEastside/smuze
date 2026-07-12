@@ -80,6 +80,54 @@ class ServerAgentController
         ]);
     }
 
+    public function checkUpdate(Request $request, Server $server): JsonResponse
+    {
+        Gate::authorize('view', $server);
+
+        $latestVersion = config('agent.latest_version', '0.1.0');
+        $currentVersion = $server->agent_version ?? '0.0.0';
+        $hasUpdate = version_compare($latestVersion, $currentVersion, '>');
+
+        $response = [
+            'has_update' => $hasUpdate,
+            'current_version' => $currentVersion,
+            'latest_version' => $latestVersion,
+        ];
+
+        if ($hasUpdate) {
+            $versionPath = storage_path('app/agent/version.json');
+
+            if (file_exists($versionPath)) {
+                $versionData = json_decode(file_get_contents($versionPath), true);
+                $response['checksum'] = $versionData['checksum'] ?? '';
+            }
+        }
+
+        return response()->json($response);
+    }
+
+    public function updateAgent(Request $request, Server $server): JsonResponse
+    {
+        Gate::authorize('update', $server);
+
+        if (! $server->agent_enabled) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Agent ist nicht aktiviert.',
+            ]);
+        }
+
+        $script = 'smuze-agent update && systemctl restart smuze-agent';
+        $result = $this->ssh->execute($server, $script, timeout: 120, useSudo: true);
+
+        return response()->json([
+            'success' => $result->success,
+            'message' => $result->success
+                ? 'Agent-Update gestartet.'
+                : 'Update fehlgeschlagen: '.$result->stderr,
+        ]);
+    }
+
     public function downloadBinary(): mixed
     {
         $path = storage_path('app/agent/smuze-agent');

@@ -37,7 +37,7 @@ func TestClientSendsAuthHeadersAndFetchesPendingCommands(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{AppURL: server.URL, ServerID: 42, Token: "token"})
+	client := NewClient(Config{AppURL: server.URL, ServerID: 42, Token: "token"}, "")
 	commands, err := client.PendingCommands(context.Background(), 2)
 	if err != nil {
 		t.Fatalf("PendingCommands returned error: %v", err)
@@ -67,7 +67,7 @@ func TestClientPostsCommandCompletion(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{AppURL: server.URL, ServerID: 42, Token: "token"})
+	client := NewClient(Config{AppURL: server.URL, ServerID: 42, Token: "token"}, "")
 	if err := client.CompleteCommand(context.Background(), 7, "completed", 0, "OK", ""); err != nil {
 		t.Fatalf("CompleteCommand returned error: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestClientPostsMetrics(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{AppURL: server.URL, ServerID: 42, Token: "token"})
+	client := NewClient(Config{AppURL: server.URL, ServerID: 42, Token: "token"}, "")
 	if err := client.Metrics(context.Background(), map[string]any{"cpu_percent": 12}, time.Now()); err != nil {
 		t.Fatalf("Metrics returned error: %v", err)
 	}

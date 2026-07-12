@@ -2,6 +2,8 @@
 
 use App\Models\Server;
 use App\Models\User;
+use App\Services\SshResult;
+use App\Services\SshService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
@@ -77,11 +79,11 @@ test('user can install agent via ssh bootstrap', function () {
         'execution_driver' => 'ssh',
     ]);
 
-    $ssh = Mockery::mock(App\Services\SshService::class);
+    $ssh = Mockery::mock(SshService::class);
     $ssh->shouldReceive('execute')
         ->once()
-        ->andReturn(new App\Services\SshResult(stdout: 'OK', stderr: '', exitCode: 0, success: true));
-    $this->app->instance(App\Services\SshService::class, $ssh);
+        ->andReturn(new SshResult(stdout: 'OK', stderr: '', exitCode: 0, success: true));
+    $this->app->instance(SshService::class, $ssh);
 
     $this->actingAs($user)
         ->postJson(route('server.agent.install', $server))
@@ -109,4 +111,85 @@ test('user cannot install agent on another users server', function () {
     $this->actingAs($user)
         ->postJson(route('server.agent.install', $server))
         ->assertForbidden();
+});
+
+test('agent check-update returns no update when versions match', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $user->id,
+        'agent_version' => '0.1.0',
+    ]);
+
+    config()->set('agent.latest_version', '0.1.0');
+
+    $this->actingAs($user)
+        ->getJson(route('server.agent.check-update', $server))
+        ->assertSuccessful()
+        ->assertJson([
+            'has_update' => false,
+            'current_version' => '0.1.0',
+            'latest_version' => '0.1.0',
+        ]);
+});
+
+test('agent check-update returns update when newer version available', function () {
+    $saved = saveVersionFile();
+    writeVersionFile('0.2.0', 'testchecksum123');
+    config()->set('agent.latest_version', '0.2.0');
+
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $user->id,
+        'agent_version' => '0.1.0',
+    ]);
+
+    $this->actingAs($user)
+        ->getJson(route('server.agent.check-update', $server))
+        ->assertSuccessful()
+        ->assertJson([
+            'has_update' => true,
+            'current_version' => '0.1.0',
+            'latest_version' => '0.2.0',
+            'checksum' => 'testchecksum123',
+        ]);
+
+    restoreVersionFile($saved);
+});
+
+test('agent update endpoint triggers update via ssh', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $user->id,
+    ]);
+
+    $ssh = Mockery::mock(SshService::class);
+    $ssh->shouldReceive('execute')
+        ->once()
+        ->with(Mockery::on(fn ($s) => $s->id === $server->id), 'smuze-agent update && systemctl restart smuze-agent', Mockery::any(), true)
+        ->andReturn(new SshResult(stdout: 'Updated to 0.2.0', stderr: '', exitCode: 0, success: true));
+    $this->app->instance(SshService::class, $ssh);
+
+    $this->actingAs($user)
+        ->postJson(route('server.agent.update', $server))
+        ->assertSuccessful()
+        ->assertJson([
+            'success' => true,
+            'message' => 'Agent-Update gestartet.',
+        ]);
+});
+
+test('agent update fails when agent is not enabled', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->create([
+        'user_id' => $user->id,
+        'agent_enabled' => false,
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('server.agent.update', $server))
+        ->assertSuccessful()
+        ->assertJson([
+            'success' => false,
+            'message' => 'Agent ist nicht aktiviert.',
+        ]);
 });

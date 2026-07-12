@@ -23,6 +23,8 @@ Route::middleware('auth')->group(function (): void {
 
     Route::post('servers/{server}/agent/token', [ServerAgentController::class, 'rotateToken'])->name('server.agent.token');
     Route::post('servers/{server}/agent/install', [ServerAgentController::class, 'install'])->name('server.agent.install');
+    Route::get('servers/{server}/agent/check-update', [ServerAgentController::class, 'checkUpdate'])->name('server.agent.check-update');
+    Route::post('servers/{server}/agent/update', [ServerAgentController::class, 'updateAgent'])->name('server.agent.update');
     Route::delete('servers/{server}/agent', [ServerAgentController::class, 'disable'])->name('server.agent.disable');
 });
 

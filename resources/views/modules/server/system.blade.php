@@ -142,8 +142,14 @@
                         </div>
                         <div class="flex justify-between">
                             <dt class="text-[#706f6c] dark:text-[#A1A09A]">Agent</dt>
-                            <dd class="font-medium">{{ $server->agent_enabled ? $server->agent_status : 'deaktiviert' }}</dd>
+                            <dd id="agent-status-detail" class="font-medium">{{ $server->agent_enabled ? $server->agent_status : 'deaktiviert' }}</dd>
                         </div>
+                        @if ($server->agent_enabled)
+                            <div class="flex justify-between">
+                                <dt class="text-[#706f6c] dark:text-[#A1A09A]">Agent-Version</dt>
+                                <dd id="agent-version" class="font-medium">{{ $server->agent_version ?? '-' }}</dd>
+                            </div>
+                        @endif
                         @if ($server->agent_last_seen_at)
                             <div class="flex justify-between">
                                 <dt class="text-[#706f6c] dark:text-[#A1A09A]">Agent zuletzt</dt>
@@ -173,6 +179,14 @@
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Agent Setup</p>
                     <p class="mt-2 text-xs leading-5 text-[#706f6c] dark:text-[#A1A09A]">Generiere einen Token für den Polling-Agent. Der Token wird nur direkt nach der Rotation angezeigt.</p>
+                    <div id="agent-update-section" class="mt-2 hidden">
+                        <span class="rounded-lg bg-yellow-50 px-3 py-2 text-center text-xs font-medium text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200">
+                            Update verfügbar: <span id="agent-update-version"></span>
+                        </span>
+                        <button type="button" onclick="updateAgent()" class="mt-2 w-full rounded-lg bg-[#f59e0b] px-3 py-2 text-sm font-medium text-white hover:bg-[#d97706]">
+                            Agent aktualisieren
+                        </button>
+                    </div>
                     <div class="mt-4 flex flex-col gap-2 text-sm">
                         @if ($server->agent_enabled && $server->agent_status === 'connected')
                             <span class="rounded-lg bg-green-50 px-3 py-2 text-center text-xs font-medium text-green-800 dark:bg-green-950 dark:text-green-200">
@@ -477,7 +491,59 @@
             });
     }
 
+    async function checkAgentUpdate() {
+        if (!document.getElementById('agent-update-section')) return;
+
+        try {
+            const res = await fetch('{{ route('server.agent.check-update', $server) }}');
+            const data = await res.json();
+
+            if (data.has_update) {
+                document.getElementById('agent-update-version').textContent = data.latest_version;
+                document.getElementById('agent-update-section').classList.remove('hidden');
+            }
+        } catch {
+            // Ignore check errors
+        }
+    }
+
+    async function updateAgent() {
+        if (!confirm('Agent aktualisieren? Der Agent wird heruntergefahren und neu gestartet.')) return;
+
+        const result = document.getElementById('action-result');
+        result.className = 'mt-3 rounded-xl p-3 text-sm';
+        result.textContent = 'Aktualisiere Agent...';
+        result.classList.remove('hidden');
+
+        try {
+            const res = await fetch('{{ route('server.agent.update', $server) }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                },
+            });
+            const data = await res.json();
+
+            result.className = 'mt-3 rounded-xl p-3 text-sm ' + (data.success
+                ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200'
+                : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
+            result.textContent = data.message;
+
+            if (data.success) {
+                document.getElementById('agent-update-section').classList.add('hidden');
+            }
+        } catch (err) {
+            result.className = 'mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+            result.textContent = 'Fehler: ' + err.message;
+        }
+    }
+
     refreshSystem();
+
+    if (@json($server->agent_enabled)) {
+        checkAgentUpdate();
+    }
     </script>
     @endpush
 </x-layouts.app>

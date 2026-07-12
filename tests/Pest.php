@@ -44,7 +44,42 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Save the current agent version.json content for later restoration.
+ */
+function saveVersionFile(): ?string
 {
-    // ..
+    $path = storage_path('app/agent/version.json');
+
+    return file_exists($path) ? file_get_contents($path) : null;
+}
+
+/**
+ * Restore a previously saved version.json.
+ */
+function restoreVersionFile(?string $content): void
+{
+    $path = storage_path('app/agent/version.json');
+
+    if ($content !== null) {
+        file_put_contents($path, $content);
+    } elseif (file_exists($path)) {
+        unlink($path);
+    }
+}
+
+/**
+ * Write a version.json with the given version and checksum.
+ */
+function writeVersionFile(string $version, string $checksum): void
+{
+    $dir = storage_path('app/agent');
+    if (! is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+
+    file_put_contents($dir.'/version.json', json_encode([
+        'version' => $version,
+        'checksum' => $checksum,
+    ]));
 }

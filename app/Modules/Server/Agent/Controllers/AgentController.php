@@ -25,7 +25,58 @@ class AgentController
             'agent_status' => 'connected',
         ])->save();
 
-        return response()->json(['success' => true]);
+        $latestVersion = config('agent.latest_version', '0.1.0');
+        $currentVersion = $data['version'] ?? '0.0.0';
+
+        $response = ['success' => true];
+
+        if (version_compare($latestVersion, $currentVersion, '>')) {
+            $response['update'] = [
+                'latest_version' => $latestVersion,
+                'download_url' => url('/agent/download'),
+            ];
+
+            $versionPath = storage_path('app/agent/version.json');
+
+            if (file_exists($versionPath)) {
+                $versionData = json_decode(file_get_contents($versionPath), true);
+
+                if (isset($versionData['checksum']) && $versionData['checksum'] !== '') {
+                    $response['update']['checksum'] = $versionData['checksum'];
+                }
+            }
+        }
+
+        return response()->json($response);
+    }
+
+    public function updateCheck(Request $request): JsonResponse
+    {
+        $server = $this->authenticate($request);
+
+        $latestVersion = config('agent.latest_version', '0.1.0');
+        $currentVersion = $server->agent_version ?? '0.0.0';
+
+        $update = [
+            'latest_version' => $latestVersion,
+            'download_url' => url('/agent/download'),
+            'has_update' => version_compare($latestVersion, $currentVersion, '>'),
+        ];
+
+        $versionPath = storage_path('app/agent/version.json');
+
+        if (file_exists($versionPath)) {
+            $versionData = json_decode(file_get_contents($versionPath), true);
+
+            if (isset($versionData['checksum']) && $versionData['checksum'] !== '') {
+                $update['checksum'] = $versionData['checksum'];
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'update' => $update,
+        ]);
     }
 
     public function metrics(Request $request): JsonResponse
