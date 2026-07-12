@@ -423,6 +423,30 @@ test('service install stream returns live output and final status', function () 
         ->toContain('PHP wurde installiert.');
 });
 
+test('service install stream accepts nginx', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+    $engine = Mockery::mock(PushAgentEngine::class);
+
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(function (Server $serverArgument, string $action, array $payload): bool {
+            expect($serverArgument->exists)->toBeTrue();
+            expect($action)->toBe('services.install')
+                ->and($payload)->toBe(['service' => 'nginx']);
+
+            return true;
+        })
+        ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
+
+    $this->app->instance(PushAgentEngine::class, $engine);
+
+    $response = $this->actingAs($this->user)
+        ->post(route('server.services.install.stream', ['server' => $server, 'service' => 'nginx']))
+        ->assertSuccessful();
+
+    expect($response->streamedContent())->toContain('Nginx wurde installiert.');
+});
+
 test('user cannot deinstall service stream on another users server', function () {
     $otherUser = User::factory()->create();
     $server = Server::factory()->create(['user_id' => $otherUser->id]);

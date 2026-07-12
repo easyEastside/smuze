@@ -132,6 +132,14 @@ func TestReadCommandVersionTrimsOutput(t *testing.T) {
 	}
 }
 
+func TestReadServiceVersionsDoesNotReportMissingNginx(t *testing.T) {
+	versions := readServiceVersions()
+
+	if strings.Contains(versions["nginx_version"], "not found") {
+		t.Fatalf("expected missing nginx to be ignored, got %q", versions["nginx_version"])
+	}
+}
+
 func TestCancelEndpoint(t *testing.T) {
 	ts := newTestServer(t)
 	defer ts.Close()
