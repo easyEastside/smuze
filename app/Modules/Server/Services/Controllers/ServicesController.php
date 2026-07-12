@@ -10,7 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use Symfony\Component\Process\Process;
 
 class ServicesController
 {
@@ -55,7 +54,7 @@ class ServicesController
             $this->sendStreamEvent('status', 'Starte Ausführung...');
 
             $result = $action(function (string $type, string $output): void {
-                $this->sendStreamEvent($type === Process::ERR ? 'stderr' : 'stdout', $output);
+                $this->sendStreamEvent($type === 'stderr' ? 'stderr' : 'stdout', $output);
             });
 
             $this->sendStreamEvent('finished', $result);

@@ -10,7 +10,7 @@ class UpdateServer
     public function handle(UpdateServerRequest $request, Server $server): Server
     {
         $data = $request->validated();
-        $data['use_sudo'] = $request->boolean('use_sudo');
+        $data['agent_port'] ??= config('agent.push_port', 9300);
 
         $server->update($data);
 

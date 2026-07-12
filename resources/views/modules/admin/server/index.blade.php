@@ -4,7 +4,7 @@
             <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Admin area</p>
             <h1 class="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Server</h1>
             <p class="mt-3 max-w-2xl text-sm leading-6 text-[#706f6c] dark:text-[#A1A09A]">
-                Manage servers for SSH connections.
+                Manage servers with manually installed agents.
             </p>
         </div>
     </div>
@@ -28,9 +28,9 @@
                     <tr class="border-b border-[#19140012] bg-[#19140005] dark:border-[#3E3E3A] dark:bg-[#fffaed05]">
                         <th class="px-4 py-3 text-left font-medium text-[#706f6c] dark:text-[#A1A09A]">Name</th>
                         <th class="px-4 py-3 text-left font-medium text-[#706f6c] dark:text-[#A1A09A]">Host</th>
-                        <th class="px-4 py-3 text-left font-medium text-[#706f6c] dark:text-[#A1A09A]">Port</th>
+                        <th class="px-4 py-3 text-left font-medium text-[#706f6c] dark:text-[#A1A09A]">Agent port</th>
                         <th class="hidden px-4 py-3 text-left font-medium text-[#706f6c] dark:text-[#A1A09A] sm:table-cell">User</th>
-                        <th class="hidden px-4 py-3 text-left font-medium text-[#706f6c] dark:text-[#A1A09A] md:table-cell">Auth</th>
+                        <th class="hidden px-4 py-3 text-left font-medium text-[#706f6c] dark:text-[#A1A09A] md:table-cell">Connection</th>
                         <th class="px-4 py-3 text-right font-medium text-[#706f6c] dark:text-[#A1A09A]">Actions</th>
                     </tr>
                 </thead>
@@ -39,14 +39,10 @@
                         <tr class="border-b border-[#19140012] last:border-b-0 dark:border-[#3E3E3A]">
                             <td class="px-4 py-3 font-medium">{{ $server->name }}</td>
                             <td class="px-4 py-3 text-[#706f6c] dark:text-[#A1A09A]">{{ $server->host }}</td>
-                            <td class="px-4 py-3 text-[#706f6c] dark:text-[#A1A09A]">{{ $server->port }}</td>
+                            <td class="px-4 py-3 text-[#706f6c] dark:text-[#A1A09A]">{{ $server->agent_port ?? config('agent.push_port', 9300) }}</td>
                             <td class="hidden px-4 py-3 text-[#706f6c] dark:text-[#A1A09A] sm:table-cell">{{ $server->user->name }}</td>
                             <td class="hidden px-4 py-3 md:table-cell">
-                                @if ($server->auth_type === 'key')
-                                    <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">SSH-Key</span>
-                                @else
-                                    <span class="rounded-full bg-purple-100 px-2.5 py-1 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">Passwort</span>
-                                @endif
+                                <span class="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">Agent</span>
                             </td>
                             <td class="px-4 py-3 text-right">
                                 <a href="{{ route('admin.servers.edit', $server) }}" class="text-[#706f6c] hover:text-[#f53003] dark:text-[#A1A09A] dark:hover:text-[#FF4433]">Edit</a>

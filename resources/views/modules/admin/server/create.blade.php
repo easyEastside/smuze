@@ -61,64 +61,20 @@
                 </div>
 
                 <div>
-                    <label for="port" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Port</label>
+                    <label for="agent_port" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Agent port</label>
                     <input
                         type="number"
-                        name="port"
-                        id="port"
-                        value="{{ old('port', 22) }}"
+                        name="agent_port"
+                        id="agent_port"
+                        value="{{ old('agent_port', config('agent.push_port', 9300)) }}"
                         min="1"
                         max="65535"
-                        class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('port') border-[#f53003] @enderror"
+                        class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('agent_port') border-[#f53003] @enderror"
                     />
-                    @error('port')
+                    @error('agent_port')
                         <p class="mt-1 text-sm text-[#f53003]">{{ $message }}</p>
                     @enderror
                 </div>
-
-                <div>
-                    <label for="username" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Username</label>
-                    <input
-                        type="text"
-                        name="username"
-                        id="username"
-                        value="{{ old('username') }}"
-                        class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('username') border-[#f53003] @enderror"
-                    />
-                    @error('username')
-                        <p class="mt-1 text-sm text-[#f53003]">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div class="sm:col-span-2">
-                    <label for="auth_type" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Authentication type</label>
-                    <select
-                        name="auth_type"
-                        id="auth_type"
-                        class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('auth_type') border-[#f53003] @enderror"
-                    >
-                        <option value="key" @selected(old('auth_type') === 'key')>SSH-Key</option>
-                        <option value="password" @selected(old('auth_type') === 'password')>Password</option>
-                    </select>
-                    @error('auth_type')
-                        <p class="mt-1 text-sm text-[#f53003]">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div class="sm:col-span-2">
-                    <label for="credentials" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Credentials</label>
-                    <textarea
-                        name="credentials"
-                        id="credentials"
-                        rows="3"
-                        class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('credentials') border-[#f53003] @enderror"
-                    >{{ old('credentials') }}</textarea>
-                    @error('credentials')
-                        <p class="mt-1 text-sm text-[#f53003]">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                @include('modules.server.partials.ssh-options')
 
                 <div class="sm:col-span-2">
                     <label for="notes" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Notes (optional)</label>

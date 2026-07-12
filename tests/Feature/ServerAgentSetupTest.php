@@ -2,10 +2,7 @@
 
 use App\Models\Server;
 use App\Models\User;
-use App\Services\ConnectionResult;
 use App\Services\ExecutionEngine\PushAgentEngine;
-use App\Services\SshResult;
-use App\Services\SshService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
@@ -16,7 +13,6 @@ test('user can rotate server agent token', function () {
     $server = Server::factory()->create([
         'user_id' => $user->id,
         'agent_enabled' => false,
-        'execution_driver' => 'ssh',
     ]);
 
     $response = $this->actingAs($user)
@@ -35,20 +31,19 @@ test('user can rotate server agent token', function () {
     expect($token)->toStartWith('smz_')
         ->and($server->agent_enabled)->toBeTrue()
         ->and($server->agent_token)->toBe($token)
-        ->and($installCommand)->toContain('smuze-agent install')
+        ->and($installCommand)->toContain('agent/download')
+        ->and($installCommand)->toContain('smuze-agent')
         ->and($installCommand)->toContain('--server-id')
         ->and($installCommand)->toContain((string) $server->id)
         ->and($installCommand)->toContain($token)
         ->and($rawToken)->not->toBe($token)
-        ->and($server->agent_status)->toBe('disconnected')
-        ->and($server->execution_driver)->toBe('agent');
+        ->and($server->agent_status)->toBe('disconnected');
 });
 
 test('user can disable server agent', function () {
     $user = User::factory()->create();
     $server = Server::factory()->withAgent()->create([
         'user_id' => $user->id,
-        'execution_driver' => 'agent',
     ]);
 
     $this->actingAs($user)
@@ -60,8 +55,7 @@ test('user can disable server agent', function () {
 
     expect($server->agent_enabled)->toBeFalse()
         ->and($server->agent_token)->toBeNull()
-        ->and($server->agent_status)->toBe('disconnected')
-        ->and($server->execution_driver)->toBe('ssh');
+        ->and($server->agent_status)->toBe('disconnected');
 });
 
 test('user cannot manage another users server agent', function () {
@@ -73,40 +67,28 @@ test('user cannot manage another users server agent', function () {
         ->assertForbidden();
 });
 
-test('user can install agent via ssh bootstrap', function () {
+test('user can generate manual agent install command', function () {
     $user = User::factory()->create();
     $server = Server::factory()->create([
         'user_id' => $user->id,
         'agent_enabled' => false,
-        'execution_driver' => 'ssh',
     ]);
 
-    $ssh = Mockery::mock(SshService::class);
-    $ssh->shouldReceive('execute')
-        ->once()
-        ->andReturn(new SshResult(stdout: 'OK', stderr: '', exitCode: 0, success: true));
-    $this->app->instance(SshService::class, $ssh);
-
-    $agent = Mockery::mock(PushAgentEngine::class);
-    $agent->shouldReceive('test')
-        ->once()
-        ->andReturn(new ConnectionResult(success: true, latencyMs: 1.0));
-    $this->app->instance(PushAgentEngine::class, $agent);
-
-    $this->actingAs($user)
+    $response = $this->actingAs($user)
         ->postJson(route('server.agent.install', $server))
         ->assertSuccessful()
         ->assertJson([
             'success' => true,
-            'message' => 'Agent installiert und verbunden.',
+            'message' => 'Install-Kommando generiert. Führe es manuell auf dem Server aus.',
         ]);
 
     $server->refresh();
 
     expect($server->agent_enabled)->toBeTrue()
         ->and($server->agent_token)->toStartWith('smz_')
-        ->and($server->agent_status)->toBe('connected')
-        ->and($server->execution_driver)->toBe('agent');
+        ->and($server->agent_status)->toBe('disconnected')
+        ->and($response->json('install_command'))->toContain('agent/download')
+        ->and($response->json('install_command'))->toContain('smuze-agent');
 });
 
 test('agent download endpoint serves binary', function () {

@@ -18,13 +18,7 @@ class AdminServerRequest extends FormRequest
             'user_id' => ['required', 'integer', 'exists:users,id'],
             'name' => ['required', 'string', 'max:255'],
             'host' => ['required', 'string', 'max:255'],
-            'port' => ['required', 'integer', 'min:1', 'max:65535'],
-            'username' => ['required', 'string', 'max:255'],
-            'auth_type' => ['required', 'string', 'in:password,key'],
-            'credentials' => ['nullable', 'string'],
-            'key_path' => ['nullable', 'string', 'max:255'],
-            'key_content' => ['nullable', 'string'],
-            'use_sudo' => ['boolean'],
+            'agent_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
     }

@@ -2,12 +2,11 @@
 
 use App\Models\Server;
 use App\Models\User;
-use App\Services\SshResult;
-use App\Services\SshService;
+use App\Services\ExecutionEngine\ExecutionResult;
+use App\Services\ExecutionEngine\PushAgentEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Symfony\Component\Process\Process;
 
 uses(RefreshDatabase::class);
 
@@ -51,9 +50,7 @@ test('user can create a server', function () {
         ->post(route('server.store'), [
             'name' => 'My Server',
             'host' => '192.168.1.1',
-            'port' => 22,
-            'username' => 'root',
-            'auth_type' => 'key',
+            'agent_port' => 9300,
         ])
         ->assertRedirect(route('server.index', absolute: false));
 
@@ -96,9 +93,7 @@ test('user can update their server', function () {
         ->put(route('server.update', $server), [
             'name' => 'New Name',
             'host' => $server->host,
-            'port' => $server->port,
-            'username' => $server->username,
-            'auth_type' => $server->auth_type,
+            'agent_port' => $server->agent_port,
         ])
         ->assertRedirect(route('server.index', absolute: false));
 
@@ -113,9 +108,7 @@ test('user cannot update another users server', function () {
         ->put(route('server.update', $server), [
             'name' => 'Hacked Name',
             'host' => $server->host,
-            'port' => $server->port,
-            'username' => $server->username,
-            'auth_type' => $server->auth_type,
+            'agent_port' => $server->agent_port,
         ])
         ->assertForbidden();
 });
@@ -144,58 +137,41 @@ test('server validation requires name and host', function () {
         ->post(route('server.store'), [
             'name' => '',
             'host' => '',
-            'port' => 22,
-            'username' => '',
-            'auth_type' => '',
         ])
-        ->assertInvalid(['name', 'host', 'username', 'auth_type']);
+        ->assertInvalid(['name', 'host']);
 });
 
-test('user can create server with use_sudo and key_path', function () {
+test('user can create server with custom agent port', function () {
     $this->actingAs($this->user)
         ->post(route('server.store'), [
-            'name' => 'Sudo Server',
+            'name' => 'Agent Server',
             'host' => '10.0.0.1',
-            'port' => 2222,
-            'username' => 'admin',
-            'auth_type' => 'key',
-            'key_path' => '/home/user/.ssh/id_ed25519',
-            'use_sudo' => '1',
+            'agent_port' => 9400,
             'notes' => 'Test server',
         ])
         ->assertRedirect(route('server.index', absolute: false));
 
     $this->assertDatabaseHas('servers', [
         'user_id' => $this->user->id,
-        'name' => 'Sudo Server',
+        'name' => 'Agent Server',
         'host' => '10.0.0.1',
-        'port' => 2222,
-        'username' => 'admin',
-        'auth_type' => 'key',
-        'key_path' => '/home/user/.ssh/id_ed25519',
-        'use_sudo' => 1,
+        'agent_port' => 9400,
         'notes' => 'Test server',
     ]);
 });
 
-test('user can create server with password auth', function () {
+test('server creation defaults the agent port', function () {
     $this->actingAs($this->user)
         ->post(route('server.store'), [
-            'name' => 'Password Server',
+            'name' => 'Default Agent Server',
             'host' => '192.168.1.100',
-            'port' => 22,
-            'username' => 'root',
-            'auth_type' => 'password',
-            'credentials' => 'secret-password',
-            'use_sudo' => '0',
         ])
         ->assertRedirect(route('server.index', absolute: false));
 
     $this->assertDatabaseHas('servers', [
         'user_id' => $this->user->id,
-        'name' => 'Password Server',
-        'auth_type' => 'password',
-        'use_sudo' => 0,
+        'name' => 'Default Agent Server',
+        'agent_port' => config('agent.push_port', 9300),
     ]);
 });
 
@@ -227,24 +203,20 @@ test('user cannot view another users server system', function () {
         ->assertForbidden();
 });
 
-test('user can update server with sudo disabled', function () {
+test('user can update server agent port', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
-        'use_sudo' => true,
     ]);
 
     $this->actingAs($this->user)
         ->put(route('server.update', $server), [
             'name' => $server->name,
             'host' => $server->host,
-            'port' => $server->port,
-            'username' => $server->username,
-            'auth_type' => $server->auth_type,
-            'use_sudo' => '0',
+            'agent_port' => 9400,
         ])
         ->assertRedirect(route('server.index', absolute: false));
 
-    expect($server->refresh()->use_sudo)->toBeFalse();
+    expect($server->refresh()->agent_port)->toBe(9400);
 });
 
 test('admin can view all servers in admin panel', function () {
@@ -331,10 +303,6 @@ test('service install returns error json', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -346,10 +314,6 @@ test('service deinstall returns error json', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -359,26 +323,26 @@ test('service deinstall returns error json', function () {
 
 test('service install stream returns live output and final status', function () {
     $server = Server::factory()->create(['user_id' => $this->user->id]);
-    $ssh = Mockery::mock(SshService::class);
+    $engine = Mockery::mock(PushAgentEngine::class);
 
-    $ssh->shouldReceive('execute')
+    $engine->shouldReceive('execute')
         ->once()
         ->withArgs(function (Server $serverArgument, string $command, int $timeout, bool $useSudo, callable $onOutput) use ($server): bool {
             expect($serverArgument->is($server))->toBeTrue();
             expect($command)->toContain('apt install php');
 
-            $onOutput(Process::OUT, "Paketlisten werden gelesen...\n");
+            $onOutput('stdout', "Paketlisten werden gelesen...\n");
 
             return $timeout === 300 && $useSudo === true;
         })
-        ->andReturn(new SshResult(
+        ->andReturn(new ExecutionResult(
             stdout: 'Paketlisten werden gelesen...',
             stderr: '',
             exitCode: 0,
             success: true,
         ));
 
-    $this->app->instance(SshService::class, $ssh);
+    $this->app->instance(PushAgentEngine::class, $engine);
 
     $response = $this->actingAs($this->user)
         ->post(route('server.services.install.stream', ['server' => $server, 'service' => 'php']))
@@ -405,8 +369,6 @@ test('unknown service returns not found', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -455,10 +417,6 @@ test('firewall status returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -470,10 +428,6 @@ test('firewall rules returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -485,8 +439,6 @@ test('firewall allow rejects invalid port', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -501,8 +453,6 @@ test('firewall allow rejects overflow port', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -517,10 +467,6 @@ test('firewall allow returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -535,10 +481,6 @@ test('firewall deny returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -553,10 +495,6 @@ test('firewall enable returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -568,10 +506,6 @@ test('firewall disable returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -583,10 +517,6 @@ test('firewall destroy returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -693,10 +623,6 @@ test('apache status returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -708,10 +634,6 @@ test('apache install returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -723,10 +645,6 @@ test('apache deinstall returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -738,10 +656,6 @@ test('apache service start returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -753,10 +667,6 @@ test('apache configtest returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -768,10 +678,6 @@ test('apache sites returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -783,10 +689,6 @@ test('apache modules returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -798,8 +700,6 @@ test('apache create vhost validates domain', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -814,8 +714,6 @@ test('apache create vhost validates document_root', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -830,10 +728,6 @@ test('apache create vhost returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -848,10 +742,6 @@ test('apache enable site returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -863,10 +753,6 @@ test('apache enable module returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -878,10 +764,6 @@ test('apache certbot install returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -893,8 +775,6 @@ test('apache obtain ssl validates fields', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -993,10 +873,6 @@ test('mysql status returns json with success', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1008,10 +884,6 @@ test('mysql install returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1023,10 +895,6 @@ test('mysql deinstall returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1038,10 +906,6 @@ test('mysql service start returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1053,10 +917,6 @@ test('mysql databases returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1068,10 +928,6 @@ test('mysql users returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1083,8 +939,6 @@ test('mysql create database validates name', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1098,8 +952,6 @@ test('mysql create database validates invalid name', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1113,10 +965,6 @@ test('mysql create database returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1130,8 +978,6 @@ test('mysql create user validates fields', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1147,10 +993,6 @@ test('mysql create user returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1166,8 +1008,6 @@ test('mysql set password validates field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1181,10 +1021,6 @@ test('mysql grant all returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1196,10 +1032,6 @@ test('mysql drop database returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1211,10 +1043,6 @@ test('mysql drop user returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1298,8 +1126,6 @@ test('github deploy validates repo_url', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1315,8 +1141,6 @@ test('github deploy validates host', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1332,8 +1156,6 @@ test('github deploy validates target_name', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1349,10 +1171,6 @@ test('github deploy returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)
@@ -1368,10 +1186,6 @@ test('github deploy rejects non-https url', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'test',
     ]);
 
     $this->actingAs($this->user)

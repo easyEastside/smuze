@@ -6,7 +6,7 @@
                     <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Server System</p>
                     <h1 class="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{{ $server->name }}</h1>
                     <p class="mt-1 text-sm text-[#706f6c] dark:text-[#A1A09A]">
-                        {{ $server->username }}<span>@</span>{{ $server->host }}:{{ $server->port }}
+                        {{ $server->host }}:{{ $server->agent_port ?? config('agent.push_port', 9300) }}
                     </p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
@@ -129,18 +129,6 @@
                             <dd id="update-mode" class="font-medium text-[#706f6c] dark:text-[#A1A09A]">-</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-[#706f6c] dark:text-[#A1A09A]">Auth</dt>
-                            <dd class="font-medium">{{ $server->auth_type === 'key' ? 'SSH-Key' : 'Passwort' }}</dd>
-                        </div>
-                        <div class="flex justify-between">
-                            <dt class="text-[#706f6c] dark:text-[#A1A09A]">Sudo</dt>
-                            <dd class="font-medium">{{ $server->use_sudo ? 'Ja' : 'Nein' }}</dd>
-                        </div>
-                        <div class="flex justify-between">
-                            <dt class="text-[#706f6c] dark:text-[#A1A09A]">Engine</dt>
-                            <dd class="font-medium">{{ strtoupper($server->execution_driver ?? 'ssh') }}</dd>
-                        </div>
-                        <div class="flex justify-between">
                             <dt class="text-[#706f6c] dark:text-[#A1A09A]">Agent</dt>
                             <dd id="agent-status-detail" class="font-medium">{{ $server->agent_enabled ? $server->agent_status : 'deaktiviert' }}</dd>
                         </div>
@@ -178,7 +166,7 @@
 
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Agent Setup</p>
-                    <p class="mt-2 text-xs leading-5 text-[#706f6c] dark:text-[#A1A09A]">Generiere einen Token für den Polling-Agent. Der Token wird nur direkt nach der Rotation angezeigt.</p>
+                    <p class="mt-2 text-xs leading-5 text-[#706f6c] dark:text-[#A1A09A]">Generiere ein Install-Kommando und führe es manuell auf dem Server aus. Der Token wird nur direkt nach der Generierung angezeigt.</p>
                     <div id="agent-update-section" class="mt-2 hidden">
                         <span class="rounded-lg bg-yellow-50 px-3 py-2 text-center text-xs font-medium text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200">
                             Update verfügbar: <span id="agent-update-version"></span>
@@ -194,10 +182,10 @@
                             </span>
                         @else
                             <button type="button" onclick="installAgent()" class="rounded-lg bg-[#f53003] px-3 py-2 font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:hover:bg-[#e63a2e]">
-                                Agent per SSH installieren
+                                Install-Kommando generieren
                             </button>
                             <button type="button" onclick="rotateAgentToken()" class="rounded-lg bg-[#1b1b18] px-3 py-2 font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
-                                Nur Token generieren
+                                Token rotieren
                             </button>
                         @endif
                         @if ($server->agent_enabled)
@@ -225,7 +213,7 @@
     @push('scripts')
     <script>
     const host = '{{ $server->host }}';
-    const port = '{{ $server->agent_port ?? 9300 }}';
+    const port = '{{ $server->agent_port ?? config('agent.push_port', 9300) }}';
 
     function formatBytes(mb) {
         if (mb >= 1024) return (mb / 1024).toFixed(1) + ' GB';
@@ -399,11 +387,11 @@
     }
 
     async function installAgent() {
-        if (!confirm('Agent per SSH installieren? Der bestehende SSH-Zugang wird dafür einmalig genutzt.')) return;
+        if (!confirm('Neues Install-Kommando generieren? Der bisherige Agent-Token wird ungültig.')) return;
 
         const result = document.getElementById('action-result');
         result.className = 'mt-3 rounded-xl p-3 text-sm';
-        result.textContent = 'Installiere Agent auf dem Server...';
+            result.textContent = 'Generiere Install-Kommando...';
         result.classList.remove('hidden');
 
         try {
@@ -422,7 +410,8 @@
             result.textContent = data.message;
 
             if (data.success) {
-                setTimeout(() => window.location.reload(), 2000);
+                document.getElementById('agent-token-output').textContent = data.install_command;
+                document.getElementById('agent-token-box').classList.remove('hidden');
             }
         } catch (err) {
             result.className = 'mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
@@ -457,7 +446,7 @@
     }
 
     async function disableAgent() {
-        if (!confirm('Agent deaktivieren und auf SSH zurückstellen?')) return;
+        if (!confirm('Agent deaktivieren? Der aktuelle Agent-Token wird gelöscht.')) return;
 
         const res = await fetch('{{ route('server.agent.disable', $server) }}', {
             method: 'DELETE',

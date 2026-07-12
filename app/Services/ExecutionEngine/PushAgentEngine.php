@@ -15,22 +15,31 @@ class PushAgentEngine
         bool $useSudo = true,
         ?callable $onOutput = null,
     ): ExecutionResult {
-        $url = $this->agentUrl($server).'/execute';
+        try {
+            $url = $this->agentUrl($server).'/execute';
 
-        $response = Http::timeout($timeout + 5)
-            ->withToken($server->agent_token)
-            ->acceptJson()
-            ->withOptions(['stream' => true])
-            ->post($url, [
-                'command' => $command,
-                'timeout' => $timeout,
-                'use_sudo' => $useSudo,
-            ]);
+            $response = Http::timeout($timeout + 5)
+                ->withToken($server->agent_token)
+                ->acceptJson()
+                ->withOptions(['stream' => true])
+                ->post($url, [
+                    'command' => $command,
+                    'timeout' => $timeout,
+                    'use_sudo' => $useSudo,
+                ]);
 
-        if ($response->failed()) {
+            if ($response->failed()) {
+                return new ExecutionResult(
+                    stdout: '',
+                    stderr: 'Agent communication failed: '.$response->status(),
+                    exitCode: -1,
+                    success: false,
+                );
+            }
+        } catch (\Throwable $e) {
             return new ExecutionResult(
                 stdout: '',
-                stderr: 'Agent communication failed: '.$response->status(),
+                stderr: 'Agent communication failed: '.$e->getMessage(),
                 exitCode: -1,
                 success: false,
             );

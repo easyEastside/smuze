@@ -6,7 +6,7 @@
                     <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Server</p>
                     <h1 class="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Meine Server</h1>
                     <p class="mt-3 max-w-2xl text-sm leading-6 text-[#706f6c] dark:text-[#A1A09A]">
-                        Deine Server mit SSH-Verbindungsmöglichkeit.
+                        Deine Server mit manuell installiertem Agent.
                     </p>
                 </div>
                 <a
@@ -35,9 +35,7 @@
                             <th class="px-5 py-3 font-medium">Status</th>
                             <th class="px-5 py-3 font-medium">Name</th>
                             <th class="px-5 py-3 font-medium">Host</th>
-                            <th class="px-5 py-3 font-medium">Port</th>
-                            <th class="px-5 py-3 font-medium">Benutzer</th>
-                            <th class="px-5 py-3 font-medium">Auth</th>
+                            <th class="px-5 py-3 font-medium">Agent-Port</th>
                             <th class="px-5 py-3 font-medium">Agent</th>
                             <th class="px-5 py-3 font-medium">Notizen</th>
                             <th class="px-5 py-3 font-medium text-right">Aktionen</th>
@@ -60,21 +58,15 @@
                                     </a>
                                 </td>
                                 <td class="px-5 py-4 text-[#706f6c] dark:text-[#A1A09A] font-mono text-xs">{{ $server->host }}</td>
-                                <td class="px-5 py-4 text-[#706f6c] dark:text-[#A1A09A]">{{ $server->port }}</td>
-                                <td class="px-5 py-4 text-[#706f6c] dark:text-[#A1A09A]">{{ $server->username }}</td>
-                                <td class="px-5 py-4">
-                                    <span class="rounded-md bg-[#19140008] px-2 py-0.5 text-xs text-[#706f6c] dark:bg-[#fffaed08] dark:text-[#A1A09A]">
-                                        {{ $server->auth_type === 'key' ? 'SSH-Key' : 'Passwort' }}
-                                    </span>
-                                </td>
+                                <td class="px-5 py-4 text-[#706f6c] dark:text-[#A1A09A]">{{ $server->agent_port ?? config('agent.push_port', 9300) }}</td>
                                 <td class="px-5 py-4">
                                     @if ($server->agent_enabled && $server->agent_status === 'connected')
                                         <span class="rounded-md bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-950 dark:text-green-300">
-                                            Agent
+                                            Verbunden
                                         </span>
                                     @else
                                         <span class="rounded-md bg-[#19140020] px-2 py-0.5 text-xs text-[#706f6c] dark:bg-[#3E3E3A] dark:text-[#A1A09A]">
-                                            SSH
+                                            Ausstehend
                                         </span>
                                     @endif
                                 </td>

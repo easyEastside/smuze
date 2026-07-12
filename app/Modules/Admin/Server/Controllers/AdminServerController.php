@@ -12,7 +12,7 @@ class AdminServerController
 {
     public function index(): View
     {
-        $servers = Server::orderByDesc('created_at')->paginate(15);
+        $servers = Server::with('user')->orderByDesc('created_at')->paginate(15);
 
         return view('modules.admin.server.index', compact('servers'));
     }
@@ -27,7 +27,7 @@ class AdminServerController
     public function store(AdminServerRequest $request): RedirectResponse
     {
         $data = $request->validated();
-        $data['use_sudo'] = $request->boolean('use_sudo');
+        $data['agent_port'] ??= config('agent.push_port', 9300);
         $server = Server::create($data);
 
         return to_route('admin.servers.index')
@@ -44,7 +44,7 @@ class AdminServerController
     public function update(AdminServerRequest $request, Server $server): RedirectResponse
     {
         $data = $request->validated();
-        $data['use_sudo'] = $request->boolean('use_sudo');
+        $data['agent_port'] ??= config('agent.push_port', 9300);
         $server->update($data);
 
         return to_route('admin.servers.index')

@@ -18,7 +18,7 @@ class ServerController
     public function index(Request $request): View
     {
         $servers = $request->user()->servers()->orderByDesc('created_at')->get()->map(function (Server $server) {
-            $connection = @fsockopen($server->host, $server->port, $errno, $errstr, 2);
+            $connection = @fsockopen($server->host, $server->agent_port ?? config('agent.push_port', 9300), $errno, $errstr, 2);
 
             $server->is_reachable = $connection !== false;
 

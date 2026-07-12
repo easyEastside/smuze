@@ -14,19 +14,11 @@ class Server extends Model
         'user_id',
         'name',
         'host',
-        'port',
-        'username',
-        'auth_type',
-        'credentials',
-        'key_path',
-        'key_content',
-        'use_sudo',
         'agent_enabled',
         'agent_token',
         'agent_version',
         'agent_last_seen_at',
         'agent_status',
-        'agent_transport',
         'agent_port',
         'notes',
     ];
@@ -34,13 +26,10 @@ class Server extends Model
     protected function casts(): array
     {
         return [
-            'port' => 'integer',
-            'use_sudo' => 'boolean',
             'agent_enabled' => 'boolean',
             'agent_token' => 'encrypted',
             'agent_last_seen_at' => 'datetime',
-            'credentials' => 'encrypted',
-            'key_content' => 'encrypted',
+            'agent_port' => 'integer',
         ];
     }
 

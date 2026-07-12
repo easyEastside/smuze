@@ -6,7 +6,7 @@
                     <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Dienste</p>
                     <h1 class="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Dienstverwaltung</h1>
                     <p class="mt-1 text-sm text-[#706f6c] dark:text-[#A1A09A]">
-                        {{ $server->name }} — {{ $server->username }}@{{ $server->host }}:{{ $server->port }}
+                        {{ $server->name }} — {{ $server->host }}:{{ $server->agent_port ?? config('agent.push_port', 9300) }}
                     </p>
                 </div>
                 <a href="{{ route('server.system', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">

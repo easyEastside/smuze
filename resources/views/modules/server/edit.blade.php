@@ -46,103 +46,19 @@
                     </div>
 
                     <div>
-                        <label for="port" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Port</label>
+                        <label for="agent_port" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Agent-Port</label>
                         <input
                             type="number"
-                            name="port"
-                            id="port"
-                            value="{{ old('port', $server->port) }}"
+                            name="agent_port"
+                            id="agent_port"
+                            value="{{ old('agent_port', $server->agent_port ?? config('agent.push_port', 9300)) }}"
                             min="1"
                             max="65535"
-                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('port') border-[#f53003] @enderror"
+                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('agent_port') border-[#f53003] @enderror"
                         />
-                        @error('port')
+                        @error('agent_port')
                             <p class="mt-1 text-sm text-[#f53003]">{{ $message }}</p>
                         @enderror
-                    </div>
-
-                    <div>
-                        <label for="username" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Benutzername</label>
-                        <input
-                            type="text"
-                            name="username"
-                            id="username"
-                            value="{{ old('username', $server->username) }}"
-                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('username') border-[#f53003] @enderror"
-                        />
-                        @error('username')
-                            <p class="mt-1 text-sm text-[#f53003]">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <div class="sm:col-span-2">
-                        <label for="auth_type" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Authentifizierung</label>
-                        <select
-                            name="auth_type"
-                            id="auth_type"
-                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC]"
-                        >
-                            <option value="key" @selected(old('auth_type', $server->auth_type) === 'key')>SSH-Key</option>
-                            <option value="password" @selected(old('auth_type', $server->auth_type) === 'password')>Passwort</option>
-                        </select>
-                    </div>
-
-                    <div id="credentials-password" class="sm:col-span-2">
-                        <label for="credentials" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Passwort</label>
-                        <input
-                            type="password"
-                            name="credentials"
-                            id="credentials"
-                            value="{{ old('credentials', $server->auth_type === 'password' ? '' : '') }}"
-                            placeholder="Neues Passwort (leer lassen, um nicht zu ändern)"
-                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC]"
-                        />
-                    </div>
-
-                    <div id="credentials-key" class="sm:col-span-2">
-                        <label for="key_content" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">SSH-Private-Key</label>
-                        <textarea
-                            name="key_content"
-                            id="key_content"
-                            rows="6"
-                            placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
-                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm font-mono text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC]"
-                        >{{ old('key_content', $server->auth_type === 'key' && $server->key_content ? '' : '') }}</textarea>
-                    </div>
-
-                    <div class="sm:col-span-2">
-                        <label class="flex items-center gap-3">
-                            <input
-                                type="checkbox"
-                                name="use_sudo"
-                                id="use_sudo"
-                                value="1"
-                                {{ old('use_sudo', $server->use_sudo) ? 'checked' : '' }}
-                                class="size-4 rounded border-[#19140020] dark:border-[#3E3E3A]"
-                            />
-                            <span class="text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">sudo verwenden</span>
-                        </label>
-                    </div>
-
-                    <div class="sm:col-span-2">
-                        <label class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Ausführungsmodus</label>
-                        <p class="mt-1 text-sm">
-                            @if ($server->execution_driver === 'agent')
-                                <span class="rounded-lg bg-green-50 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-950 dark:text-green-200">Agent</span>
-                            @else
-                                <span class="rounded-lg bg-[#19140020] px-2 py-1 text-xs font-medium dark:bg-[#3E3E3A]">SSH</span>
-                            @endif
-                        </p>
-                        @if ($server->agent_enabled)
-                            <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">
-                                Agent auf Port {{ $server->agent_port ?? config('agent.push_port', 9300) }}
-                                @if ($server->agent_version) (v{{ $server->agent_version }}) @endif
-                            </p>
-                        @else
-                            <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">
-                                Kommunikation erfolgt per SSH. Wechsle in der System-Ansicht zum Agent-Modus.
-                            </p>
-                        @endif
                     </div>
 
                     <div class="sm:col-span-2">
@@ -166,15 +82,4 @@
         </div>
     </section>
 
-    @push('scripts')
-    <script>
-    function toggleAuthFields() {
-        const authType = document.getElementById('auth_type').value;
-        document.getElementById('credentials-password').style.display = authType === 'password' ? '' : 'none';
-        document.getElementById('credentials-key').style.display = authType === 'key' ? '' : 'none';
-    }
-    document.getElementById('auth_type').addEventListener('change', toggleAuthFields);
-    toggleAuthFields();
-    </script>
-    @endpush
 </x-layouts.app>

@@ -6,7 +6,7 @@
                     <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Firewall</p>
                     <h1 class="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">UFW-Firewall-Verwaltung</h1>
                     <p class="mt-1 text-sm text-[#706f6c] dark:text-[#A1A09A]">
-                        {{ $server->name }} — {{ $server->username }}@{{ $server->host }}:{{ $server->port }}
+                        {{ $server->name }} — {{ $server->host }}:{{ $server->agent_port ?? config('agent.push_port', 9300) }}
                     </p>
                 </div>
                 <div class="flex items-center gap-2">
@@ -296,7 +296,7 @@
         if (action === 'deny') {
             let warn = '';
             if (port === '22') {
-                warn = 'Du blockierst den SSH-Port (22)!\nDadurch kann die Verbindung zum Server abbrechen.\n\n';
+                warn = 'Du blockierst den Standard-SSH-Port (22).\nWenn du ihn noch nutzt, kann die Verbindung zum Server abbrechen.\n\n';
             }
             if (!confirm(warn + 'Port ' + port + ' wirklich blocken?')) return;
         }
