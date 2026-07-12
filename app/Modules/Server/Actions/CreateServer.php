@@ -4,6 +4,7 @@ namespace App\Modules\Server\Actions;
 
 use App\Models\Server;
 use App\Modules\Server\Requests\StoreServerRequest;
+use App\Services\ExecutionEngine\PushAgentEngine;
 use App\Services\SshService;
 use Illuminate\Support\Str;
 
@@ -11,6 +12,7 @@ class CreateServer
 {
     public function __construct(
         private SshService $ssh,
+        private PushAgentEngine $agent,
     ) {}
 
     public function handle(StoreServerRequest $request): Server
@@ -64,9 +66,22 @@ class CreateServer
         $result = $this->ssh->execute($server, $script, timeout: 120, useSudo: true);
 
         if ($result->success) {
-            $server->forceFill([
-                'execution_driver' => 'agent',
-            ])->save();
+            for ($i = 0; $i < 3; $i++) {
+                if ($i > 0) {
+                    sleep(1);
+                }
+
+                $connectionResult = $this->agent->test($server);
+
+                if ($connectionResult->success) {
+                    $server->forceFill([
+                        'agent_status' => 'connected',
+                        'execution_driver' => 'agent',
+                    ])->save();
+
+                    return;
+                }
+            }
         }
     }
 }
