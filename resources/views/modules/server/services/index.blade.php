@@ -58,6 +58,29 @@
         { key: 'npm', label: 'npm', versionField: 'node_version' },
         { key: 'composer', label: 'Composer', versionField: 'composer_version' },
     ];
+    const systemCacheKey = 'smuze:server:{{ $server->id }}:system-info';
+
+    function cachedSystemData() {
+        try {
+            const cached = JSON.parse(sessionStorage.getItem(systemCacheKey) || 'null');
+
+            if (!cached || !cached.data || Date.now() - cached.cached_at > 60000) {
+                return null;
+            }
+
+            return cached.data;
+        } catch {
+            return null;
+        }
+    }
+
+    function cacheSystemData(data) {
+        try {
+            sessionStorage.setItem(systemCacheKey, JSON.stringify({ data, cached_at: Date.now() }));
+        } catch {
+            // Ignore unavailable storage.
+        }
+    }
 
     function loadServices() {
         const loading = document.getElementById('services-loading');
@@ -65,8 +88,16 @@
         const result = document.getElementById('services-result');
         result.classList.add('hidden');
 
-        loading.classList.remove('hidden');
-        content.classList.add('hidden');
+        const cached = cachedSystemData();
+
+        if (cached) {
+            renderServicesView(cached);
+            loading.textContent = 'Aktualisiere Dienstinformationen...';
+        } else {
+            loading.textContent = 'Lade Dienstinformationen...';
+            loading.classList.remove('hidden');
+            content.classList.add('hidden');
+        }
 
         const doHttp = () => {
             fetch('{{ route('server.system.refresh', $server) }}')
@@ -78,6 +109,7 @@
                         content.classList.remove('hidden');
                         return;
                     }
+                    cacheSystemData(data);
                     renderServicesView(data);
                 })
                 .catch(err => {
@@ -97,6 +129,7 @@
                         content.classList.remove('hidden');
                         return;
                     }
+                    cacheSystemData(data);
                     renderServicesView(data);
                 })
                 .catch(doHttp);

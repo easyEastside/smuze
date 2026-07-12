@@ -175,6 +175,7 @@
     @push('scripts')
     <script>
     let refreshInterval = null;
+    const systemCacheKey = 'smuze:server:{{ $server->id }}:system-info';
 
     function formatBytes(mb) {
         if (mb >= 1024) return (mb / 1024).toFixed(1) + ' GB';
@@ -212,6 +213,12 @@
 
     function renderSystemData(data, source = 'initial') {
         window.lastSystemData = data;
+
+        try {
+            sessionStorage.setItem(systemCacheKey, JSON.stringify({ data, cached_at: Date.now() }));
+        } catch {
+            // Ignore unavailable storage.
+        }
 
         document.getElementById('sys-hostname').textContent = data.hostname || '-';
         document.getElementById('sys-os').textContent = data.os || '-';

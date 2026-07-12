@@ -3,6 +3,7 @@
 namespace App\Modules\Server\Terminal\Controllers;
 
 use App\Models\Server;
+use App\Modules\Server\Actions\RefreshSystem;
 use App\Modules\Server\Apache\Actions\ApacheAction;
 use App\Modules\Server\Firewall\Actions\FirewallAction;
 use App\Modules\Server\Mysql\Actions\MysqlAction;
@@ -22,6 +23,7 @@ class InternalProxyController
         }
 
         $result = match ("{$module}.{$action}") {
+            'system.refresh' => app(RefreshSystem::class)->handle($server),
             'apache.status' => app(ApacheAction::class)->status($server),
             'apache.sites' => app(ApacheAction::class)->sites($server),
             'apache.modules' => app(ApacheAction::class)->modules($server),

@@ -334,7 +334,7 @@ wss.on('connection', async (ws, request) => {
             terminalConnection.write(payload.data);
         }
 
-        if (payload.requestId && ['apache', 'mysql', 'firewall', 'services', 'github'].includes(payload.channel) && payload.action && server) {
+        if (payload.requestId && ['system', 'apache', 'mysql', 'firewall', 'services', 'github'].includes(payload.channel) && payload.action && server) {
             proxyModuleRequest(ws, server.id, payload.channel, payload.action, payload.requestId, payload.params);
         }
 
