@@ -114,6 +114,58 @@
                     </div>
                     <div id="action-result" class="mt-3 hidden rounded-xl p-3 text-sm"></div>
                 </div>
+
+                <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Agent-Audit</p>
+                            <p class="mt-1 text-xs leading-5 text-[#706f6c] dark:text-[#A1A09A]">Zuletzt ausgeführte Agent-Kommandos für diesen Server.</p>
+                        </div>
+                    </div>
+
+                    @if ($agentCommands->isEmpty())
+                        <p class="mt-4 text-sm text-[#706f6c] dark:text-[#A1A09A]">Noch keine Agent-Kommandos protokolliert.</p>
+                    @else
+                        <div class="mt-4 overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-[#19140020] text-left text-xs font-medium text-[#706f6c] dark:border-[#3E3E3A] dark:text-[#A1A09A]">
+                                        <th class="py-2 pr-4 font-medium">Zeit</th>
+                                        <th class="py-2 pr-4 font-medium">Status</th>
+                                        <th class="py-2 pr-4 font-medium">Quelle</th>
+                                        <th class="py-2 pr-4 font-medium">Benutzer</th>
+                                        <th class="py-2 pr-4 font-medium">Kommando</th>
+                                        <th class="py-2 text-right font-medium">Dauer</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-[#19140020] dark:divide-[#3E3E3A]">
+                                    @foreach ($agentCommands as $command)
+                                        <tr>
+                                            <td class="py-3 pr-4 whitespace-nowrap text-xs text-[#706f6c] dark:text-[#A1A09A]">{{ $command->created_at->diffForHumans() }}</td>
+                                            <td class="py-3 pr-4">
+                                                @if ($command->success)
+                                                    <span class="rounded-md bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-950 dark:text-green-300">OK</span>
+                                                @else
+                                                    <span class="rounded-md bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">Fehler {{ $command->exit_code }}</span>
+                                                @endif
+                                            </td>
+                                            <td class="py-3 pr-4 text-xs text-[#706f6c] dark:text-[#A1A09A]">{{ $command->source }}</td>
+                                            <td class="py-3 pr-4 text-xs text-[#706f6c] dark:text-[#A1A09A]">{{ $command->user?->name ?? 'System' }}</td>
+                                            <td class="max-w-[320px] py-3 pr-4 font-mono text-xs">
+                                                <span class="block truncate" title="{{ $command->command }}">{{ $command->command }}</span>
+                                            </td>
+                                            <td class="py-3 text-right text-xs text-[#706f6c] dark:text-[#A1A09A]">{{ $command->duration_ms ?? 0 }} ms</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mt-4">
+                            {{ $agentCommands->links() }}
+                        </div>
+                    @endif
+                </div>
             </div>
 
             <aside class="space-y-6">
@@ -127,6 +179,10 @@
                         <div class="flex justify-between">
                             <dt class="text-[#706f6c] dark:text-[#A1A09A]">Aktualisierung</dt>
                             <dd id="update-mode" class="font-medium text-[#706f6c] dark:text-[#A1A09A]">-</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-[#706f6c] dark:text-[#A1A09A]">Agent-Endpunkt</dt>
+                            <dd class="font-medium">{{ $server->host }}:{{ $server->agent_port ?? config('agent.push_port', 9300) }}</dd>
                         </div>
                         <div class="flex justify-between">
                             <dt class="text-[#706f6c] dark:text-[#A1A09A]">Agent</dt>

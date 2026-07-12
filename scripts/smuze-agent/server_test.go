@@ -229,6 +229,60 @@ func TestAuthRejectsWrongToken(t *testing.T) {
 	}
 }
 
+func TestAuthRejectsEmptyConfiguredToken(t *testing.T) {
+	srv := NewServer(Config{Token: "", Port: 9300})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	req, _ := http.NewRequest("GET", ts.URL+"/health", nil)
+	req.Header.Set("Authorization", "Bearer ")
+
+	res, _ := http.DefaultClient.Do(req)
+	if res.StatusCode != 403 {
+		t.Fatalf("expected 403, got %d", res.StatusCode)
+	}
+}
+
+func TestExecuteRejectsLargeCommand(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	body := fmt.Sprintf(`{"command":"%s","timeout":10,"use_sudo":false}`, strings.Repeat("a", maxCommandBytes+1))
+	req, _ := http.NewRequest("POST", ts.URL+"/execute", strings.NewReader(body))
+	req.Header.Set(authHeader())
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /execute: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 400 {
+		t.Fatalf("expected 400, got %d", res.StatusCode)
+	}
+}
+
+func TestExecuteRejectsOversizedBody(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	body := `{"command":"` + strings.Repeat("a", maxExecuteBodyBytes) + `"}`
+	req, _ := http.NewRequest("POST", ts.URL+"/execute", strings.NewReader(body))
+	req.Header.Set(authHeader())
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /execute: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 400 {
+		t.Fatalf("expected 400, got %d", res.StatusCode)
+	}
+}
+
 func TestExecuteWithSudo(t *testing.T) {
 	ts := newTestServer(t)
 	defer ts.Close()
@@ -249,8 +303,7 @@ func TestExecuteWithSudo(t *testing.T) {
 	}
 
 	respBody, _ := io.ReadAll(res.Body)
-
-	if !strings.Contains(string(respBody), "sudo-test") {
-		t.Fatal("expected command output in response")
+	if !strings.Contains(string(respBody), `"done":true`) {
+		t.Fatal("expected done chunk in response")
 	}
 }

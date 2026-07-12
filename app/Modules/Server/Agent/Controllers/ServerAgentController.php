@@ -3,6 +3,7 @@
 namespace App\Modules\Server\Agent\Controllers;
 
 use App\Models\Server;
+use App\Models\ServerAgentCommand;
 use App\Services\ExecutionEngine\PushAgentEngine;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
@@ -194,6 +195,9 @@ class ServerAgentController
             'use_sudo' => ['nullable', 'boolean'],
         ]);
 
+        $startedAt = now();
+        $started = microtime(true);
+
         try {
             $response = Http::timeout(($data['timeout'] ?? 30) + 5)
                 ->withToken($server->agent_token)
@@ -207,6 +211,9 @@ class ServerAgentController
             if ($response->successful()) {
                 $lines = explode("\n", trim($response->body()));
                 $result = ['success' => true, 'data' => []];
+                $stdout = '';
+                $stderr = '';
+                $exitCode = -1;
 
                 foreach ($lines as $line) {
                     if (trim($line) === '') {
@@ -221,17 +228,66 @@ class ServerAgentController
 
                     $result['data'][] = $chunk;
 
+                    if (($chunk['stream'] ?? null) === 'stdout') {
+                        $stdout .= $chunk['data'] ?? '';
+                    } elseif (($chunk['stream'] ?? null) === 'stderr') {
+                        $stderr .= $chunk['data'] ?? '';
+                    }
+
                     if (isset($chunk['done']) && $chunk['done'] === true) {
-                        $result['exit_code'] = $chunk['exit_code'] ?? -1;
+                        $exitCode = $chunk['exit_code'] ?? -1;
+                        $result['exit_code'] = $exitCode;
                         break;
                     }
                 }
 
+                $this->recordProxyCommand(
+                    $server,
+                    $request,
+                    $data['command'],
+                    $data['timeout'] ?? 30,
+                    $data['use_sudo'] ?? true,
+                    $exitCode,
+                    $exitCode === 0,
+                    $stdout,
+                    $stderr,
+                    $startedAt,
+                    $started,
+                );
+
                 return response()->json($result);
             }
 
+            $this->recordProxyCommand(
+                $server,
+                $request,
+                $data['command'],
+                $data['timeout'] ?? 30,
+                $data['use_sudo'] ?? true,
+                -1,
+                false,
+                '',
+                'Agent responded with '.$response->status(),
+                $startedAt,
+                $started,
+            );
+
             return response()->json(['success' => false, 'error' => 'Agent responded with '.$response->status()], $response->status());
         } catch (ConnectionException) {
+            $this->recordProxyCommand(
+                $server,
+                $request,
+                $data['command'],
+                $data['timeout'] ?? 30,
+                $data['use_sudo'] ?? true,
+                -1,
+                false,
+                '',
+                'Agent nicht erreichbar',
+                $startedAt,
+                $started,
+            );
+
             return response()->json(['success' => false, 'error' => 'Agent nicht erreichbar'], 503);
         }
     }
@@ -241,5 +297,44 @@ class ServerAgentController
         $port = $server->agent_port ?? config('agent.push_port', 9300);
 
         return "http://{$server->host}:{$port}";
+    }
+
+    private function recordProxyCommand(
+        Server $server,
+        Request $request,
+        string $command,
+        int $timeout,
+        bool $useSudo,
+        int $exitCode,
+        bool $success,
+        string $stdout,
+        string $stderr,
+        \DateTimeInterface $startedAt,
+        float $started,
+    ): void {
+        ServerAgentCommand::create([
+            'server_id' => $server->id,
+            'user_id' => $request->user()?->id,
+            'source' => 'proxy',
+            'command' => $this->truncate($command, 2000),
+            'timeout' => $timeout,
+            'use_sudo' => $useSudo,
+            'exit_code' => $exitCode,
+            'success' => $success,
+            'duration_ms' => (int) round((microtime(true) - $started) * 1000),
+            'stdout' => $this->truncate($stdout, 8000),
+            'stderr' => $this->truncate($stderr, 8000),
+            'started_at' => $startedAt,
+            'finished_at' => now(),
+        ]);
+    }
+
+    private function truncate(string $value, int $limit): string
+    {
+        if (mb_strlen($value) <= $limit) {
+            return $value;
+        }
+
+        return mb_substr($value, 0, $limit).'... [truncated]';
     }
 }

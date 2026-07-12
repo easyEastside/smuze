@@ -1,10 +1,12 @@
 <?php
 
 use App\Models\Server;
+use App\Models\ServerAgentCommand;
 use App\Models\User;
 use App\Services\ExecutionEngine\PushAgentEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
 
@@ -185,4 +187,35 @@ test('agent update fails when agent is not enabled', function () {
             'success' => false,
             'message' => 'Agent ist nicht aktiviert.',
         ]);
+});
+
+test('agent engine records command audit log', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/execute' => Http::response(json_encode(['stream' => 'stdout', 'data' => "ok\n"])."\n".json_encode(['done' => true, 'exit_code' => 0])."\n"),
+    ]);
+
+    $this->actingAs($user);
+
+    $result = app(PushAgentEngine::class)->execute($server, 'whoami', timeout: 10, useSudo: false);
+
+    expect($result->success)->toBeTrue()
+        ->and(ServerAgentCommand::query()->count())->toBe(1);
+
+    $command = ServerAgentCommand::query()->firstOrFail();
+
+    expect($command->server_id)->toBe($server->id)
+        ->and($command->user_id)->toBe($user->id)
+        ->and($command->command)->toBe('whoami')
+        ->and($command->timeout)->toBe(10)
+        ->and($command->use_sudo)->toBeFalse()
+        ->and($command->exit_code)->toBe(0)
+        ->and($command->success)->toBeTrue()
+        ->and($command->stdout)->toBe("ok\n");
 });

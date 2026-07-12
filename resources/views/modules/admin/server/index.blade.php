@@ -27,7 +27,7 @@
                 <thead>
                     <tr class="border-b border-[#19140012] bg-[#19140005] dark:border-[#3E3E3A] dark:bg-[#fffaed05]">
                         <th class="px-4 py-3 text-left font-medium text-[#706f6c] dark:text-[#A1A09A]">Name</th>
-                        <th class="px-4 py-3 text-left font-medium text-[#706f6c] dark:text-[#A1A09A]">Host</th>
+                        <th class="px-4 py-3 text-left font-medium text-[#706f6c] dark:text-[#A1A09A]">Agent host</th>
                         <th class="px-4 py-3 text-left font-medium text-[#706f6c] dark:text-[#A1A09A]">Agent port</th>
                         <th class="hidden px-4 py-3 text-left font-medium text-[#706f6c] dark:text-[#A1A09A] sm:table-cell">User</th>
                         <th class="hidden px-4 py-3 text-left font-medium text-[#706f6c] dark:text-[#A1A09A] md:table-cell">Connection</th>

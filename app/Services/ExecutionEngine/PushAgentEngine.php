@@ -3,6 +3,7 @@
 namespace App\Services\ExecutionEngine;
 
 use App\Models\Server;
+use App\Models\ServerAgentCommand;
 use App\Services\ConnectionResult;
 use Illuminate\Support\Facades\Http;
 
@@ -15,6 +16,9 @@ class PushAgentEngine
         bool $useSudo = true,
         ?callable $onOutput = null,
     ): ExecutionResult {
+        $startedAt = now();
+        $started = microtime(true);
+
         try {
             $url = $this->agentUrl($server).'/execute';
 
@@ -29,20 +33,28 @@ class PushAgentEngine
                 ]);
 
             if ($response->failed()) {
-                return new ExecutionResult(
+                $result = new ExecutionResult(
                     stdout: '',
                     stderr: 'Agent communication failed: '.$response->status(),
                     exitCode: -1,
                     success: false,
                 );
+
+                $this->recordCommand($server, $command, $timeout, $useSudo, $result, $startedAt, $started);
+
+                return $result;
             }
         } catch (\Throwable $e) {
-            return new ExecutionResult(
+            $result = new ExecutionResult(
                 stdout: '',
                 stderr: 'Agent communication failed: '.$e->getMessage(),
                 exitCode: -1,
                 success: false,
             );
+
+            $this->recordCommand($server, $command, $timeout, $useSudo, $result, $startedAt, $started);
+
+            return $result;
         }
 
         $body = $response->body();
@@ -89,12 +101,16 @@ class PushAgentEngine
             }
         }
 
-        return new ExecutionResult(
+        $result = new ExecutionResult(
             stdout: $stdout,
             stderr: $stderr,
             exitCode: $exitCode,
             success: $exitCode === 0,
         );
+
+        $this->recordCommand($server, $command, $timeout, $useSudo, $result, $startedAt, $started);
+
+        return $result;
     }
 
     public function test(Server $server, int $timeout = 5): ConnectionResult
@@ -167,5 +183,40 @@ class PushAgentEngine
         $port = $server->agent_port ?? config('agent.push_port', 9300);
 
         return "http://{$server->host}:{$port}";
+    }
+
+    private function recordCommand(
+        Server $server,
+        string $command,
+        int $timeout,
+        bool $useSudo,
+        ExecutionResult $result,
+        \DateTimeInterface $startedAt,
+        float $started,
+    ): void {
+        ServerAgentCommand::create([
+            'server_id' => $server->id,
+            'user_id' => auth()->id(),
+            'source' => 'agent',
+            'command' => $this->truncate($command, 2000),
+            'timeout' => $timeout,
+            'use_sudo' => $useSudo,
+            'exit_code' => $result->exitCode,
+            'success' => $result->success,
+            'duration_ms' => (int) round((microtime(true) - $started) * 1000),
+            'stdout' => $this->truncate($result->stdout, 8000),
+            'stderr' => $this->truncate($result->stderr, 8000),
+            'started_at' => $startedAt,
+            'finished_at' => now(),
+        ]);
+    }
+
+    private function truncate(string $value, int $limit): string
+    {
+        if (mb_strlen($value) <= $limit) {
+            return $value;
+        }
+
+        return mb_substr($value, 0, $limit).'... [truncated]';
     }
 }

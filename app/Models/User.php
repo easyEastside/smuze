@@ -75,6 +75,12 @@ class User extends Authenticatable
         return $this->hasMany(Server::class);
     }
 
+    /** @return HasMany<ServerAgentCommand, $this> */
+    public function serverAgentCommands(): HasMany
+    {
+        return $this->hasMany(ServerAgentCommand::class);
+    }
+
     /** @return BelongsToMany<Achievement, $this> */
     public function achievements(): BelongsToMany
     {

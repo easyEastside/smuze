@@ -34,7 +34,7 @@
                         <tr class="border-b border-[#19140020] text-left text-xs font-medium text-[#706f6c] dark:border-[#3E3E3A] dark:text-[#A1A09A]">
                             <th class="px-5 py-3 font-medium">Status</th>
                             <th class="px-5 py-3 font-medium">Name</th>
-                            <th class="px-5 py-3 font-medium">Host</th>
+                            <th class="px-5 py-3 font-medium">Agent-Host</th>
                             <th class="px-5 py-3 font-medium">Agent-Port</th>
                             <th class="px-5 py-3 font-medium">Agent</th>
                             <th class="px-5 py-3 font-medium">Notizen</th>

@@ -47,13 +47,13 @@
                 </div>
 
                 <div class="sm:col-span-2">
-                    <label for="host" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Host</label>
+                    <label for="host" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Agent host</label>
                     <input
                         type="text"
                         name="host"
                         id="host"
                         value="{{ old('host', $server->host) }}"
-                        placeholder="example.com or 192.168.1.1"
+                        placeholder="agent.example.com or 192.168.1.1"
                         class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('host') border-[#f53003] @enderror"
                     />
                     @error('host')

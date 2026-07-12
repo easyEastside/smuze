@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Server extends Model
 {
@@ -37,5 +38,11 @@ class Server extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** @return HasMany<ServerAgentCommand, $this> */
+    public function agentCommands(): HasMany
+    {
+        return $this->hasMany(ServerAgentCommand::class);
     }
 }

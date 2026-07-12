@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Server;
+use App\Models\ServerAgentCommand;
 use App\Models\User;
 use App\Services\ExecutionEngine\ExecutionResult;
 use App\Services\ExecutionEngine\PushAgentEngine;
@@ -192,6 +193,34 @@ test('user can view their own server system', function () {
         ->assertSee('System')
         ->assertSee('Systeminformationen')
         ->assertSee('System-Aktionen');
+});
+
+test('user can view server agent audit commands', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    ServerAgentCommand::query()->create([
+        'server_id' => $server->id,
+        'user_id' => $this->user->id,
+        'source' => 'agent',
+        'command' => 'apt update',
+        'timeout' => 30,
+        'use_sudo' => true,
+        'exit_code' => 0,
+        'success' => true,
+        'duration_ms' => 125,
+        'stdout' => 'ok',
+        'stderr' => '',
+        'started_at' => now(),
+        'finished_at' => now(),
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.system', $server))
+        ->assertSuccessful()
+        ->assertSee('Agent-Audit')
+        ->assertSee('apt update')
+        ->assertSee('OK')
+        ->assertSee('125 ms');
 });
 
 test('user cannot view another users server system', function () {

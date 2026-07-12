@@ -11,6 +11,12 @@ import (
 	"time"
 )
 
+const (
+	maxExecuteBodyBytes = 64 * 1024
+	maxCommandBytes     = 5000
+	maxCommandTimeout   = 3600
+)
+
 type Server struct {
 	config  Config
 	started time.Time
@@ -66,8 +72,14 @@ func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req executeRequest
+	r.Body = http.MaxBytesReader(w, r.Body, maxExecuteBodyBytes)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"invalid request: %s"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Command) > maxCommandBytes {
+		http.Error(w, `{"error":"command too large"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -77,6 +89,9 @@ func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
 	timeout := req.Timeout
 	if timeout <= 0 {
 		timeout = 30
+	}
+	if timeout > maxCommandTimeout {
+		timeout = maxCommandTimeout
 	}
 
 	commandCtx, cancel := context.WithTimeout(r.Context(), time.Duration(timeout)*time.Second)

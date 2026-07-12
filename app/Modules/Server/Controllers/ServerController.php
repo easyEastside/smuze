@@ -76,6 +76,11 @@ class ServerController
     {
         Gate::authorize('view', $server);
 
-        return view('modules.server.system', compact('server'));
+        $agentCommands = $server->agentCommands()
+            ->with('user:id,name')
+            ->latest()
+            ->simplePaginate(10, pageName: 'commands');
+
+        return view('modules.server.system', compact('agentCommands', 'server'));
     }
 }
