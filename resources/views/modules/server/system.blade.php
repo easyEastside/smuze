@@ -141,6 +141,20 @@
                             <dt class="text-[#706f6c] dark:text-[#A1A09A]">Sudo</dt>
                             <dd class="font-medium">{{ $server->use_sudo ? 'Ja' : 'Nein' }}</dd>
                         </div>
+                        <div class="flex justify-between">
+                            <dt class="text-[#706f6c] dark:text-[#A1A09A]">Engine</dt>
+                            <dd class="font-medium">{{ strtoupper($server->execution_driver ?? 'ssh') }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-[#706f6c] dark:text-[#A1A09A]">Agent</dt>
+                            <dd class="font-medium">{{ $server->agent_enabled ? $server->agent_status : 'deaktiviert' }}</dd>
+                        </div>
+                        @if ($server->agent_last_seen_at)
+                            <div class="flex justify-between">
+                                <dt class="text-[#706f6c] dark:text-[#A1A09A]">Agent zuletzt</dt>
+                                <dd class="font-medium">{{ $server->agent_last_seen_at->diffForHumans() }}</dd>
+                            </div>
+                        @endif
                         @if ($server->notes)
                             <div class="flex justify-between">
                                 <dt class="text-[#706f6c] dark:text-[#A1A09A]">Notizen</dt>
@@ -159,6 +173,25 @@
                         <a href="{{ route('server.apache.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Apache</a>
                         <a href="{{ route('server.mysql.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">MySQL</a>
                         <a href="{{ route('server.github.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">GitHub</a>
+                    </div>
+                </div>
+
+                <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                    <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Agent Setup</p>
+                    <p class="mt-2 text-xs leading-5 text-[#706f6c] dark:text-[#A1A09A]">Generiere einen Token für den Polling-Agent. Der Token wird nur direkt nach der Rotation angezeigt.</p>
+                    <div class="mt-4 flex flex-col gap-2 text-sm">
+                        <button type="button" onclick="rotateAgentToken()" class="rounded-lg bg-[#1b1b18] px-3 py-2 font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                            Agent-Token generieren
+                        </button>
+                        @if ($server->agent_enabled)
+                            <button type="button" onclick="disableAgent()" class="rounded-lg border border-[#19140035] px-3 py-2 font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                                Agent deaktivieren
+                            </button>
+                        @endif
+                    </div>
+                    <div id="agent-token-box" class="mt-4 hidden rounded-xl border border-[#19140020] bg-[#19140008] p-3 dark:border-[#3E3E3A] dark:bg-[#fffaed08]">
+                        <p class="text-xs font-medium text-[#706f6c] dark:text-[#A1A09A]">Agent-Konfiguration</p>
+                        <pre id="agent-token-output" class="mt-2 overflow-x-auto whitespace-pre-wrap text-xs leading-5 text-[#1b1b18] dark:text-[#EDEDEC]"></pre>
                     </div>
                 </div>
 
@@ -337,6 +370,60 @@
                 btn.textContent = 'Fehler';
                 btn.disabled = false;
             });
+    }
+
+    function showActionResult(success, message) {
+        const result = document.getElementById('action-result');
+        result.className = 'mt-3 rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
+        result.textContent = message;
+        result.classList.remove('hidden');
+    }
+
+    async function rotateAgentToken() {
+        if (!confirm('Agent-Token neu generieren? Der bisherige Agent muss danach neu konfiguriert werden.')) return;
+
+        const res = await fetch('{{ route('server.agent.token', $server) }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+            },
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+            showActionResult(false, data.message || 'Agent-Token konnte nicht generiert werden.');
+            return;
+        }
+
+        document.getElementById('agent-token-output').textContent = [
+            'SMUZE_APP_URL=' + JSON.stringify(data.app_url),
+            'SMUZE_SERVER_ID=' + JSON.stringify(String(data.server_id)),
+            'SMUZE_AGENT_TOKEN=' + JSON.stringify(data.token),
+        ].join('\n');
+        document.getElementById('agent-token-box').classList.remove('hidden');
+        showActionResult(true, 'Agent-Token generiert. Speichere ihn jetzt in der Agent-Konfiguration.');
+    }
+
+    async function disableAgent() {
+        if (!confirm('Agent deaktivieren und auf SSH zurückstellen?')) return;
+
+        const res = await fetch('{{ route('server.agent.disable', $server) }}', {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+            },
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+            showActionResult(false, data.message || 'Agent konnte nicht deaktiviert werden.');
+            return;
+        }
+
+        showActionResult(true, 'Agent deaktiviert. Seite wird aktualisiert...');
+        setTimeout(() => window.location.reload(), 800);
     }
 
     function systemAction(url, confirmMsg) {

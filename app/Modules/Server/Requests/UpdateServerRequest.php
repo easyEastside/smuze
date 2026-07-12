@@ -22,6 +22,7 @@ class UpdateServerRequest extends FormRequest
             'ssh_server_alive_interval' => $this->input('ssh_server_alive_interval', $server?->ssh_server_alive_interval ?? 15),
             'ssh_server_alive_count_max' => $this->input('ssh_server_alive_count_max', $server?->ssh_server_alive_count_max ?? 3),
             'ssh_connection_attempts' => $this->input('ssh_connection_attempts', $server?->ssh_connection_attempts ?? 2),
+            'execution_driver' => $this->input('execution_driver', $server?->execution_driver ?? 'ssh'),
         ]);
     }
 
@@ -45,6 +46,7 @@ class UpdateServerRequest extends FormRequest
             'ssh_server_alive_count_max' => ['required', 'integer', 'min:1', 'max:10'],
             'ssh_connection_attempts' => ['required', 'integer', 'min:1', 'max:5'],
             'ssh_compression' => ['boolean'],
+            'execution_driver' => ['required', 'string', 'in:ssh,agent,auto'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
     }

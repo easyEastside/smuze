@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Server\Agent\Controllers\ServerAgentController;
 use App\Modules\Server\Controllers\ServerController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,6 +20,9 @@ Route::middleware('auth')->group(function (): void {
     Route::post('servers/{server}/upgrade', [ServerController::class, 'upgradePackages'])->name('server.upgrade-packages');
     Route::post('servers/{server}/restart', [ServerController::class, 'restartServer'])->name('server.restart');
     Route::post('servers/{server}/stop', [ServerController::class, 'stopServer'])->name('server.stop');
+
+    Route::post('servers/{server}/agent/token', [ServerAgentController::class, 'rotateToken'])->name('server.agent.token');
+    Route::delete('servers/{server}/agent', [ServerAgentController::class, 'disable'])->name('server.agent.disable');
 });
 
 require __DIR__.'/Firewall/routes.php';

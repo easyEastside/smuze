@@ -152,6 +152,23 @@
                     @include('modules.server.partials.ssh-options')
 
                     <div class="sm:col-span-2">
+                        <label for="execution_driver" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Ausführungsmodus</label>
+                        <select
+                            name="execution_driver"
+                            id="execution_driver"
+                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('execution_driver') border-[#f53003] @enderror"
+                        >
+                            <option value="ssh" @selected(old('execution_driver', 'ssh') === 'ssh')>SSH</option>
+                            <option value="auto" @selected(old('execution_driver') === 'auto')>Automatisch (Agent, sonst SSH)</option>
+                            <option value="agent" @selected(old('execution_driver') === 'agent')>Nur Agent</option>
+                        </select>
+                        @error('execution_driver')
+                            <p class="mt-1 text-sm text-[#f53003]">{{ $message }}</p>
+                        @enderror
+                        <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">Für neue Server bleibt SSH der sichere Standard. Agent-Modus funktioniert erst nach Agent-Token und laufendem Agent.</p>
+                    </div>
+
+                    <div class="sm:col-span-2">
                         <label for="notes" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Notizen (optional)</label>
                         <textarea
                             name="notes"
