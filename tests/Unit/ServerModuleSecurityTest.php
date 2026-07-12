@@ -3,6 +3,7 @@
 use App\Models\Server;
 use App\Modules\Server\Apache\Actions\ApacheAction;
 use App\Modules\Server\Firewall\Actions\FirewallAction;
+use App\Modules\Server\Mysql\Actions\MysqlAction;
 use App\Services\ExecutionEngine\ExecutionResult;
 use App\Services\ExecutionEngine\PushAgentEngine;
 use Tests\TestCase;
@@ -12,19 +13,19 @@ uses(TestCase::class);
 test('apache site config writes encoded content', function () {
     $server = new Server;
     $content = '<VirtualHost *:80>example</VirtualHost>';
-    $encoded = base64_encode($content);
 
     $engine = Mockery::mock(PushAgentEngine::class);
-    $engine->shouldReceive('execute')
+    $engine->shouldReceive('action')
         ->once()
-        ->withArgs(function (Server $serverArgument, string $command, int $timeout, bool $useSudo) use ($server, $encoded): bool {
+        ->withArgs(function (Server $serverArgument, string $action, array $payload) use ($server, $content): bool {
             expect($serverArgument)->toBe($server);
-            expect($command)
-                ->toContain(escapeshellarg($encoded))
-                ->toContain('base64 -d')
-                ->toContain(escapeshellarg('/etc/apache2/sites-available/example.com.conf'));
+            expect($action)->toBe('apache.save_site_config')
+                ->and($payload)->toBe([
+                    'site' => 'example.com.conf',
+                    'content' => $content,
+                ]);
 
-            return $timeout === 30 && $useSudo === true;
+            return true;
         })
         ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
 
@@ -35,7 +36,7 @@ test('apache site config writes encoded content', function () {
 
 test('apache module action rejects unsafe module names', function () {
     $engine = Mockery::mock(PushAgentEngine::class);
-    $engine->shouldReceive('execute')->never();
+    $engine->shouldReceive('action')->never();
 
     $result = (new ApacheAction($engine))->enableModule(new Server, 'rewrite; reboot');
 
@@ -100,4 +101,66 @@ test('firewall allow all delegates to agent action', function () {
     $result = (new FirewallAction($engine))->allowAll($server);
 
     expect($result['success'])->toBeTrue();
+});
+
+test('mysql create database delegates to validated agent action', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(function (Server $serverArgument, string $action, array $payload) use ($server): bool {
+            expect($serverArgument)->toBe($server);
+            expect($action)->toBe('mysql.create_database')
+                ->and($payload)->toBe(['db_name' => 'app_db']);
+
+            return true;
+        })
+        ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
+
+    $result = (new MysqlAction($engine))->createDatabase($server, 'app_db');
+
+    expect($result['success'])->toBeTrue();
+});
+
+test('mysql create database rejects unsafe names before agent action', function () {
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')->never();
+
+    $result = (new MysqlAction($engine))->createDatabase(new Server, 'app db; drop');
+
+    expect($result['success'])->toBeFalse();
+});
+
+test('mysql create user delegates to validated agent action', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(function (Server $serverArgument, string $action, array $payload) use ($server): bool {
+            expect($serverArgument)->toBe($server);
+            expect($action)->toBe('mysql.create_user')
+                ->and($payload)->toBe([
+                    'username' => 'app_user',
+                    'host' => 'localhost',
+                    'password' => 'secret',
+                ]);
+
+            return true;
+        })
+        ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
+
+    $result = (new MysqlAction($engine))->createUser($server, 'app_user', 'localhost', 'secret');
+
+    expect($result['success'])->toBeTrue();
+});
+
+test('mysql create user rejects unsafe hosts before agent action', function () {
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')->never();
+
+    $result = (new MysqlAction($engine))->createUser(new Server, 'app_user', 'local..host', 'secret');
+
+    expect($result['success'])->toBeFalse();
 });

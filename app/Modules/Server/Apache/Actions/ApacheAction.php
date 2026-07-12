@@ -15,9 +15,7 @@ class ApacheAction
 
     public function status(Server $server): array
     {
-        $script = 'printf "ACTIVE=%s\n" "$(systemctl is-active apache2 2>/dev/null || echo unknown)" && (apache2 -v 2>/dev/null | sed -n "1p" | sed "s/^/VERSION=/")';
-
-        $result = $this->engine->execute($server, $script, timeout: 15, useSudo: true);
+        $result = $this->engine->action($server, 'apache.status', []);
 
         if (! $result->success) {
             return ['success' => false, 'error' => $result->stderr];
@@ -41,7 +39,7 @@ class ApacheAction
 
     public function install(Server $server): array
     {
-        $result = $this->engine->execute($server, 'DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt install apache2 -y && systemctl enable --now apache2', timeout: 300, useSudo: true);
+        $result = $this->engine->action($server, 'apache.install', []);
 
         return [
             'success' => $result->success,
@@ -51,9 +49,7 @@ class ApacheAction
 
     public function deinstall(Server $server): array
     {
-        $command = 'systemctl stop apache2 2>/dev/null || true; DEBIAN_FRONTEND=noninteractive apt remove --purge apache2 apache2-bin apache2-data apache2-utils -y && apt autoremove -y && apt autoclean && rm -rf /etc/apache2';
-
-        $result = $this->engine->execute($server, $command, timeout: 180, useSudo: true);
+        $result = $this->engine->action($server, 'apache.deinstall', []);
 
         return [
             'success' => $result->success,
@@ -83,7 +79,7 @@ class ApacheAction
 
     private function serviceAction(Server $server, string $action): array
     {
-        $result = $this->engine->execute($server, "systemctl {$action} apache2", timeout: 30, useSudo: true);
+        $result = $this->engine->action($server, "apache.{$action}", []);
 
         $labels = ['start' => 'gestartet', 'stop' => 'gestoppt', 'restart' => 'neugestartet', 'reload' => 'neugeladen'];
 
@@ -95,7 +91,7 @@ class ApacheAction
 
     public function configtest(Server $server): array
     {
-        $result = $this->engine->execute($server, 'apache2ctl configtest 2>&1', timeout: 20, useSudo: true);
+        $result = $this->engine->action($server, 'apache.configtest', []);
 
         return [
             'success' => $result->success,
@@ -105,22 +101,7 @@ class ApacheAction
 
     public function sites(Server $server): array
     {
-        $script = <<<'SCRIPT'
-for f in /etc/apache2/sites-available/*.conf; do
-    [ -e "$f" ] || continue
-    name=$(basename "$f")
-    if [ -e "/etc/apache2/sites-enabled/$name" ]; then
-        enabled=yes
-    else
-        enabled=no
-    fi
-    server_name=$(awk 'tolower($1)=="servername" {print $2; exit}' "$f" 2>/dev/null || true)
-    doc_root=$(awk 'tolower($1)=="documentroot" {print $2; exit}' "$f" 2>/dev/null || true)
-    printf '%s\t%s\t%s\t%s\n' "$name" "$enabled" "$server_name" "$doc_root"
-done
-SCRIPT;
-
-        $result = $this->engine->execute($server, $script, timeout: 20, useSudo: true);
+        $result = $this->engine->action($server, 'apache.sites', []);
 
         if (! $result->success) {
             return ['success' => false, 'sites' => []];
@@ -150,7 +131,7 @@ SCRIPT;
             return ['success' => false, 'message' => 'Ungültiger Site-Name.'];
         }
 
-        $result = $this->engine->execute($server, 'cat '.escapeshellarg($path), timeout: 15, useSudo: true);
+        $result = $this->engine->action($server, 'apache.site_config', ['site' => basename($path)]);
 
         return [
             'success' => $result->success,
@@ -170,14 +151,10 @@ SCRIPT;
             return ['success' => false, 'message' => 'Ungültiger Site-Name.'];
         }
 
-        $backup = $path.'.smuzecp.bak';
-        $encoded = base64_encode($content);
-        $escaped = escapeshellarg($path);
-        $escapedBackup = escapeshellarg($backup);
-
-        $command = "cp {$escaped} {$escapedBackup} && printf '%s' ".escapeshellarg($encoded)." | base64 -d > {$escaped} && apache2ctl configtest || (mv {$escapedBackup} {$escaped}; false) && rm -f {$escapedBackup} && systemctl reload apache2";
-
-        $result = $this->engine->execute($server, $command, timeout: 30, useSudo: true);
+        $result = $this->engine->action($server, 'apache.save_site_config', [
+            'site' => basename($path),
+            'content' => $content,
+        ]);
 
         return [
             'success' => $result->success,
@@ -192,9 +169,7 @@ SCRIPT;
             return ['success' => false, 'message' => 'Ungültiger Site-Name.'];
         }
 
-        $escaped = escapeshellarg($siteName);
-
-        $result = $this->engine->execute($server, "a2ensite {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
+        $result = $this->engine->action($server, 'apache.enable_site', ['site' => $siteName]);
 
         return [
             'success' => $result->success,
@@ -209,9 +184,7 @@ SCRIPT;
             return ['success' => false, 'message' => 'Ungültiger Site-Name.'];
         }
 
-        $escaped = escapeshellarg($siteName);
-
-        $result = $this->engine->execute($server, "a2dissite {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
+        $result = $this->engine->action($server, 'apache.disable_site', ['site' => $siteName]);
 
         return [
             'success' => $result->success,
@@ -226,10 +199,10 @@ SCRIPT;
             return ['success' => false, 'message' => 'Ungültiger Site-Name.'];
         }
 
-        $siteFile = basename($path);
-        $commands = [
-            'a2dissite '.escapeshellarg($siteFile).' 2>/dev/null || true',
-            'rm -f '.escapeshellarg($path),
+        $payload = [
+            'site' => basename($path),
+            'delete_project' => $deleteProject,
+            'document_root' => $documentRoot,
         ];
 
         if ($deleteProject && $documentRoot !== '') {
@@ -237,13 +210,9 @@ SCRIPT;
             if ($root === null) {
                 return ['success' => false, 'message' => 'Projektordner kann nur unter /var/www automatisch gelöscht werden.'];
             }
-            $commands[] = 'rm -rf -- '.escapeshellarg($root);
         }
 
-        $commands[] = 'apache2ctl configtest';
-        $commands[] = 'systemctl reload apache2';
-
-        $result = $this->engine->execute($server, implode(' && ', $commands), timeout: 30, useSudo: true);
+        $result = $this->engine->action($server, 'apache.delete_site', $payload);
 
         return [
             'success' => $result->success,
@@ -270,18 +239,11 @@ SCRIPT;
         $siteName = "{$domain}.conf";
         $path = "/etc/apache2/sites-available/{$siteName}";
         $config = $this->buildVhostConfig($domain, $documentRoot, $serverAlias, $useSsl);
-        $escaped = escapeshellarg($path);
-        $encoded = base64_encode($config);
-
-        $commands = [
-            'mkdir -p '.escapeshellarg($documentRoot),
-            "printf '%s' ".$encoded.' | base64 -d > '.$escaped,
-            'apache2ctl configtest',
-            'a2ensite '.escapeshellarg($siteName),
-            'systemctl reload apache2',
-        ];
-
-        $result = $this->engine->execute($server, implode(' && ', $commands), timeout: 45, useSudo: true);
+        $result = $this->engine->action($server, 'apache.create_vhost', [
+            'domain' => $domain,
+            'document_root' => $documentRoot,
+            'config' => $config,
+        ]);
 
         if (! $result->success) {
             return ['success' => false, 'message' => $result->stderr];
@@ -296,19 +258,7 @@ SCRIPT;
 
     public function modules(Server $server): array
     {
-        $script = <<<'SCRIPT'
-for mod in /etc/apache2/mods-available/*.load; do
-    [ -e "$mod" ] || continue
-    name=$(basename "$mod" .load)
-    if [ -e "/etc/apache2/mods-enabled/${name}.load" ]; then
-        printf '%s\tenabled\n' "$name"
-    else
-        printf '%s\tdisabled\n' "$name"
-    fi
-done
-SCRIPT;
-
-        $result = $this->engine->execute($server, $script, timeout: 20, useSudo: true);
+        $result = $this->engine->action($server, 'apache.modules', []);
 
         if (! $result->success) {
             return ['success' => false, 'modules' => []];
@@ -335,8 +285,7 @@ SCRIPT;
             return ['success' => false, 'message' => 'Ungültiger Modulname.'];
         }
 
-        $escaped = escapeshellarg($module);
-        $result = $this->engine->execute($server, "a2enmod {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
+        $result = $this->engine->action($server, 'apache.enable_module', ['module' => $module]);
 
         return [
             'success' => $result->success,
@@ -350,8 +299,7 @@ SCRIPT;
             return ['success' => false, 'message' => 'Ungültiger Modulname.'];
         }
 
-        $escaped = escapeshellarg($module);
-        $result = $this->engine->execute($server, "a2dismod {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
+        $result = $this->engine->action($server, 'apache.disable_module', ['module' => $module]);
 
         return [
             'success' => $result->success,
@@ -361,7 +309,7 @@ SCRIPT;
 
     public function installCertbot(Server $server): array
     {
-        $result = $this->engine->execute($server, 'DEBIAN_FRONTEND=noninteractive apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq certbot python3-certbot-apache', timeout: 120, useSudo: true);
+        $result = $this->engine->action($server, 'apache.install_certbot', []);
 
         return [
             'success' => $result->success,
@@ -371,9 +319,10 @@ SCRIPT;
 
     public function obtainSsl(Server $server, string $domain, string $email): array
     {
-        $command = 'DEBIAN_FRONTEND=noninteractive certbot --apache --non-interactive --agree-tos -m '.escapeshellarg($email).' -d '.escapeshellarg($domain).' --redirect --keep-until-expiring && systemctl reload apache2';
-
-        $result = $this->engine->execute($server, $command, timeout: 120, useSudo: true);
+        $result = $this->engine->action($server, 'apache.obtain_ssl', [
+            'domain' => $domain,
+            'email' => $email,
+        ]);
 
         return [
             'success' => $result->success,

@@ -21,9 +21,7 @@ class MysqlAction
 
     public function status(Server $server): array
     {
-        $script = 'printf "ACTIVE=%s\n" "$(systemctl is-active mysql 2>/dev/null || echo unknown)" && (mysql --version 2>/dev/null || echo "NOT_INSTALLED")';
-
-        $result = $this->engine->execute($server, $script, timeout: 15, useSudo: true);
+        $result = $this->engine->action($server, 'mysql.status', []);
 
         if (! $result->success) {
             return ['success' => false, 'error' => $result->stderr];
@@ -65,10 +63,9 @@ class MysqlAction
             return ['success' => false, 'message' => $validation['error']];
         }
 
-        $db = $this->quoteIdentifier($dbName);
-        $command = 'DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt install mysql-server -y && systemctl start mysql && systemctl enable mysql && mysql -e '.escapeshellarg("CREATE DATABASE IF NOT EXISTS {$db} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-
-        $result = $this->engine->execute($server, $command, timeout: 300, useSudo: true);
+        $result = $this->engine->action($server, 'mysql.install', [
+            'db_name' => $dbName,
+        ]);
 
         return [
             'success' => $result->success,
@@ -78,9 +75,7 @@ class MysqlAction
 
     public function deinstall(Server $server): array
     {
-        $command = 'systemctl stop mysql 2>/dev/null || true && DEBIAN_FRONTEND=noninteractive apt remove --purge mysql-server mysql-client mysql-common -y && DEBIAN_FRONTEND=noninteractive apt autoremove -y && DEBIAN_FRONTEND=noninteractive apt autoclean && rm -rf /etc/mysql /var/lib/mysql';
-
-        $result = $this->engine->execute($server, $command, timeout: 180, useSudo: true);
+        $result = $this->engine->action($server, 'mysql.deinstall', []);
 
         return [
             'success' => $result->success,
@@ -105,7 +100,7 @@ class MysqlAction
 
     private function serviceAction(Server $server, string $action): array
     {
-        $result = $this->engine->execute($server, "systemctl {$action} mysql", timeout: 30, useSudo: true);
+        $result = $this->engine->action($server, "mysql.{$action}", []);
 
         $labels = ['start' => 'gestartet', 'stop' => 'gestoppt', 'restart' => 'neugestartet'];
 
@@ -117,7 +112,7 @@ class MysqlAction
 
     public function databases(Server $server): array
     {
-        [$success, $data] = $this->execWithRows($server, 'SHOW DATABASES');
+        [$success, $data] = $this->execWithRows($server, 'mysql.databases');
 
         if (! $success) {
             return ['success' => false, 'databases' => $data];
@@ -135,8 +130,7 @@ class MysqlAction
             return ['success' => false, 'message' => $validation['error']];
         }
 
-        $db = $this->quoteIdentifier($dbName);
-        $result = $this->exec($server, "CREATE DATABASE {$db} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        $result = $this->exec($server, 'mysql.create_database', ['db_name' => $dbName]);
 
         return [
             'success' => $result['success'],
@@ -155,8 +149,7 @@ class MysqlAction
             return ['success' => false, 'message' => 'Systemdatenbanken können nicht gelöscht werden.'];
         }
 
-        $db = $this->quoteIdentifier($dbName);
-        $result = $this->exec($server, "DROP DATABASE IF EXISTS {$db}");
+        $result = $this->exec($server, 'mysql.drop_database', ['db_name' => $dbName]);
 
         return [
             'success' => $result['success'],
@@ -171,8 +164,7 @@ class MysqlAction
             return ['success' => false, 'tables' => [], 'message' => $validation['error']];
         }
 
-        $db = $this->quoteIdentifier($dbName);
-        [$success, $data] = $this->execWithRows($server, "SHOW TABLES FROM {$db}");
+        [$success, $data] = $this->execWithRows($server, 'mysql.tables', ['database' => $dbName]);
 
         if (! $success) {
             return ['success' => false, 'tables' => [], 'message' => is_array($data) ? ($data[0] ?? 'Fehler') : $data];
@@ -188,8 +180,10 @@ class MysqlAction
             return ['success' => false, 'message' => $validation['error']];
         }
 
-        $db = $this->quoteIdentifier($dbName);
-        $result = $this->exec($server, "USE {$db}; {$sql}", timeout: 30);
+        $result = $this->exec($server, 'mysql.create_table', [
+            'database' => $dbName,
+            'sql' => $sql,
+        ]);
 
         return [
             'success' => $result['success'],
@@ -209,9 +203,10 @@ class MysqlAction
             return ['success' => false, 'message' => $tableValidation['error']];
         }
 
-        $db = $this->quoteIdentifier($dbName);
-        $tbl = $this->quoteIdentifier($table);
-        $result = $this->exec($server, "DROP TABLE IF EXISTS {$db}.{$tbl}");
+        $result = $this->exec($server, 'mysql.drop_table', [
+            'database' => $dbName,
+            'table' => $table,
+        ]);
 
         return [
             'success' => $result['success'],
@@ -221,7 +216,7 @@ class MysqlAction
 
     public function users(Server $server): array
     {
-        $result = $this->engine->execute($server, "mysql -NBe \"SELECT User, Host, '*****' FROM mysql.user ORDER BY User\" 2>&1", timeout: 15, useSudo: true);
+        $result = $this->engine->action($server, 'mysql.users', []);
 
         if (! $result->success) {
             return ['success' => false, 'users' => []];
@@ -252,7 +247,11 @@ class MysqlAction
             return ['success' => false, 'message' => $validation['error']];
         }
 
-        $result = $this->exec($server, "CREATE USER {$this->quoteLiteral($username)}@{$this->quoteLiteral($host)} IDENTIFIED BY {$this->quoteLiteral($password)}");
+        $result = $this->exec($server, 'mysql.create_user', [
+            'username' => $username,
+            'host' => $host,
+            'password' => $password,
+        ]);
 
         return [
             'success' => $result['success'],
@@ -267,7 +266,10 @@ class MysqlAction
             return ['success' => false, 'message' => $validation['error']];
         }
 
-        $result = $this->exec($server, "DROP USER IF EXISTS {$this->quoteLiteral($username)}@{$this->quoteLiteral($host)}");
+        $result = $this->exec($server, 'mysql.drop_user', [
+            'username' => $username,
+            'host' => $host,
+        ]);
 
         return [
             'success' => $result['success'],
@@ -282,7 +284,11 @@ class MysqlAction
             return ['success' => false, 'message' => $validation['error']];
         }
 
-        $result = $this->exec($server, "ALTER USER {$this->quoteLiteral($username)}@{$this->quoteLiteral($host)} IDENTIFIED BY {$this->quoteLiteral($password)}");
+        $result = $this->exec($server, 'mysql.set_password', [
+            'username' => $username,
+            'host' => $host,
+            'password' => $password,
+        ]);
 
         return [
             'success' => $result['success'],
@@ -297,7 +303,10 @@ class MysqlAction
             return ['success' => false, 'message' => $validation['error']];
         }
 
-        $result = $this->exec($server, "GRANT ALL PRIVILEGES ON *.* TO {$this->quoteLiteral($username)}@{$this->quoteLiteral($host)} WITH GRANT OPTION");
+        $result = $this->exec($server, 'mysql.grant_all', [
+            'username' => $username,
+            'host' => $host,
+        ]);
 
         return [
             'success' => $result['success'],
@@ -306,9 +315,9 @@ class MysqlAction
     }
 
     /** @return array{success: bool, message: string} */
-    private function exec(Server $server, string $sql, int $timeout = 15): array
+    private function exec(Server $server, string $action, array $payload = []): array
     {
-        $result = $this->engine->execute($server, 'mysql -e '.escapeshellarg($sql).' 2>&1', timeout: $timeout, useSudo: true);
+        $result = $this->engine->action($server, $action, $payload);
 
         return [
             'success' => $result->success,
@@ -317,9 +326,9 @@ class MysqlAction
     }
 
     /** @return array{0: bool, 1: array<int, string>} */
-    private function execWithRows(Server $server, string $sql, int $timeout = 15): array
+    private function execWithRows(Server $server, string $action, array $payload = []): array
     {
-        $result = $this->engine->execute($server, 'mysql -NBe '.escapeshellarg($sql).' 2>&1', timeout: $timeout, useSudo: true);
+        $result = $this->engine->action($server, $action, $payload);
 
         if (! $result->success) {
             return [false, [$result->stderr]];
@@ -365,15 +374,5 @@ class MysqlAction
         }
 
         return ['valid' => true, 'error' => ''];
-    }
-
-    private function quoteIdentifier(string $name): string
-    {
-        return '`'.str_replace('`', '``', $name).'`';
-    }
-
-    private function quoteLiteral(string $value): string
-    {
-        return "'".str_replace(['\\', "'"], ['\\\\', "\\'"], $value)."'";
     }
 }
