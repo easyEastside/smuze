@@ -19,6 +19,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('servers/{server}/agent/check-update', [ServerAgentController::class, 'checkUpdate'])->name('server.agent.check-update');
     Route::post('servers/{server}/agent/update', [ServerAgentController::class, 'updateAgent'])->name('server.agent.update');
     Route::delete('servers/{server}/agent', [ServerAgentController::class, 'disable'])->name('server.agent.disable');
+
+    Route::get('servers/{server}/agent/health', [ServerAgentController::class, 'proxyHealth'])->name('server.agent.health');
+    Route::get('servers/{server}/agent/metrics', [ServerAgentController::class, 'proxyMetrics'])->name('server.agent.metrics');
+    Route::post('servers/{server}/agent/execute', [ServerAgentController::class, 'proxyExecute'])->name('server.agent.execute');
 });
 
 Route::get('agent/download', [ServerAgentController::class, 'downloadBinary']);

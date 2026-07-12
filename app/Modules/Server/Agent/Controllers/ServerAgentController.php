@@ -5,9 +5,11 @@ namespace App\Modules\Server\Agent\Controllers;
 use App\Models\Server;
 use App\Services\ExecutionEngine\PushAgentEngine;
 use App\Services\SshService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class ServerAgentController
@@ -196,5 +198,96 @@ class ServerAgentController
             'systemctl daemon-reload',
             'systemctl restart smuze-agent',
         ]);
+    }
+
+    public function proxyHealth(Server $server): JsonResponse
+    {
+        Gate::authorize('view', $server);
+
+        try {
+            $response = Http::timeout(5)
+                ->withToken($server->agent_token)
+                ->acceptJson()
+                ->get($this->agentBaseUrl($server).'/health');
+
+            return response()->json($response->json() ?: ['error' => 'invalid_response'], $response->status());
+        } catch (ConnectionException) {
+            return response()->json(['error' => 'Agent nicht erreichbar'], 503);
+        }
+    }
+
+    public function proxyMetrics(Server $server): JsonResponse
+    {
+        Gate::authorize('view', $server);
+
+        try {
+            $response = Http::timeout(10)
+                ->withToken($server->agent_token)
+                ->acceptJson()
+                ->get($this->agentBaseUrl($server).'/metrics');
+
+            return response()->json($response->json() ?: ['error' => 'invalid_response'], $response->status());
+        } catch (ConnectionException) {
+            return response()->json(['error' => 'Agent nicht erreichbar'], 503);
+        }
+    }
+
+    public function proxyExecute(Request $request, Server $server): JsonResponse
+    {
+        Gate::authorize('update', $server);
+
+        $data = $request->validate([
+            'command' => ['required', 'string', 'max:5000'],
+            'timeout' => ['nullable', 'integer', 'min:1', 'max:3600'],
+            'use_sudo' => ['nullable', 'boolean'],
+        ]);
+
+        try {
+            $response = Http::timeout(($data['timeout'] ?? 30) + 5)
+                ->withToken($server->agent_token)
+                ->acceptJson()
+                ->post($this->agentBaseUrl($server).'/execute', [
+                    'command' => $data['command'],
+                    'timeout' => $data['timeout'] ?? 30,
+                    'use_sudo' => $data['use_sudo'] ?? true,
+                ]);
+
+            if ($response->successful()) {
+                $lines = explode("\n", trim($response->body()));
+                $result = ['success' => true, 'data' => []];
+
+                foreach ($lines as $line) {
+                    if (trim($line) === '') {
+                        continue;
+                    }
+
+                    $chunk = json_decode($line, true);
+
+                    if ($chunk === null) {
+                        continue;
+                    }
+
+                    $result['data'][] = $chunk;
+
+                    if (isset($chunk['done']) && $chunk['done'] === true) {
+                        $result['exit_code'] = $chunk['exit_code'] ?? -1;
+                        break;
+                    }
+                }
+
+                return response()->json($result);
+            }
+
+            return response()->json(['success' => false, 'error' => 'Agent responded with '.$response->status()], $response->status());
+        } catch (ConnectionException) {
+            return response()->json(['success' => false, 'error' => 'Agent nicht erreichbar'], 503);
+        }
+    }
+
+    private function agentBaseUrl(Server $server): string
+    {
+        $port = $server->agent_port ?? config('agent.push_port', 9300);
+
+        return "http://{$server->host}:{$port}";
     }
 }

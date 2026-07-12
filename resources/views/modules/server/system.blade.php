@@ -320,7 +320,7 @@
         content.classList.add('hidden');
         error.classList.add('hidden');
 
-        fetch(`http://${host}:${port}/metrics`)
+        fetch('{{ route('server.agent.metrics', $server) }}')
             .then(r => r.json())
             .then(data => {
                 loading.classList.add('hidden');
@@ -347,10 +347,10 @@
         btn.disabled = true;
         btn.textContent = 'Teste...';
 
-        fetch(`http://${host}:${port}/health`)
+        fetch('{{ route('server.agent.health', $server) }}')
             .then(r => r.json())
             .then(data => {
-                const ok = data.status === 'ok' || data.status === 'healthy';
+                const ok = data.status === 'ok';
                 setConnectionStatus(ok ? 'Online' : 'Offline', ok ? 'font-medium text-green-500' : 'font-medium text-red-500');
                 btn.textContent = 'Verbindung testen';
                 btn.disabled = false;
@@ -376,15 +376,21 @@
         result.textContent = 'Führe Befehl aus...';
         result.classList.remove('hidden');
 
-        fetch(`http://${host}:${port}/execute`, {
+        fetch('{{ route('server.agent.execute', $server) }}', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
             body: JSON.stringify({ command, timeout: 120, use_sudo: true }),
         })
         .then(r => r.json())
         .then(data => {
-            result.className = 'mt-3 rounded-xl p-3 text-sm ' + (data.success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
-            result.textContent = data.message || data.output || 'Befehl ausgeführt.';
+            const ok = data.success && data.exit_code === 0;
+            const output = data.data ? data.data.map(c => c.data || '').join('') : '';
+            result.className = 'mt-3 rounded-xl p-3 text-sm ' + (ok ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
+            result.textContent = ok ? (output || 'Befehl ausgeführt.') : (data.error || output || 'Fehler bei Ausführung.');
         })
         .catch(err => {
             result.className = 'mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
