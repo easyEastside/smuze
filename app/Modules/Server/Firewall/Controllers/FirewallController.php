@@ -56,6 +56,13 @@ class FirewallController
         return response()->json($action->deny($server, (string) $data['port'], $data['protocol'] ?? 'tcp'));
     }
 
+    public function allowStandardPorts(Request $request, Server $server, FirewallAction $action): JsonResponse
+    {
+        Gate::authorize('update', $server);
+
+        return response()->json($action->allowAll($server));
+    }
+
     public function destroy(Request $request, Server $server, int $rule, FirewallAction $action): JsonResponse
     {
         Gate::authorize('update', $server);
@@ -75,5 +82,12 @@ class FirewallController
         Gate::authorize('update', $server);
 
         return response()->json($action->disable($server));
+    }
+
+    public function install(Request $request, Server $server, FirewallAction $action): JsonResponse
+    {
+        Gate::authorize('update', $server);
+
+        return response()->json($action->install($server));
     }
 }

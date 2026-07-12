@@ -368,28 +368,14 @@
         if (!confirm('Folgende Ports werden freigegeben:\n22 (SSH), 80 (HTTP), 443 (HTTPS), 3306 (MySQL),\n5432 (PostgreSQL), 8080, 3000, 5000\n\nFortfahren?')) return;
         showResult('Öffne Standard-Ports...', true);
 
-        fetch('{{ route('server.firewall.allow', $server) }}', {
+        fetch('{{ route('server.firewall.allow-standard-ports', $server) }}', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-            body: JSON.stringify({ port: '22', protocol: 'tcp' }),
         })
-            .then(() => {
-                const ports = ['80', '443', '3306', '5432', '8080', '3000', '5000'];
-                let chain = Promise.resolve();
-                for (const p of ports) {
-                    chain = chain.then(() =>
-                        fetch('{{ route('server.firewall.allow', $server) }}', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                            body: JSON.stringify({ port: p, protocol: 'tcp' }),
-                        }).then(r => r.json())
-                    );
-                }
-                return chain;
-            })
-            .then(() => {
-                showResult('Standard-Ports wurden freigegeben.', true);
-                setTimeout(refreshFirewall, 1000);
+            .then(r => r.json())
+            .then(data => {
+                showResult(data.message, data.success);
+                if (data.success) setTimeout(refreshFirewall, 1000);
             })
             .catch(err => {
                 showResult('Fehler: ' + err.message, false);
@@ -405,7 +391,7 @@
         result.textContent = 'UFW wird installiert. Bitte warten...';
         result.classList.remove('hidden');
 
-        fetch('{{ route('server.services.install', ['server' => $server, 'service' => '__UFW__']) }}'.replace('__UFW__', 'ufw'), {
+        fetch('{{ route('server.firewall.install', $server) }}', {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
         })

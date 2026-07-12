@@ -13,7 +13,7 @@ class FirewallAction
 
     public function status(Server $server): array
     {
-        $result = $this->engine->execute($server, 'ufw status verbose 2>/dev/null || echo \'NOT_INSTALLED\'', timeout: 15, useSudo: true);
+        $result = $this->engine->action($server, 'firewall.status', []);
 
         if (! $result->success) {
             return ['success' => false, 'error' => $result->stderr];
@@ -37,7 +37,7 @@ class FirewallAction
 
     public function rules(Server $server): array
     {
-        $result = $this->engine->execute($server, 'ufw status numbered 2>/dev/null || echo \'NOT_INSTALLED\'', timeout: 15, useSudo: true);
+        $result = $this->engine->action($server, 'firewall.rules', []);
 
         if (! $result->success) {
             return ['success' => false, 'error' => $result->stderr];
@@ -99,7 +99,7 @@ class FirewallAction
 
     public function install(Server $server): array
     {
-        $result = $this->engine->execute($server, 'DEBIAN_FRONTEND=noninteractive apt install ufw -y', timeout: 120, useSudo: true);
+        $result = $this->engine->action($server, 'firewall.install', []);
 
         return [
             'success' => $result->success,
@@ -118,8 +118,10 @@ class FirewallAction
             return ['success' => false, 'message' => 'Protokoll muss tcp oder udp sein.'];
         }
 
-        $spec = $protocol ? "{$port}/{$protocol}" : $port;
-        $result = $this->engine->execute($server, 'ufw allow '.escapeshellarg($spec), timeout: 15, useSudo: true);
+        $result = $this->engine->action($server, 'firewall.allow', [
+            'port' => $port,
+            'protocol' => $protocol,
+        ]);
 
         return [
             'success' => $result->success,
@@ -138,8 +140,10 @@ class FirewallAction
             return ['success' => false, 'message' => 'Protokoll muss tcp oder udp sein.'];
         }
 
-        $spec = $protocol ? "{$port}/{$protocol}" : $port;
-        $result = $this->engine->execute($server, 'ufw deny '.escapeshellarg($spec), timeout: 15, useSudo: true);
+        $result = $this->engine->action($server, 'firewall.deny', [
+            'port' => $port,
+            'protocol' => $protocol,
+        ]);
 
         return [
             'success' => $result->success,
@@ -149,7 +153,9 @@ class FirewallAction
 
     public function destroy(Server $server, int $ruleNumber): array
     {
-        $result = $this->engine->execute($server, "ufw --force delete {$ruleNumber}", timeout: 15, useSudo: true);
+        $result = $this->engine->action($server, 'firewall.delete', [
+            'rule' => $ruleNumber,
+        ]);
 
         return [
             'success' => $result->success,
@@ -159,7 +165,7 @@ class FirewallAction
 
     public function enable(Server $server): array
     {
-        $result = $this->engine->execute($server, 'ufw --force enable', timeout: 30, useSudo: true);
+        $result = $this->engine->action($server, 'firewall.enable', []);
 
         return [
             'success' => $result->success,
@@ -169,7 +175,7 @@ class FirewallAction
 
     public function disable(Server $server): array
     {
-        $result = $this->engine->execute($server, 'ufw --force disable', timeout: 15, useSudo: true);
+        $result = $this->engine->action($server, 'firewall.disable', []);
 
         return [
             'success' => $result->success,
@@ -179,10 +185,7 @@ class FirewallAction
 
     public function allowAll(Server $server): array
     {
-        $ports = ['22/tcp', '80/tcp', '443/tcp', '3306/tcp', '5432/tcp', '8080/tcp', '3000/tcp', '5000/tcp'];
-        $commands = implode(' && ', array_map(fn (string $p): string => "ufw allow {$p}", $ports));
-
-        $result = $this->engine->execute($server, $commands, timeout: 60, useSudo: true);
+        $result = $this->engine->action($server, 'firewall.allow_standard_ports', []);
 
         return [
             'success' => $result->success,

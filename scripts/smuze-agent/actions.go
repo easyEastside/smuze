@@ -18,10 +18,11 @@ type actionRequest struct {
 }
 
 type actionDefinition struct {
-	Name    string
-	Command string
-	Timeout int
-	UseSudo bool
+	Name         string
+	Command      string
+	BuildCommand func(map[string]any) (string, error)
+	Timeout      int
+	UseSudo      bool
 }
 
 type actionResponse struct {
@@ -53,7 +54,7 @@ func (s *Server) handleActions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := s.runAction(r.Context(), req.Action, definition)
+	response := s.runAction(r.Context(), req.Action, definition, req.Payload)
 
 	w.Header().Set("Content-Type", "application/json")
 	status := http.StatusOK
@@ -74,7 +75,15 @@ func registerActions(actions ...actionDefinition) map[string]actionDefinition {
 	return registered
 }
 
-func (s *Server) runAction(ctx context.Context, action string, definition actionDefinition) actionResponse {
+func (definition actionDefinition) command(payload map[string]any) (string, error) {
+	if definition.BuildCommand != nil {
+		return definition.BuildCommand(payload)
+	}
+
+	return definition.Command, nil
+}
+
+func (s *Server) runAction(ctx context.Context, action string, definition actionDefinition, payload map[string]any) actionResponse {
 	started := time.Now()
 	timeout := definition.Timeout
 	if timeout <= 0 {
@@ -87,7 +96,17 @@ func (s *Server) runAction(ctx context.Context, action string, definition action
 	commandCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer cancel()
 
-	command := definition.Command
+	command, err := definition.command(payload)
+	if err != nil {
+		return actionResponse{
+			Success:    false,
+			Action:     action,
+			ExitCode:   -1,
+			DurationMs: time.Since(started).Milliseconds(),
+			Error:      err.Error(),
+		}
+	}
+
 	if definition.UseSudo {
 		command = applySudo(command)
 	}

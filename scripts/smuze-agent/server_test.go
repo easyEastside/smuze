@@ -177,6 +177,15 @@ func TestActionEndpointRejectsUnknownAction(t *testing.T) {
 
 func TestSystemActionsAreRegisteredByName(t *testing.T) {
 	expectedActions := []string{
+		"firewall.status",
+		"firewall.rules",
+		"firewall.install",
+		"firewall.enable",
+		"firewall.disable",
+		"firewall.allow",
+		"firewall.deny",
+		"firewall.delete",
+		"firewall.allow_standard_ports",
 		"system.apt_update",
 		"system.apt_upgrade",
 		"system.reboot",
@@ -202,7 +211,7 @@ func TestRunActionExecutesWhitelistedDefinition(t *testing.T) {
 		Command: "echo action-ok",
 		Timeout: 10,
 		UseSudo: false,
-	})
+	}, nil)
 
 	if !result.Success {
 		t.Fatalf("expected success, got error %q", result.Error)
@@ -212,6 +221,58 @@ func TestRunActionExecutesWhitelistedDefinition(t *testing.T) {
 	}
 	if !strings.Contains(result.Stdout, "action-ok") {
 		t.Fatalf("expected stdout to contain action-ok, got %q", result.Stdout)
+	}
+}
+
+func TestFirewallAllowBuildsValidatedCommand(t *testing.T) {
+	command, err := firewallAllowAction().command(map[string]any{
+		"port":     "443",
+		"protocol": "tcp",
+	})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+
+	if command != "ufw allow '443/tcp'" {
+		t.Fatalf("unexpected command: %s", command)
+	}
+}
+
+func TestFirewallAllowRejectsUnsafeProtocol(t *testing.T) {
+	_, err := firewallAllowAction().command(map[string]any{
+		"port":     "443",
+		"protocol": "tcp; reboot",
+	})
+	if err == nil {
+		t.Fatal("expected unsafe protocol to be rejected")
+	}
+}
+
+func TestFirewallAllowRejectsInvalidPort(t *testing.T) {
+	_, err := firewallAllowAction().command(map[string]any{
+		"port":     "65536",
+		"protocol": "tcp",
+	})
+	if err == nil {
+		t.Fatal("expected invalid port to be rejected")
+	}
+}
+
+func TestFirewallDeleteBuildsValidatedCommand(t *testing.T) {
+	command, err := firewallDeleteAction().command(map[string]any{"rule": float64(12)})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+
+	if command != "ufw --force delete 12" {
+		t.Fatalf("unexpected command: %s", command)
+	}
+}
+
+func TestFirewallDeleteRejectsInvalidRule(t *testing.T) {
+	_, err := firewallDeleteAction().command(map[string]any{"rule": "1; reboot"})
+	if err == nil {
+		t.Fatal("expected invalid rule to be rejected")
 	}
 }
 

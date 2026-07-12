@@ -46,17 +46,21 @@ test('apache module action rejects unsafe module names', function () {
         ]);
 });
 
-test('firewall allow escapes port specification', function () {
+test('firewall allow delegates to validated agent action', function () {
     $server = new Server;
 
     $engine = Mockery::mock(PushAgentEngine::class);
-    $engine->shouldReceive('execute')
+    $engine->shouldReceive('action')
         ->once()
-        ->withArgs(function (Server $serverArgument, string $command, int $timeout, bool $useSudo) use ($server): bool {
+        ->withArgs(function (Server $serverArgument, string $action, array $payload) use ($server): bool {
             expect($serverArgument)->toBe($server);
-            expect($command)->toBe('ufw allow '.escapeshellarg('80/tcp'));
+            expect($action)->toBe('firewall.allow')
+                ->and($payload)->toBe([
+                    'port' => '80',
+                    'protocol' => 'tcp',
+                ]);
 
-            return $timeout === 15 && $useSudo === true;
+            return true;
         })
         ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
 
@@ -67,7 +71,7 @@ test('firewall allow escapes port specification', function () {
 
 test('firewall allow rejects unsafe protocols', function () {
     $engine = Mockery::mock(PushAgentEngine::class);
-    $engine->shouldReceive('execute')->never();
+    $engine->shouldReceive('action')->never();
 
     $result = (new FirewallAction($engine))->allow(new Server, '80', 'tcp; reboot');
 
@@ -76,4 +80,24 @@ test('firewall allow rejects unsafe protocols', function () {
             'success' => false,
             'message' => 'Protokoll muss tcp oder udp sein.',
         ]);
+});
+
+test('firewall allow all delegates to agent action', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(function (Server $serverArgument, string $action, array $payload) use ($server): bool {
+            expect($serverArgument)->toBe($server);
+            expect($action)->toBe('firewall.allow_standard_ports')
+                ->and($payload)->toBe([]);
+
+            return true;
+        })
+        ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
+
+    $result = (new FirewallAction($engine))->allowAll($server);
+
+    expect($result['success'])->toBeTrue();
 });

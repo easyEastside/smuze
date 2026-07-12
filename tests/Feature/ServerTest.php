@@ -520,6 +520,28 @@ test('firewall deny returns json with success field', function () {
         ->assertJsonStructure(['success']);
 });
 
+test('firewall allow standard ports returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.allow-standard-ports', $server))
+        ->assertJsonStructure(['success']);
+});
+
+test('firewall install returns json with success field', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.install', $server))
+        ->assertJsonStructure(['success']);
+});
+
 test('firewall enable returns json with success field', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
@@ -592,6 +614,24 @@ test('user cannot deny on another users firewall', function () {
             'port' => 80,
             'protocol' => 'tcp',
         ])
+        ->assertForbidden();
+});
+
+test('user cannot allow standard ports on another users firewall', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.allow-standard-ports', $server))
+        ->assertForbidden();
+});
+
+test('user cannot install firewall on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.install', $server))
         ->assertForbidden();
 });
 
