@@ -132,12 +132,14 @@ function initializeFloatingCommandLog() {
     const clearButton = panel.querySelector('[data-command-log-clear]');
     const connectButton = panel.querySelector('[data-command-log-connect]');
     const disconnectButton = panel.querySelector('[data-command-log-disconnect]');
+    const endButton = panel.querySelector('[data-command-log-end]');
     const serverId = panel.dataset.serverId;
     const debugEnabled = panel.dataset.debugEnabled === '1';
     const sessionEndpoint = panel.dataset.sessionEndpoint;
     const csrfToken = panel.dataset.csrfToken;
     const storageKey = `smuze:server:${serverId}:command-log`;
     const collapsedKey = `smuze:server:${serverId}:command-log-collapsed`;
+    const connectedKey = `smuze:server:${serverId}:command-log-connected`;
 
     if (! container || ! body || ! status || ! serverId || ! sessionEndpoint || ! csrfToken || ! window.SmuzeTerminal) {
         return;
@@ -175,6 +177,14 @@ function initializeFloatingCommandLog() {
         }
     };
 
+    const setShouldReconnect = (value) => {
+        try {
+            localStorage.setItem(connectedKey, value ? '1' : '0');
+        } catch {
+            // Ignore unavailable storage.
+        }
+    };
+
     const appendRaw = (value) => {
         const nextLog = `${readLog()}${value}`;
 
@@ -187,6 +197,7 @@ function initializeFloatingCommandLog() {
         status.textContent = label;
         connectButton?.classList.toggle('hidden', connected);
         disconnectButton?.classList.toggle('hidden', ! connected);
+        endButton?.classList.toggle('hidden', ! connected);
     };
 
     const setCollapsed = (collapsed) => {
@@ -232,6 +243,8 @@ function initializeFloatingCommandLog() {
     };
 
     const disconnect = () => {
+        setShouldReconnect(false);
+
         if (socket) {
             socket.close();
         }
@@ -240,12 +253,24 @@ function initializeFloatingCommandLog() {
         setConnectionStatus('Getrennt');
     };
 
+    const endSession = () => {
+        setShouldReconnect(false);
+
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ channel: 'terminal', type: 'end' }));
+        }
+
+        append('SSH-Terminal-Session wird beendet...');
+        disconnect();
+    };
+
     const connect = () => {
         if (isConnected || socket) {
             return;
         }
 
         setCollapsed(false);
+        setShouldReconnect(true);
         setConnectionStatus('Verbinde...');
         append('SSH-Terminal wird verbunden...');
 
@@ -282,12 +307,21 @@ function initializeFloatingCommandLog() {
                         appendRaw(payload.data);
                     }
 
+                    if (payload.channel === 'terminal' && payload.type === 'replay') {
+                        appendRaw(payload.data);
+                    }
+
+                    if (payload.channel === 'terminal' && payload.type === 'attached') {
+                        setConnectionStatus('Verbunden', true);
+                    }
+
                     if (payload.type === 'error') {
                         setConnectionStatus('Fehler');
                         append(payload.message || 'Terminal-Fehler.', 'error');
                     }
 
                     if (payload.channel === 'terminal' && payload.type === 'exit') {
+                        setShouldReconnect(false);
                         setConnectionStatus('Beendet');
                         append(`Session beendet (Exit ${payload.exit_code ?? 'unbekannt'}).`);
                     }
@@ -325,6 +359,10 @@ function initializeFloatingCommandLog() {
     setCollapsed(readStoredBoolean(collapsedKey));
     resizeTerminal();
 
+    if (readStoredBoolean(connectedKey)) {
+        connect();
+    }
+
     toggles.forEach((toggle) => {
         toggle.addEventListener('click', () => {
             const collapsed = ! body.classList.contains('hidden');
@@ -340,6 +378,7 @@ function initializeFloatingCommandLog() {
 
     connectButton?.addEventListener('click', connect);
     disconnectButton?.addEventListener('click', disconnect);
+    endButton?.addEventListener('click', endSession);
 
     clearButton?.addEventListener('click', () => {
         writeLog('');
@@ -370,6 +409,7 @@ function initializeFloatingCommandLog() {
         },
         connect,
         disconnect,
+        endSession,
         clear() {
             writeLog('');
             term.clear();

@@ -46,6 +46,9 @@
                         <button type="button" data-command-log-disconnect class="hidden rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:border-white/25 hover:text-white">
                             Trennen
                         </button>
+                        <button type="button" data-command-log-end class="hidden rounded-lg border border-red-400/30 px-2.5 py-1 text-xs text-red-200 hover:border-red-300/60 hover:text-white">
+                            Beenden
+                        </button>
                         <button type="button" data-command-log-clear class="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:border-white/25 hover:text-white">
                             Clear
                         </button>

@@ -530,6 +530,7 @@ test('user can view their own services page', function () {
         ->assertSee('Dienstverwaltung')
         ->assertSee($server->name)
         ->assertSee('Terminal: '.$server->name)
+        ->assertSee('Beenden')
         ->assertSee('data-server-id="'.$server->id.'"', false)
         ->assertSee('data-session-endpoint=', false);
 });

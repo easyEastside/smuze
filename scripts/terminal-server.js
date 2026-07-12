@@ -12,17 +12,27 @@ import { WebSocketServer } from 'ws';
 const port = Number.parseInt(process.env.TERMINAL_WS_PORT || '8081', 10);
 const appUrl = (process.env.APP_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
 const terminalSecret = process.env.TERMINAL_SHARED_SECRET || process.env.APP_KEY || '';
+const terminalIdleTimeoutMs = Number.parseInt(process.env.TERMINAL_IDLE_TIMEOUT_SECONDS || '1800', 10) * 1000;
 
 if (! terminalSecret) {
     throw new Error('TERMINAL_SHARED_SECRET or APP_KEY must be configured.');
 }
 
 const wss = new WebSocketServer({ port });
+const terminalSessions = new Map();
 
 function send(ws, payload) {
     if (ws.readyState === ws.OPEN) {
         ws.send(JSON.stringify(payload));
     }
+}
+
+function terminalSessionKey(session, server) {
+    return `${session.user_id}:${server.id}`;
+}
+
+function limitBuffer(value) {
+    return value.slice(-50000);
 }
 
 async function resolveSession(token) {
@@ -149,8 +159,14 @@ sleep 2
 done`;
 }
 
-function handleTerminalConnection(ws, server, cols, rows, keyFile) {
+async function createPersistentTerminalSession(key, server, cols, rows) {
     let passwordWritten = false;
+    let keyFile = null;
+
+    if (server.auth_type === 'key' && server.key_content) {
+        keyFile = await writeKeyFile(server.key_content);
+    }
+
     const terminal = pty.spawn('ssh', buildSshArgs(server, keyFile || server.key_path), {
         name: 'xterm-256color',
         cols: Number.isFinite(cols) ? cols : 120,
@@ -162,30 +178,106 @@ function handleTerminalConnection(ws, server, cols, rows, keyFile) {
         },
     });
 
+    const session = {
+        key,
+        terminal,
+        keyFile,
+        clients: new Set(),
+        detachedBuffer: '',
+        idleTimer: null,
+        ended: false,
+        touch() {
+            if (this.idleTimer) {
+                clearTimeout(this.idleTimer);
+                this.idleTimer = null;
+            }
+        },
+        scheduleIdleCleanup() {
+            this.touch();
+
+            if (terminalIdleTimeoutMs <= 0 || this.clients.size > 0) {
+                return;
+            }
+
+            this.idleTimer = setTimeout(() => {
+                this.kill();
+            }, terminalIdleTimeoutMs);
+        },
+        attach(ws) {
+            this.touch();
+            this.clients.add(ws);
+
+            if (this.detachedBuffer !== '') {
+                send(ws, { channel: 'terminal', type: 'replay', data: this.detachedBuffer });
+                this.detachedBuffer = '';
+            }
+        },
+        detach(ws) {
+            this.clients.delete(ws);
+            this.scheduleIdleCleanup();
+        },
+        broadcast(payload) {
+            for (const client of this.clients) {
+                send(client, payload);
+            }
+        },
+        write(data) {
+            this.touch();
+            terminal.write(data);
+        },
+        resize(cols, rows) {
+            this.touch();
+            terminal.resize(cols, rows);
+        },
+        async cleanupKeyFile() {
+            if (this.keyFile) {
+                await rm(this.keyFile, { force: true });
+                this.keyFile = null;
+            }
+        },
+        kill() {
+            if (this.ended) {
+                return;
+            }
+
+            this.ended = true;
+            this.touch();
+            terminal.kill();
+        },
+    };
+
     terminal.onData((data) => {
         if (server.password && ! passwordWritten && /password:/i.test(data)) {
             passwordWritten = true;
             terminal.write(`${server.password}\r`);
         }
 
-        send(ws, { channel: 'terminal', type: 'output', data });
+        if (session.clients.size === 0) {
+            session.detachedBuffer = limitBuffer(`${session.detachedBuffer}${data}`);
+        } else {
+            session.broadcast({ channel: 'terminal', type: 'output', data });
+        }
     });
 
     terminal.onExit(({ exitCode, signal }) => {
-        send(ws, { channel: 'terminal', type: 'exit', exit_code: exitCode, signal });
+        session.ended = true;
+        session.touch();
+        session.broadcast({ channel: 'terminal', type: 'exit', exit_code: exitCode, signal });
+        terminalSessions.delete(key);
+        session.cleanupKeyFile();
     });
 
-    return {
-        write(data) {
-            terminal.write(data);
-        },
-        resize(cols, rows) {
-            terminal.resize(cols, rows);
-        },
-        kill() {
-            terminal.kill();
-        },
-    };
+    terminalSessions.set(key, session);
+
+    return session;
+}
+
+async function getTerminalSession(key, server, cols, rows) {
+    if (terminalSessions.has(key)) {
+        return terminalSessions.get(key);
+    }
+
+    return createPersistentTerminalSession(key, server, cols, rows);
 }
 
 function handleMetricsConnection(ws, server, keyFile) {
@@ -283,9 +375,10 @@ async function proxyModuleRequest(ws, serverId, module, action, requestId, param
 
 wss.on('connection', async (ws, request) => {
     let metricsConnection = null;
-    let terminalConnection = null;
+    let terminalSession = null;
     let keyFile = null;
     let server = null;
+    let session = null;
     let pendingMessages = [];
 
     const cleanup = async () => {
@@ -294,9 +387,9 @@ wss.on('connection', async (ws, request) => {
             metricsConnection = null;
         }
 
-        if (terminalConnection) {
-            terminalConnection.kill();
-            terminalConnection = null;
+        if (terminalSession) {
+            terminalSession.detach(ws);
+            terminalSession = null;
         }
 
         if (keyFile) {
@@ -320,30 +413,46 @@ wss.on('connection', async (ws, request) => {
             metricsConnection = null;
         }
 
-        if (payload.channel === 'terminal' && payload.type === 'open' && server) {
-            if (terminalConnection) {
-                terminalConnection.kill();
+        if (payload.channel === 'terminal' && payload.type === 'open' && server && session) {
+            if (terminalSession) {
+                terminalSession.detach(ws);
             }
 
             const cols = Number.parseInt(payload.cols || 120, 10);
             const rows = Number.parseInt(payload.rows || 34, 10);
-            terminalConnection = handleTerminalConnection(ws, server, cols, rows, keyFile);
+            const key = terminalSessionKey(session, server);
+
+            getTerminalSession(key, server, cols, rows)
+                .then((resolvedTerminalSession) => {
+                    terminalSession = resolvedTerminalSession;
+                    terminalSession.attach(ws);
+                    terminalSession.resize(cols, rows);
+                    send(ws, { channel: 'terminal', type: 'attached' });
+                })
+                .catch((error) => {
+                    send(ws, { type: 'error', message: error.message });
+                });
         }
 
-        if (payload.channel === 'terminal' && payload.type === 'input' && terminalConnection && typeof payload.data === 'string') {
-            terminalConnection.write(payload.data);
+        if (payload.channel === 'terminal' && payload.type === 'input' && terminalSession && typeof payload.data === 'string') {
+            terminalSession.write(payload.data);
+        }
+
+        if (payload.channel === 'terminal' && payload.type === 'end' && terminalSession) {
+            terminalSession.kill();
+            terminalSession = null;
         }
 
         if (payload.requestId && ['system', 'apache', 'mysql', 'firewall', 'services', 'github'].includes(payload.channel) && payload.action && server) {
             proxyModuleRequest(ws, server.id, payload.channel, payload.action, payload.requestId, payload.params);
         }
 
-        if (payload.channel === 'terminal' && payload.type === 'resize' && terminalConnection) {
+        if (payload.channel === 'terminal' && payload.type === 'resize' && terminalSession) {
             const cols = Number.parseInt(payload.cols, 10);
             const rows = Number.parseInt(payload.rows, 10);
 
             if (Number.isFinite(cols) && Number.isFinite(rows) && cols > 0 && rows > 0) {
-                terminalConnection.resize(cols, rows);
+                terminalSession.resize(cols, rows);
             }
         }
     };
@@ -378,7 +487,8 @@ wss.on('connection', async (ws, request) => {
         ws.on('error', cleanup);
 
         // Resolve session (async)
-        const { server: resolvedServer } = await resolveSession(token);
+        const { session: resolvedSession, server: resolvedServer } = await resolveSession(token);
+        session = resolvedSession;
         server = resolvedServer;
 
         if (server.auth_type === 'key' && server.key_content) {
@@ -398,7 +508,15 @@ wss.on('connection', async (ws, request) => {
     }
 });
 
-process.on('SIGINT', () => process.exit(0));
-process.on('SIGTERM', () => process.exit(0));
+function shutdown() {
+    for (const session of terminalSessions.values()) {
+        session.kill();
+    }
+
+    process.exit(0);
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
 console.log(`Terminal WebSocket server listening on ws://127.0.0.1:${port}`);
