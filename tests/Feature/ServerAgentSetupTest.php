@@ -35,6 +35,8 @@ test('user can rotate server agent token', function () {
         ->and($server->agent_token)->toBe($token)
         ->and($installCommand)->toContain('agent/download')
         ->and($installCommand)->toContain('smuze-agent')
+        ->and($installCommand)->toContain('SUDO=""')
+        ->and($installCommand)->toContain('$SUDO curl')
         ->and($installCommand)->toContain('--server-id')
         ->and($installCommand)->toContain((string) $server->id)
         ->and($installCommand)->toContain($token)
@@ -90,7 +92,8 @@ test('user can generate manual agent install command', function () {
         ->and($server->agent_token)->toStartWith('smz_')
         ->and($server->agent_status)->toBe('disconnected')
         ->and($response->json('install_command'))->toContain('agent/download')
-        ->and($response->json('install_command'))->toContain('smuze-agent');
+        ->and($response->json('install_command'))->toContain('smuze-agent')
+        ->and($response->json('install_command'))->toContain('$SUDO systemctl restart smuze-agent');
 });
 
 test('agent download endpoint serves binary', function () {

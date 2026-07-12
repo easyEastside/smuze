@@ -142,16 +142,17 @@ class ServerAgentController
         $binaryPath = '/usr/local/bin/smuze-agent';
         $tmpPath = $binaryPath.'.tmp';
 
-        return '(command -v curl >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq curl))'
-            .' && curl -fsSL '.escapeshellarg($downloadUrl).' -o '.escapeshellarg($tmpPath)
-            .' && mv '.escapeshellarg($tmpPath).' '.escapeshellarg($binaryPath)
-            .' && chmod +x '.escapeshellarg($binaryPath)
-            .' && '.escapeshellarg($binaryPath).' install'
+        return 'SUDO=""; if [ "$(id -u)" -ne 0 ]; then SUDO="sudo"; fi'
+            .' && (command -v curl >/dev/null 2>&1 || ($SUDO apt-get update -qq && $SUDO apt-get install -y -qq curl))'
+            .' && $SUDO curl -fsSL '.escapeshellarg($downloadUrl).' -o '.escapeshellarg($tmpPath)
+            .' && $SUDO mv '.escapeshellarg($tmpPath).' '.escapeshellarg($binaryPath)
+            .' && $SUDO chmod +x '.escapeshellarg($binaryPath)
+            .' && $SUDO '.escapeshellarg($binaryPath).' install'
             .' --app-url '.escapeshellarg($appUrl)
             .' --server-id '.escapeshellarg((string) $server->id)
             .' --token '.escapeshellarg($token)
             .' --port '.escapeshellarg((string) $server->agent_port)
-            .' && systemctl daemon-reload && systemctl restart smuze-agent';
+            .' && $SUDO systemctl daemon-reload && $SUDO systemctl restart smuze-agent';
     }
 
     public function proxyHealth(Server $server): JsonResponse

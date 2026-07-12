@@ -27,7 +27,7 @@ class PushAgentEngine
                 ->acceptJson()
                 ->post($this->agentUrl($server).'/actions', [
                     'action' => $action,
-                    'payload' => $payload,
+                    'payload' => empty($payload) ? new \stdClass : $payload,
                 ]);
 
             if (! $response->ok() && $response->status() !== 422) {

@@ -34,8 +34,8 @@ type actionResponse struct {
 }
 
 var systemActions = map[string]actionDefinition{
-	"system.apt_update":  {Command: "apt update", Timeout: 300, UseSudo: true},
-	"system.apt_upgrade": {Command: "apt upgrade -y", Timeout: 3600, UseSudo: true},
+	"system.apt_update":  {Command: "apt-get update -y --allow-releaseinfo-change", Timeout: 300, UseSudo: true},
+	"system.apt_upgrade": {Command: "DEBIAN_FRONTEND=noninteractive apt-get upgrade -y", Timeout: 3600, UseSudo: true},
 	"system.reboot":      {Command: "reboot", Timeout: 30, UseSudo: true},
 	"system.shutdown":    {Command: "shutdown -h now", Timeout: 30, UseSudo: true},
 }
