@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('agent_version', 20)->nullable()->after('agent_token');
             $table->timestamp('agent_last_seen_at')->nullable()->after('agent_version');
             $table->string('agent_status', 20)->default('disconnected')->after('agent_last_seen_at')->index();
-            $table->string('agent_transport', 20)->default('polling')->after('agent_status');
+            $table->string('agent_transport', 20)->default('push')->after('agent_status');
             $table->string('execution_driver', 20)->default('ssh')->after('agent_transport');
         });
     }

@@ -28,10 +28,7 @@ class Server extends Model
         'agent_status',
         'agent_transport',
         'agent_port',
-        'agent_metrics',
-        'agent_metrics_collected_at',
         'notes',
-        'status',
     ];
 
     protected function casts(): array
@@ -42,8 +39,6 @@ class Server extends Model
             'agent_enabled' => 'boolean',
             'agent_token' => 'encrypted',
             'agent_last_seen_at' => 'datetime',
-            'agent_metrics' => 'array',
-            'agent_metrics_collected_at' => 'datetime',
             'credentials' => 'encrypted',
             'key_content' => 'encrypted',
         ];

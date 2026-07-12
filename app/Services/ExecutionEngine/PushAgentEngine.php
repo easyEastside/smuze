@@ -135,20 +135,6 @@ class PushAgentEngine
         }
     }
 
-    public function getMetrics(Server $server): ?array
-    {
-        try {
-            $response = Http::timeout(10)
-                ->withToken($server->agent_token)
-                ->acceptJson()
-                ->get($this->agentUrl($server).'/metrics');
-
-            return $response->successful() ? $response->json() : null;
-        } catch (\Throwable) {
-            return null;
-        }
-    }
-
     public function triggerUpdate(Server $server): array
     {
         try {
