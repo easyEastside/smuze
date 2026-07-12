@@ -12,6 +12,7 @@
     <body class="min-h-screen bg-[#FDFDFC] text-[#1b1b18] antialiased dark:bg-[#0a0a0a] dark:text-[#EDEDEC]">
         @php
             $floatingCommandServer = request()->route('server');
+            $showFloatingTerminal = auth()->check() && auth()->user()->show_floating_terminal;
         @endphp
 
         <div class="flex min-h-screen flex-col">
@@ -22,11 +23,12 @@
             </main>
         </div>
 
-        @if ($floatingCommandServer instanceof \App\Models\Server)
+        @if ($showFloatingTerminal && $floatingCommandServer instanceof \App\Models\Server)
             <aside
                 id="floating-command-log"
                 data-server-id="{{ $floatingCommandServer->id }}"
                 data-server-name="{{ $floatingCommandServer->name }}"
+                data-debug-enabled="{{ auth()->user()->write_debug_logs ? '1' : '0' }}"
                 class="fixed bottom-4 right-4 z-40 hidden w-[calc(100vw-2rem)] max-w-xl overflow-hidden rounded-2xl border border-[#19140020] bg-[#0b0f14] text-[#d6deeb] shadow-2xl dark:border-[#3E3E3A] sm:bottom-6 sm:right-6 sm:w-[34rem]"
                 aria-label="Schwebendes Terminal"
             >

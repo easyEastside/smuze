@@ -20,6 +20,7 @@
         ['label' => 'Surveys', 'route' => 'surveys.index', 'active' => 'surveys.*'],
         ['label' => 'Quests', 'route' => 'quests.index', 'active' => 'quests.*'],
         ['label' => 'Profile', 'route' => 'profile.show', 'active' => 'profile.show'],
+        ['label' => 'Settings', 'route' => 'settings.edit', 'active' => 'settings.*'],
         ['label' => auth()->user()->credits.' Credits', 'route' => 'profile.credits', 'active' => 'profile.credits'],
     ];
 @endphp

@@ -13,6 +13,7 @@ require app_path('Modules/ResetPassword/routes.php');
 require app_path('Modules/Logout/routes.php');
 require app_path('Modules/Dashboard/routes.php');
 require app_path('Modules/Profile/routes.php');
+require app_path('Modules/Settings/routes.php');
 require app_path('Modules/GuestProfile/routes.php');
 require app_path('Modules/Bank/routes.php');
 require app_path('Modules/Shop/routes.php');

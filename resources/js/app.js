@@ -130,6 +130,7 @@ function initializeFloatingCommandLog() {
     const toggles = panel.querySelectorAll('[data-command-log-toggle]');
     const clearButton = panel.querySelector('[data-command-log-clear]');
     const serverId = panel.dataset.serverId;
+    const debugEnabled = panel.dataset.debugEnabled === '1';
     const storageKey = `smuze:server:${serverId}:command-log`;
     const collapsedKey = `smuze:server:${serverId}:command-log-collapsed`;
 
@@ -209,6 +210,14 @@ function initializeFloatingCommandLog() {
         },
         write(message, level = 'info') {
             append(message, level);
+        },
+        debug(message, level = 'info') {
+            if (debugEnabled) {
+                append(message, level);
+            }
+        },
+        get debugEnabled() {
+            return debugEnabled;
         },
         status(message) {
             status.textContent = message;

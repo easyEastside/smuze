@@ -296,7 +296,7 @@
 
         if ((event.type === 'stdout' || event.type === 'stderr') && log) {
             appendServiceLog(log, event.data);
-            window.SmuzeCommandLog?.write(String(event.data || '').trimEnd(), event.type === 'stderr' ? 'error' : 'info');
+            window.SmuzeCommandLog?.debug(String(event.data || '').trimEnd(), event.type === 'stderr' ? 'error' : 'info');
             return null;
         }
 
