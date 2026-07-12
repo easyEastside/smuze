@@ -18,6 +18,6 @@ class LoginController
     {
         $attemptLogin->handle($request);
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        return redirect()->intended(route('server.index', absolute: false));
     }
 }

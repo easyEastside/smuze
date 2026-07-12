@@ -18,6 +18,6 @@ class RegisterController
     {
         $registerUser->handle($request);
 
-        return redirect()->route('dashboard');
+        return redirect()->route('server.index');
     }
 }

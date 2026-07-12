@@ -62,7 +62,7 @@ test('password can be reset with a valid token', function () {
     $this->post('/login', [
         'email' => $user->email,
         'password' => 'new-password',
-    ])->assertRedirect(route('dashboard', absolute: false));
+    ])->assertRedirect(route('server.index', absolute: false));
 
     $this->assertAuthenticated();
 });

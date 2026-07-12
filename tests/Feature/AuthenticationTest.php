@@ -24,7 +24,7 @@ test('new users can register', function () {
     ]);
 
     $this->assertAuthenticated();
-    $response->assertRedirect(route('dashboard', absolute: false));
+    $response->assertRedirect(route('server.index', absolute: false));
 
     $this->assertDatabaseHas('users', [
         'email' => 'test@example.com',
@@ -46,7 +46,7 @@ test('users can authenticate using the login screen', function () {
     ]);
 
     $this->assertAuthenticated();
-    $response->assertRedirect(route('dashboard', absolute: false));
+    $response->assertRedirect(route('server.index', absolute: false));
 });
 
 test('users receive daily login bonus once per day', function () {
@@ -55,7 +55,7 @@ test('users receive daily login bonus once per day', function () {
     $this->post('/login', [
         'email' => $user->email,
         'password' => 'password',
-    ])->assertRedirect(route('dashboard', absolute: false));
+    ])->assertRedirect(route('server.index', absolute: false));
 
     expect($user->refresh()->credits)->toBe(10);
 
@@ -77,7 +77,7 @@ test('users receive daily login bonus once per day', function () {
     $this->post('/login', [
         'email' => $user->email,
         'password' => 'password',
-    ])->assertRedirect(route('dashboard', absolute: false));
+    ])->assertRedirect(route('server.index', absolute: false));
 
     expect($user->refresh()->credits)->toBe(10);
     expect($user->dailyLoginBonuses()->count())->toBe(1);
@@ -91,7 +91,7 @@ test('users receive a larger daily login bonus on the next streak day', function
     $this->post('/login', [
         'email' => $user->email,
         'password' => 'password',
-    ])->assertRedirect(route('dashboard', absolute: false));
+    ])->assertRedirect(route('server.index', absolute: false));
 
     $this->post('/logout');
 
@@ -100,7 +100,7 @@ test('users receive a larger daily login bonus on the next streak day', function
     $this->post('/login', [
         'email' => $user->email,
         'password' => 'password',
-    ])->assertRedirect(route('dashboard', absolute: false));
+    ])->assertRedirect(route('server.index', absolute: false));
 
     expect($user->refresh()->credits)->toBe(25);
     expect($user->dailyLoginBonuses()->count())->toBe(2);
@@ -120,7 +120,7 @@ test('daily login bonus reaches full reward at seven day streak and stays capped
         $this->post('/login', [
             'email' => $user->email,
             'password' => 'password',
-        ])->assertRedirect(route('dashboard', absolute: false));
+        ])->assertRedirect(route('server.index', absolute: false));
 
         $this->post('/logout');
         $this->travelTo(now()->addDay());
@@ -142,7 +142,7 @@ test('daily login bonus streak resets after a missed day', function () {
     $this->post('/login', [
         'email' => $user->email,
         'password' => 'password',
-    ])->assertRedirect(route('dashboard', absolute: false));
+    ])->assertRedirect(route('server.index', absolute: false));
 
     $this->post('/logout');
 
@@ -151,7 +151,7 @@ test('daily login bonus streak resets after a missed day', function () {
     $this->post('/login', [
         'email' => $user->email,
         'password' => 'password',
-    ])->assertRedirect(route('dashboard', absolute: false));
+    ])->assertRedirect(route('server.index', absolute: false));
 
     expect($user->refresh()->credits)->toBe(20);
 

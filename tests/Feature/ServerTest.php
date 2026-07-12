@@ -26,7 +26,13 @@ test('authenticated user can view their own servers', function () {
         ->get(route('server.index'))
         ->assertSuccessful()
         ->assertSee('Meine Server')
-        ->assertSee('Web Server');
+        ->assertSee('Web Server')
+        ->assertSee('Bitte zuerst Server auswählen')
+        ->assertSee('Webhosting')
+        ->assertSee('PHP')
+        ->assertSee('Unwichtig')
+        ->assertSee('Bank')
+        ->assertSee('Inventory');
 });
 
 test('user cannot see other users servers', function () {
@@ -193,7 +199,12 @@ test('user can view their own server system', function () {
         ->assertSee('System')
         ->assertSee('Systeminformationen')
         ->assertSee('System-Aktionen')
-        ->assertSee(route('server.terminal', $server), false);
+        ->assertSee(route('server.terminal', $server), false)
+        ->assertSee(route('server.nginx.index', $server), false)
+        ->assertSee(route('server.services.index', $server), false)
+        ->assertSee('Webhosting')
+        ->assertSee('PHP')
+        ->assertSee('Unwichtig');
 });
 
 test('guest cannot view server terminal', function () {

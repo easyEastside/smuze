@@ -214,14 +214,29 @@
 
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Module</p>
-                    <div class="mt-4 flex flex-col gap-2 text-sm">
-                        <a href="{{ route('server.services.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Dienste</a>
-                        <a href="{{ route('server.terminal', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Terminal</a>
-                        <a href="{{ route('server.firewall.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Firewall</a>
-                        <a href="{{ route('server.apache.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Apache</a>
-                        <a href="{{ route('server.nginx.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Nginx</a>
-                        <a href="{{ route('server.mysql.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">MySQL</a>
-                        <a href="{{ route('server.github.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">GitHub</a>
+                    <div class="mt-4 space-y-4 text-sm">
+                        <div>
+                            <p class="text-[0.65rem] font-semibold uppercase tracking-wide text-[#706f6c] dark:text-[#A1A09A]">Basis</p>
+                            <div class="mt-2 grid gap-2">
+                                <a href="{{ route('server.services.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Dienste</a>
+                                <a href="{{ route('server.terminal', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Terminal</a>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-[0.65rem] font-semibold uppercase tracking-wide text-[#706f6c] dark:text-[#A1A09A]">Webserver</p>
+                            <div class="mt-2 grid gap-2">
+                                <a href="{{ route('server.apache.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Apache</a>
+                                <a href="{{ route('server.nginx.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Nginx</a>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-[0.65rem] font-semibold uppercase tracking-wide text-[#706f6c] dark:text-[#A1A09A]">Server</p>
+                            <div class="mt-2 grid gap-2">
+                                <a href="{{ route('server.firewall.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Firewall</a>
+                                <a href="{{ route('server.mysql.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">MySQL</a>
+                                <a href="{{ route('server.github.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">GitHub</a>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

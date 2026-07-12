@@ -78,7 +78,7 @@ test('registration gives welcome bonus', function () {
         'password_confirmation' => 'password',
     ]);
 
-    $response->assertRedirect(route('dashboard', absolute: false));
+    $response->assertRedirect(route('server.index', absolute: false));
 
     $user = User::where('email', 'new@example.com')->first();
 
