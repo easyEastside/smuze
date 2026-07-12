@@ -7,8 +7,6 @@ use App\Services\ExecutionEngine\PushAgentEngine;
 
 class GithubAction
 {
-    private const APACHE_ROOT = '/var/www';
-
     private const HOST_REGEX = '/^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?)*$/';
 
     private const SAFE_NAME_REGEX = '/^[A-Za-z0-9._-]+$/';
@@ -124,15 +122,13 @@ class GithubAction
             return ['success' => false, 'message' => 'E-Mail-Adresse für Let\'s Encrypt ist erforderlich.'];
         }
 
-        $targetPath = self::APACHE_ROOT.'/'.$targetName;
-        $siteName = $host.'.conf';
-        $sitePath = '/etc/apache2/sites-available/'.$siteName;
-
-        $vhostConfig = $this->buildVhostConfig($host, $targetPath, $useSsl);
-
-        $script = $this->buildDeployScript($repoUrl, $targetPath, $host, $siteName, $sitePath, $vhostConfig, $useSsl, $email);
-
-        $result = $this->engine->execute($server, 'sh -c '.escapeshellarg($script), timeout: 300, useSudo: true);
+        $result = $this->engine->action($server, 'github.deploy', [
+            'repo_url' => $repoUrl,
+            'host' => $host,
+            'target_name' => $targetName,
+            'use_ssl' => $useSsl,
+            'email' => $email,
+        ]);
 
         $message = $result->stdout ?: $result->stderr;
 
@@ -144,103 +140,5 @@ class GithubAction
             'success' => $result->success,
             'message' => $message,
         ];
-    }
-
-    private function buildVhostConfig(string $host, string $documentRoot, bool $useSsl): string
-    {
-        if ($useSsl) {
-            return "<VirtualHost *:80>\n"
-                ."    ServerName {$host}\n"
-                ."    RewriteEngine On\n"
-                ."    RewriteRule ^ https://%{HTTP_HOST}\${REQUEST_URI} [R=301,L]\n"
-                ."</VirtualHost>\n\n"
-                ."<VirtualHost *:443>\n"
-                ."    ServerName {$host}\n"
-                ."    DocumentRoot {$documentRoot}\n\n"
-                ."    <Directory {$documentRoot}>\n"
-                ."        AllowOverride All\n"
-                ."        Require all granted\n"
-                ."    </Directory>\n\n"
-                ."    ErrorLog \${APACHE_LOG_DIR}/{$host}_error.log\n"
-                ."    CustomLog \${APACHE_LOG_DIR}/{$host}_access.log combined\n\n"
-                ."    SSLEngine On\n"
-                ."    SSLCertificateFile /etc/letsencrypt/live/{$host}/fullchain.pem\n"
-                ."    SSLCertificateKeyFile /etc/letsencrypt/live/{$host}/privkey.pem\n"
-                ."</VirtualHost>\n";
-        }
-
-        return "<VirtualHost *:80>\n"
-            ."    ServerName {$host}\n"
-            ."    DocumentRoot {$documentRoot}\n\n"
-            ."    <Directory {$documentRoot}>\n"
-            ."        AllowOverride All\n"
-            ."        Require all granted\n"
-            ."    </Directory>\n\n"
-            ."    ErrorLog \${APACHE_LOG_DIR}/{$host}_error.log\n"
-            ."    CustomLog \${APACHE_LOG_DIR}/{$host}_access.log combined\n"
-            ."</VirtualHost>\n";
-    }
-
-    private function buildDeployScript(string $repoUrl, string $targetPath, string $host, string $siteName, string $sitePath, string $vhostConfig, bool $useSsl, string $email): string
-    {
-        $lines = [
-            'set -e',
-            'repo_url='.escapeshellarg($repoUrl),
-            'target_path='.escapeshellarg($targetPath),
-            'host_name='.escapeshellarg($host),
-            'site_name='.escapeshellarg($siteName),
-            'site_path='.escapeshellarg($sitePath),
-            '',
-            'if [ -e "$target_path" ]; then',
-            '    printf "Ziel existiert bereits: %s\\n" "$target_path"',
-            '    exit 2',
-            'fi',
-            'if [ -e "$site_path" ]; then',
-            '    printf "Apache-Site existiert bereits: %s\\n" "$site_path"',
-            '    exit 3',
-            'fi',
-            '',
-            'if ! command -v git >/dev/null 2>&1; then',
-            '    apt update',
-            '    apt install git -y',
-            'fi',
-            'if ! command -v apache2 >/dev/null 2>&1; then',
-            '    printf "Apache ist nicht installiert.\\n"',
-            '    exit 4',
-            'fi',
-            '',
-            'mkdir -p '.escapeshellarg(self::APACHE_ROOT),
-            'git clone "$repo_url" "$target_path"',
-            '',
-            'document_root="$target_path"',
-            'if [ -d "$target_path/public" ]; then',
-            '    document_root="$target_path/public"',
-            'fi',
-            '',
-        ];
-
-        if ($useSsl) {
-            $config = str_replace('$document_root', '${document_root}', $vhostConfig);
-            $config = 'cat > "$site_path" <<EOF_VHOST'."\n".$config."\nEOF_VHOST";
-
-            $lines[] = 'if ! command -v certbot >/dev/null 2>&1; then';
-            $lines[] = '    DEBIAN_FRONTEND=noninteractive apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq certbot python3-certbot-apache';
-            $lines[] = 'fi';
-            $lines[] = '';
-        } else {
-            $config = 'cat > "$site_path" <<EOF_VHOST'."\n".$vhostConfig."\nEOF_VHOST";
-        }
-
-        $lines[] = $config;
-        $lines[] = '';
-        $lines[] = 'apache2ctl configtest';
-        $lines[] = 'a2ensite "$site_name"';
-        $lines[] = 'systemctl reload apache2';
-        $lines[] = '';
-        $lines[] = 'printf "Projekt geklont: %s\\n" "$target_path"';
-        $lines[] = 'printf "Apache Host eingerichtet: %s\\n" "$host_name"';
-        $lines[] = 'printf "DocumentRoot erkannt: %s\\n" "$document_root"';
-
-        return implode("\n", $lines);
     }
 }

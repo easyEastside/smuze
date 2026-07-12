@@ -3,7 +3,9 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
@@ -38,8 +40,51 @@ func collectMetrics() map[string]any {
 		metrics["disk_used_mb"] = used
 		metrics["disk_percent"] = percent
 	}
+	for key, value := range readServiceVersions() {
+		metrics[key] = value
+	}
 
 	return metrics
+}
+
+func readServiceVersions() map[string]string {
+	versions := map[string]string{}
+
+	if version := readCommandVersion("php -v 2>/dev/null | sed -n '1p'"); version != "" {
+		versions["php_version"] = version
+	}
+	if version := readCommandVersion("apache2 -v 2>/dev/null | sed -n '1p'"); version != "" {
+		versions["apache_version"] = version
+	}
+	if version := readCommandVersion("mysql --version 2>/dev/null"); version != "" {
+		versions["mysql_version"] = version
+	}
+	if version := readCommandVersion(`export NVM_DIR="${NVM_DIR:-$HOME/.nvm}" && { command -v node >/dev/null 2>&1 || { [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; }; } && node --version 2>/dev/null`); version != "" {
+		versions["node_version"] = version
+	}
+	if version := readCommandVersion(`export NVM_DIR="${NVM_DIR:-$HOME/.nvm}" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm --version 2>/dev/null`); version != "" {
+		versions["nvm_version"] = version
+	}
+	if version := readCommandVersion(`export NVM_DIR="${NVM_DIR:-$HOME/.nvm}" && { command -v npm >/dev/null 2>&1 || { [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; }; } && npm --version 2>/dev/null`); version != "" {
+		versions["npm_version"] = version
+	}
+	if version := readCommandVersion("composer --version 2>/dev/null"); version != "" {
+		versions["composer_version"] = version
+	}
+
+	return versions
+}
+
+func readCommandVersion(command string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	output, err := exec.CommandContext(ctx, "sh", "-lc", command).Output()
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(output))
 }
 
 func readOSName() string {

@@ -21,6 +21,8 @@ type actionDefinition struct {
 	Name         string
 	Command      string
 	BuildCommand func(map[string]any) (string, error)
+	BuildTimeout func(map[string]any) (int, error)
+	BuildUseSudo func(map[string]any) (bool, error)
 	Timeout      int
 	UseSudo      bool
 }
@@ -75,6 +77,18 @@ func registerActions(actions ...actionDefinition) map[string]actionDefinition {
 	return registered
 }
 
+func registerActionGroups(groups ...[]actionDefinition) map[string]actionDefinition {
+	registered := make(map[string]actionDefinition)
+
+	for _, group := range groups {
+		for _, action := range group {
+			registered[action.Name] = action
+		}
+	}
+
+	return registered
+}
+
 func (definition actionDefinition) command(payload map[string]any) (string, error) {
 	if definition.BuildCommand != nil {
 		return definition.BuildCommand(payload)
@@ -83,9 +97,34 @@ func (definition actionDefinition) command(payload map[string]any) (string, erro
 	return definition.Command, nil
 }
 
+func (definition actionDefinition) timeout(payload map[string]any) (int, error) {
+	if definition.BuildTimeout != nil {
+		return definition.BuildTimeout(payload)
+	}
+
+	return definition.Timeout, nil
+}
+
+func (definition actionDefinition) useSudo(payload map[string]any) (bool, error) {
+	if definition.BuildUseSudo != nil {
+		return definition.BuildUseSudo(payload)
+	}
+
+	return definition.UseSudo, nil
+}
+
 func (s *Server) runAction(ctx context.Context, action string, definition actionDefinition, payload map[string]any) actionResponse {
 	started := time.Now()
-	timeout := definition.Timeout
+	timeout, err := definition.timeout(payload)
+	if err != nil {
+		return actionResponse{
+			Success:    false,
+			Action:     action,
+			ExitCode:   -1,
+			DurationMs: time.Since(started).Milliseconds(),
+			Error:      err.Error(),
+		}
+	}
 	if timeout <= 0 {
 		timeout = 30
 	}
@@ -107,7 +146,18 @@ func (s *Server) runAction(ctx context.Context, action string, definition action
 		}
 	}
 
-	if definition.UseSudo {
+	useSudo, err := definition.useSudo(payload)
+	if err != nil {
+		return actionResponse{
+			Success:    false,
+			Action:     action,
+			ExitCode:   -1,
+			DurationMs: time.Since(started).Milliseconds(),
+			Error:      err.Error(),
+		}
+	}
+
+	if useSudo {
 		command = applySudo(command)
 	}
 

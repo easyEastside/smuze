@@ -298,7 +298,10 @@ test('user can view their own services page', function () {
         ->get(route('server.services.index', $server))
         ->assertSuccessful()
         ->assertSee('Dienstverwaltung')
-        ->assertSee($server->name);
+        ->assertSee($server->name)
+        ->assertSee(route('server.agent.metrics', $server), false)
+        ->assertSee('sessionStorage.removeItem(systemCacheKey)', false)
+        ->assertDontSee("http://{$server->host}:{$server->agent_port}/metrics", false);
 });
 
 test('user cannot view another users services page', function () {
@@ -354,15 +357,16 @@ test('service install stream returns live output and final status', function () 
     $server = Server::factory()->create(['user_id' => $this->user->id]);
     $engine = Mockery::mock(PushAgentEngine::class);
 
-    $engine->shouldReceive('execute')
+    $engine->shouldReceive('action')
         ->once()
-        ->withArgs(function (Server $serverArgument, string $command, int $timeout, bool $useSudo, callable $onOutput) use ($server): bool {
+        ->withArgs(function (Server $serverArgument, string $action, array $payload, callable $onOutput) use ($server): bool {
             expect($serverArgument->is($server))->toBeTrue();
-            expect($command)->toContain('apt install php');
+            expect($action)->toBe('services.install')
+                ->and($payload)->toBe(['service' => 'php']);
 
             $onOutput('stdout', "Paketlisten werden gelesen...\n");
 
-            return $timeout === 300 && $useSudo === true;
+            return true;
         })
         ->andReturn(new ExecutionResult(
             stdout: 'Paketlisten werden gelesen...',

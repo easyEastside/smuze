@@ -35,7 +35,7 @@
         { key: 'mysql', label: 'MySQL', versionField: 'mysql_version' },
         { key: 'node', label: 'Node.js', versionField: 'node_version' },
         { key: 'nvm', label: 'nvm', versionField: 'nvm_version' },
-        { key: 'npm', label: 'npm', versionField: 'node_version' },
+        { key: 'npm', label: 'npm', versionField: 'npm_version' },
         { key: 'composer', label: 'Composer', versionField: 'composer_version' },
     ];
     const systemCacheKey = 'smuze:server:{{ $server->id }}:system-info';
@@ -79,10 +79,7 @@
             content.classList.add('hidden');
         }
 
-        const agentPort = {{ $server->agent_port ?? config('agent.push_port', 9300) }};
-        const agentUrl = `http://{{ $server->host }}:${agentPort}/metrics`;
-
-        fetch(agentUrl)
+        fetch('{{ route('server.agent.metrics', $server) }}')
             .then(r => r.json())
             .then(data => {
                 loading.classList.add('hidden');
@@ -165,6 +162,7 @@
             .then(data => {
                 if (data.success) {
                     result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
+                    sessionStorage.removeItem(systemCacheKey);
                     setTimeout(() => window.location.reload(), 2000);
                 } else {
                     result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';

@@ -329,6 +329,7 @@
         if (data.mysql_version) details.push('MySQL: ' + data.mysql_version);
         if (data.node_version) details.push('Node.js: ' + data.node_version);
         if (data.nvm_version) details.push('nvm: ' + data.nvm_version);
+        if (data.npm_version) details.push('npm: ' + data.npm_version);
         if (data.composer_version) details.push('Composer: ' + data.composer_version);
         document.getElementById('sys-details').textContent = details.join('\n') || 'Keine Detailinformationen verfügbar.';
 
@@ -340,6 +341,7 @@
             { label: 'MySQL', version: data.mysql_version },
             { label: 'Node.js', version: data.node_version },
             { label: 'nvm', version: data.nvm_version },
+            { label: 'npm', version: data.npm_version },
             { label: 'Composer', version: data.composer_version },
         ];
 

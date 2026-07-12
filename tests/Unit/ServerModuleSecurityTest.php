@@ -3,6 +3,7 @@
 use App\Models\Server;
 use App\Modules\Server\Apache\Actions\ApacheAction;
 use App\Modules\Server\Firewall\Actions\FirewallAction;
+use App\Modules\Server\Github\Actions\GithubAction;
 use App\Modules\Server\Mysql\Actions\MysqlAction;
 use App\Services\ExecutionEngine\ExecutionResult;
 use App\Services\ExecutionEngine\PushAgentEngine;
@@ -161,6 +162,41 @@ test('mysql create user rejects unsafe hosts before agent action', function () {
     $engine->shouldReceive('action')->never();
 
     $result = (new MysqlAction($engine))->createUser(new Server, 'app_user', 'local..host', 'secret');
+
+    expect($result['success'])->toBeFalse();
+});
+
+test('github deploy delegates to validated agent action', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(function (Server $serverArgument, string $action, array $payload) use ($server): bool {
+            expect($serverArgument)->toBe($server);
+            expect($action)->toBe('github.deploy')
+                ->and($payload)->toBe([
+                    'repo_url' => 'https://github.com/owner/repo.git',
+                    'host' => 'example.com',
+                    'target_name' => 'repo',
+                    'use_ssl' => false,
+                    'email' => '',
+                ]);
+
+            return true;
+        })
+        ->andReturn(new ExecutionResult(stdout: 'Projekt geklont', stderr: '', exitCode: 0, success: true));
+
+    $result = (new GithubAction($engine))->deploy($server, 'https://github.com/owner/repo.git', 'example.com', 'repo');
+
+    expect($result['success'])->toBeTrue();
+});
+
+test('github deploy rejects unsafe repo before agent action', function () {
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')->never();
+
+    $result = (new GithubAction($engine))->deploy(new Server, 'git@github.com:owner/repo.git', 'example.com', 'repo');
 
     expect($result['success'])->toBeFalse();
 });

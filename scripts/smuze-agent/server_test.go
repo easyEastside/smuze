@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -66,6 +67,36 @@ func TestHealthEndpointWithAuth(t *testing.T) {
 	}
 }
 
+func TestCapabilitiesEndpointReturnsVersionAndActions(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	req, _ := http.NewRequest("GET", ts.URL+"/capabilities", nil)
+	req.Header.Set(authHeader())
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET /capabilities: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		t.Fatalf("expected 200, got %d", res.StatusCode)
+	}
+
+	var body capabilitiesResponse
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatalf("decode capabilities: %v", err)
+	}
+
+	if body.Version == "" {
+		t.Fatal("expected version")
+	}
+	if !slices.Contains(body.Actions, "services.install") || !slices.Contains(body.Actions, "github.deploy") {
+		t.Fatalf("expected registered actions, got %v", body.Actions)
+	}
+}
+
 func TestMetricsEndpoint(t *testing.T) {
 	ts := newTestServer(t)
 	defer ts.Close()
@@ -90,6 +121,14 @@ func TestMetricsEndpoint(t *testing.T) {
 
 	if body["hostname"] == nil {
 		t.Fatal("expected hostname in metrics")
+	}
+}
+
+func TestReadCommandVersionTrimsOutput(t *testing.T) {
+	version := readCommandVersion("printf ' 1.2.3\\n'")
+
+	if version != "1.2.3" {
+		t.Fatalf("expected trimmed version, got %q", version)
 	}
 }
 
@@ -206,6 +245,7 @@ func TestSystemActionsAreRegisteredByName(t *testing.T) {
 		"firewall.deny",
 		"firewall.delete",
 		"firewall.allow_standard_ports",
+		"github.deploy",
 		"mysql.status",
 		"mysql.install",
 		"mysql.deinstall",
@@ -223,6 +263,8 @@ func TestSystemActionsAreRegisteredByName(t *testing.T) {
 		"mysql.drop_user",
 		"mysql.set_password",
 		"mysql.grant_all",
+		"services.install",
+		"services.deinstall",
 		"system.apt_update",
 		"system.apt_upgrade",
 		"system.reboot",
@@ -391,6 +433,80 @@ func TestApacheCreateVhostRejectsUnsafeDocumentRoot(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected unsafe document root to be rejected")
+	}
+}
+
+func TestGithubDeployBuildsValidatedCommand(t *testing.T) {
+	command, err := githubDeployAction().command(map[string]any{
+		"repo_url":    "https://github.com/owner/repo.git",
+		"host":        "example.com",
+		"target_name": "repo",
+	})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+
+	if !strings.Contains(command, "git clone") || !strings.Contains(command, "https://github.com/owner/repo.git") || !strings.Contains(command, "/var/www/repo") {
+		t.Fatalf("unexpected command: %s", command)
+	}
+}
+
+func TestGithubDeployRejectsNonGithubURL(t *testing.T) {
+	_, err := githubDeployAction().command(map[string]any{
+		"repo_url":    "https://example.com/owner/repo.git",
+		"host":        "example.com",
+		"target_name": "repo",
+	})
+	if err == nil {
+		t.Fatal("expected non-github url to be rejected")
+	}
+}
+
+func TestGithubDeployRejectsUnsafeTargetName(t *testing.T) {
+	_, err := githubDeployAction().command(map[string]any{
+		"repo_url":    "https://github.com/owner/repo.git",
+		"host":        "example.com",
+		"target_name": "../repo",
+	})
+	if err == nil {
+		t.Fatal("expected unsafe target name to be rejected")
+	}
+}
+
+func TestServicesInstallNodeUsesLatestNode(t *testing.T) {
+	definition := servicesInstallAction()
+	command, err := definition.command(map[string]any{"service": "node"})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+	useSudo, err := definition.useSudo(map[string]any{"service": "node"})
+	if err != nil {
+		t.Fatalf("expected sudo flag, got error %v", err)
+	}
+
+	if !strings.Contains(command, "nvm install node") || strings.Contains(command, "nvm install 24") {
+		t.Fatalf("expected latest node install command, got %s", command)
+	}
+	if useSudo {
+		t.Fatal("expected node install to run without sudo")
+	}
+}
+
+func TestServicesInstallNpmUpdatesNpmToLatest(t *testing.T) {
+	command, err := servicesInstallAction().command(map[string]any{"service": "npm"})
+	if err != nil {
+		t.Fatalf("expected command, got error %v", err)
+	}
+
+	if !strings.Contains(command, "npm install -g npm@latest") {
+		t.Fatalf("expected npm latest install command, got %s", command)
+	}
+}
+
+func TestServicesInstallRejectsUnknownService(t *testing.T) {
+	_, err := servicesInstallAction().command(map[string]any{"service": "unknown"})
+	if err == nil {
+		t.Fatal("expected unknown service to be rejected")
 	}
 }
 

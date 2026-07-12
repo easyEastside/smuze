@@ -365,6 +365,26 @@ test('agent engine records action audit log', function () {
         ->and($command->stdout)->toBe('ok');
 });
 
+test('agent action 404 asks user to update agent', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/actions' => Http::response(['error' => 'unknown action'], 404),
+    ]);
+
+    $this->actingAs($user);
+
+    $result = app(PushAgentEngine::class)->action($server, 'services.install', ['service' => 'php']);
+
+    expect($result->success)->toBeFalse()
+        ->and($result->stderr)->toBe("Agent kennt die Action 'services.install' nicht. Bitte Agent aktualisieren.");
+});
+
 test('user can trigger whitelisted agent action', function () {
     $user = User::factory()->create();
     $server = Server::factory()->withAgent()->create([

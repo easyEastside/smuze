@@ -31,9 +31,13 @@ class PushAgentEngine
                 ]);
 
             if (! $response->ok() && $response->status() !== 422) {
+                $message = $response->status() === 404
+                    ? "Agent kennt die Action '{$action}' nicht. Bitte Agent aktualisieren."
+                    : 'Agent action failed: '.$response->status();
+
                 $result = new ExecutionResult(
                     stdout: '',
-                    stderr: 'Agent action failed: '.$response->status(),
+                    stderr: $message,
                     exitCode: -1,
                     success: false,
                 );

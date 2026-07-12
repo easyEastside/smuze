@@ -150,6 +150,8 @@
 
     @push('scripts')
     <script>
+    let firewallIsActive = false;
+
     function getProto() {
         const el = document.querySelector('input[name="fw-proto"]:checked');
         return el ? el.value : 'tcp';
@@ -214,6 +216,8 @@
     }
 
     function renderStatus(active) {
+        firewallIsActive = active;
+
         const badge = document.getElementById('fw-status-badge');
         const enableBtn = document.getElementById('btn-enable');
         const disableBtn = document.getElementById('btn-disable');
@@ -239,6 +243,9 @@
                 const tbody = document.getElementById('fw-rules-tbody');
 
                 if (!data.success || !data.rules || data.rules.length === 0) {
+                    empty.textContent = firewallIsActive
+                        ? 'Keine Firewall-Regeln vorhanden.'
+                        : 'Keine sichtbaren Regeln vorhanden. UFW ist inaktiv; bereits angelegte Regeln werden erst nach dem Aktivieren angezeigt.';
                     empty.classList.remove('hidden');
                     table.classList.add('hidden');
                     return;
