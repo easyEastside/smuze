@@ -192,7 +192,36 @@ test('user can view their own server system', function () {
         ->assertSee($server->name)
         ->assertSee('System')
         ->assertSee('Systeminformationen')
-        ->assertSee('System-Aktionen');
+        ->assertSee('System-Aktionen')
+        ->assertSee(route('server.terminal', $server), false);
+});
+
+test('guest cannot view server terminal', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.terminal', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user can view their own server terminal', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.terminal', $server))
+        ->assertSuccessful()
+        ->assertSee('Freies Terminal')
+        ->assertSee($server->name)
+        ->assertSee(route('server.agent.execute', $server), false)
+        ->assertSee('terminal-command', false)
+        ->assertSee('use_sudo', false);
+});
+
+test('user cannot view another users server terminal', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.terminal', $server))
+        ->assertForbidden();
 });
 
 test('user can view server agent audit commands', function () {

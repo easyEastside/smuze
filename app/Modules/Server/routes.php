@@ -13,6 +13,7 @@ Route::middleware('auth')->group(function (): void {
     Route::delete('servers/{server}', [ServerController::class, 'destroy'])->name('server.destroy');
 
     Route::get('servers/{server}/system', [ServerController::class, 'system'])->name('server.system');
+    Route::get('servers/{server}/terminal', [ServerController::class, 'terminal'])->name('server.terminal');
 
     Route::post('servers/{server}/agent/token', [ServerAgentController::class, 'rotateToken'])->name('server.agent.token');
     Route::post('servers/{server}/agent/install', [ServerAgentController::class, 'install'])->name('server.agent.install');

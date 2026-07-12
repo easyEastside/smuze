@@ -16,6 +16,9 @@
                     <a href="{{ route('server.edit', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                         Bearbeiten
                     </a>
+                    <a href="{{ route('server.terminal', $server) }}" class="rounded-lg bg-[#1b1b18] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                        Terminal
+                    </a>
                     <a href="{{ route('server.index') }}" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                         Zurück
                     </a>
@@ -213,6 +216,7 @@
                     <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Module</p>
                     <div class="mt-4 flex flex-col gap-2 text-sm">
                         <a href="{{ route('server.services.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Dienste</a>
+                        <a href="{{ route('server.terminal', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Terminal</a>
                         <a href="{{ route('server.firewall.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Firewall</a>
                         <a href="{{ route('server.apache.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Apache</a>
                         <a href="{{ route('server.mysql.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">MySQL</a>

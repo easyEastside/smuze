@@ -83,4 +83,11 @@ class ServerController
 
         return view('modules.server.system', compact('agentCommands', 'server'));
     }
+
+    public function terminal(Server $server): View
+    {
+        Gate::authorize('update', $server);
+
+        return view('modules.server.terminal.index', compact('server'));
+    }
 }
