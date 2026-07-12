@@ -2,6 +2,7 @@
 
 use App\Models\Server;
 use App\Models\User;
+use App\Services\ConnectionResult;
 use App\Services\ExecutionEngine\PushAgentEngine;
 use App\Services\SshResult;
 use App\Services\SshService;
@@ -86,16 +87,25 @@ test('user can install agent via ssh bootstrap', function () {
         ->andReturn(new SshResult(stdout: 'OK', stderr: '', exitCode: 0, success: true));
     $this->app->instance(SshService::class, $ssh);
 
+    $agent = Mockery::mock(PushAgentEngine::class);
+    $agent->shouldReceive('test')
+        ->once()
+        ->andReturn(new ConnectionResult(success: true, latencyMs: 1.0));
+    $this->app->instance(PushAgentEngine::class, $agent);
+
     $this->actingAs($user)
         ->postJson(route('server.agent.install', $server))
         ->assertSuccessful()
-        ->assertJson(['success' => true]);
+        ->assertJson([
+            'success' => true,
+            'message' => 'Agent installiert und verbunden.',
+        ]);
 
     $server->refresh();
 
     expect($server->agent_enabled)->toBeTrue()
         ->and($server->agent_token)->toStartWith('smz_')
-        ->and($server->agent_status)->toBe('disconnected')
+        ->and($server->agent_status)->toBe('connected')
         ->and($server->execution_driver)->toBe('auto');
 });
 

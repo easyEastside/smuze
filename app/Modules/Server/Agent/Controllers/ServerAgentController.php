@@ -78,11 +78,35 @@ class ServerAgentController
         $script = $this->buildRemoteInstallScript($appUrl, $server, $token, $port);
         $result = $this->ssh->execute($server, $script, timeout: 120, useSudo: true);
 
+        if ($result->success) {
+            for ($i = 0; $i < 3; $i++) {
+                if ($i > 0) {
+                    sleep(1);
+                }
+
+                $connectionResult = $this->agent->test($server);
+
+                if ($connectionResult->success) {
+                    $server->forceFill([
+                        'agent_status' => 'connected',
+                    ])->save();
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Agent installiert und verbunden.',
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Agent installiert, aber Verbindung fehlgeschlagen: '.($connectionResult->errorMessage ?? 'Zeitüberschreitung'),
+            ]);
+        }
+
         return response()->json([
-            'success' => $result->success,
-            'message' => $result->success
-                ? 'Agent installiert und gestartet.'
-                : 'Installation fehlgeschlagen: '.$result->stderr,
+            'success' => false,
+            'message' => 'Installation fehlgeschlagen: '.$result->stderr,
         ]);
     }
 
