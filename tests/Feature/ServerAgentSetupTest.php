@@ -327,6 +327,67 @@ test('agent engine records command audit log', function () {
         ->and($command->stdout)->toBe("ok\n");
 });
 
+test('guest cannot stream agent execute command', function () {
+    $server = Server::factory()->withAgent()->create();
+
+    $this->post(route('server.agent.execute.stream', $server), ['command' => 'whoami'])
+        ->assertRedirect(route('login', absolute: false));
+});
+
+test('user cannot stream agent execute command on another users server', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => User::factory(),
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('server.agent.execute.stream', $server), ['command' => 'whoami'])
+        ->assertForbidden();
+});
+
+test('agent execute stream proxies ndjson and records audit log', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/execute' => Http::response(json_encode(['stream' => 'stdout', 'data' => "one\n"])."\n".json_encode(['stream' => 'stderr', 'data' => "warn\n"])."\n".json_encode(['done' => true, 'exit_code' => 0])."\n"),
+    ]);
+
+    $response = $this->actingAs($user)
+        ->post(route('server.agent.execute.stream', $server), [
+            'command' => 'printf one',
+            'timeout' => 10,
+            'use_sudo' => false,
+        ])
+        ->assertSuccessful()
+        ->assertHeader('Content-Type', 'application/x-ndjson');
+
+    expect($response->streamedContent())
+        ->toContain('"stream":"stdout"')
+        ->toContain('one\\n')
+        ->toContain('"stream":"stderr"')
+        ->toContain('warn\\n')
+        ->toContain('"done":true')
+        ->and(ServerAgentCommand::query()->count())->toBe(1);
+
+    $command = ServerAgentCommand::query()->firstOrFail();
+
+    expect($command->server_id)->toBe($server->id)
+        ->and($command->user_id)->toBe($user->id)
+        ->and($command->source)->toBe('proxy')
+        ->and($command->command)->toBe('printf one')
+        ->and($command->timeout)->toBe(10)
+        ->and($command->use_sudo)->toBeFalse()
+        ->and($command->exit_code)->toBe(0)
+        ->and($command->success)->toBeTrue()
+        ->and($command->stdout)->toBe("one\n")
+        ->and($command->stderr)->toBe("warn\n");
+});
+
 test('agent engine records action audit log', function () {
     $user = User::factory()->create();
     $server = Server::factory()->withAgent()->create([

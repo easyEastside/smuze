@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ServerAgentController
 {
@@ -326,6 +327,86 @@ class ServerAgentController
         }
     }
 
+    public function proxyExecuteStream(Request $request, Server $server): StreamedResponse
+    {
+        Gate::authorize('update', $server);
+
+        $data = $request->validate([
+            'command' => ['required', 'string', 'max:5000'],
+            'timeout' => ['nullable', 'integer', 'min:1', 'max:3600'],
+            'use_sudo' => ['nullable', 'boolean'],
+        ]);
+
+        $timeout = $data['timeout'] ?? 30;
+        $useSudo = $data['use_sudo'] ?? true;
+        $startedAt = now();
+        $started = microtime(true);
+
+        return response()->stream(function () use ($request, $server, $data, $timeout, $useSudo, $startedAt, $started): void {
+            $stdout = '';
+            $stderr = '';
+            $exitCode = -1;
+            $success = false;
+
+            try {
+                $response = Http::timeout($timeout + 5)
+                    ->withOptions(['stream' => true])
+                    ->withToken($server->agent_token)
+                    ->acceptJson()
+                    ->post($this->agentBaseUrl($server).'/execute', [
+                        'command' => $data['command'],
+                        'timeout' => $timeout,
+                        'use_sudo' => $useSudo,
+                    ]);
+
+                if (! $response->successful()) {
+                    $stderr = 'Agent responded with '.$response->status();
+                    $this->sendNdjson(['error' => $stderr, 'done' => true, 'exit_code' => -1]);
+
+                    return;
+                }
+
+                $body = $response->toPsrResponse()->getBody();
+                $buffer = '';
+
+                while (! $body->eof()) {
+                    $buffer .= $body->read(4096);
+                    $lines = explode("\n", $buffer);
+                    $buffer = array_pop($lines) ?? '';
+
+                    foreach ($lines as $line) {
+                        $this->handleExecuteStreamLine($line, $stdout, $stderr, $exitCode, $success);
+                    }
+                }
+
+                if (trim($buffer) !== '') {
+                    $this->handleExecuteStreamLine($buffer, $stdout, $stderr, $exitCode, $success);
+                }
+            } catch (ConnectionException) {
+                $stderr = 'Agent nicht erreichbar';
+                $this->sendNdjson(['error' => $stderr, 'done' => true, 'exit_code' => -1]);
+            } finally {
+                $this->recordProxyCommand(
+                    $server,
+                    $request,
+                    $data['command'],
+                    $timeout,
+                    $useSudo,
+                    $exitCode,
+                    $success,
+                    $stdout,
+                    $stderr,
+                    $startedAt,
+                    $started,
+                );
+            }
+        }, 200, [
+            'Content-Type' => 'application/x-ndjson',
+            'Cache-Control' => 'no-cache, no-transform',
+            'X-Accel-Buffering' => 'no',
+        ]);
+    }
+
     public function proxyAction(Request $request, Server $server): JsonResponse
     {
         Gate::authorize('update', $server);
@@ -388,6 +469,44 @@ class ServerAgentController
             'agent_last_seen_at' => now(),
             'agent_status' => 'connected',
         ])->save();
+    }
+
+    private function handleExecuteStreamLine(string $line, string &$stdout, string &$stderr, int &$exitCode, bool &$success): void
+    {
+        if (trim($line) === '') {
+            return;
+        }
+
+        $chunk = json_decode($line, true);
+
+        if (! is_array($chunk)) {
+            return;
+        }
+
+        if (($chunk['stream'] ?? null) === 'stdout') {
+            $stdout .= $chunk['data'] ?? '';
+        } elseif (($chunk['stream'] ?? null) === 'stderr') {
+            $stderr .= $chunk['data'] ?? '';
+        }
+
+        if (($chunk['done'] ?? false) === true) {
+            $exitCode = $chunk['exit_code'] ?? -1;
+            $success = $exitCode === 0 && blank($chunk['error'] ?? '');
+        }
+
+        $this->sendNdjson($chunk);
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function sendNdjson(array $payload): void
+    {
+        echo json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)."\n";
+
+        if (ob_get_level() > 0) {
+            ob_flush();
+        }
+
+        flush();
     }
 
     private function recordProxyCommand(

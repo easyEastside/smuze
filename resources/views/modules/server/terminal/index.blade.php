@@ -125,11 +125,11 @@
         appendTerminal(`$ ${command}\n`, 'text-white');
 
         try {
-            const response = await fetch('{{ route('server.agent.execute', $server) }}', {
+            const response = await fetch('{{ route('server.agent.execute.stream', $server) }}', {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    Accept: 'application/json',
+                    Accept: 'application/x-ndjson',
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -139,20 +139,17 @@
                 }),
             });
 
-            const data = await response.json();
-
-            if (!response.ok || data.success === false) {
-                appendTerminal(`${data.error || 'Befehl fehlgeschlagen.'}\n`, 'text-red-300');
+            if (!response.ok) {
+                appendTerminal(`Request fehlgeschlagen (${response.status}).\n`, 'text-red-300');
                 return;
             }
 
-            for (const chunk of data.data || []) {
-                if (chunk.stream === 'stdout') appendTerminal(chunk.data || '');
-                if (chunk.stream === 'stderr') appendTerminal(chunk.data || '', 'text-red-300');
+            if (!response.body) {
+                appendTerminal('Live-Stream wird vom Browser nicht unterstützt.\n', 'text-red-300');
+                return;
             }
 
-            const exitCode = data.exit_code ?? -1;
-            appendTerminal(`\n[exit ${exitCode}]\n`, exitCode === 0 ? 'text-green-300' : 'text-red-300');
+            await readTerminalStream(response.body);
         } catch (error) {
             appendTerminal(`Fehler: ${error.message}\n`, 'text-red-300');
         } finally {
@@ -161,6 +158,45 @@
             terminalCommand.focus();
         }
     });
+
+    async function readTerminalStream(body) {
+        const reader = body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { value, done } = await reader.read();
+            buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                handleTerminalChunk(line);
+            }
+
+            if (done) break;
+        }
+
+        if (buffer.trim() !== '') {
+            handleTerminalChunk(buffer);
+        }
+    }
+
+    function handleTerminalChunk(line) {
+        if (line.trim() === '') return;
+
+        const chunk = JSON.parse(line);
+
+        if (chunk.stream === 'stdout') appendTerminal(chunk.data || '');
+        if (chunk.stream === 'stderr') appendTerminal(chunk.data || '', 'text-red-300');
+        if (chunk.error) appendTerminal(`${chunk.error}\n`, 'text-red-300');
+
+        if (chunk.done) {
+            const exitCode = chunk.exit_code ?? -1;
+            appendTerminal(`\n[exit ${exitCode}]\n`, exitCode === 0 && !chunk.error ? 'text-green-300' : 'text-red-300');
+        }
+    }
 
     clearTerminal();
     </script>

@@ -210,7 +210,9 @@ test('user can view their own server terminal', function () {
         ->assertSuccessful()
         ->assertSee('Freies Terminal')
         ->assertSee($server->name)
-        ->assertSee(route('server.agent.execute', $server), false)
+        ->assertSee(route('server.agent.execute.stream', $server), false)
+        ->assertSee('body.getReader()', false)
+        ->assertDontSee('AbortController', false)
         ->assertSee('terminal-command', false)
         ->assertSee('use_sudo', false);
 });
