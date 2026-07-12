@@ -167,8 +167,14 @@ class SshService
                 mkdir(dirname($path), 0700, true);
             }
 
-            if (! file_exists($path)) {
-                file_put_contents($path, $content);
+            $normalized = str_replace("\r\n", "\n", $content);
+
+            if (! str_ends_with($normalized, "\n")) {
+                $normalized .= "\n";
+            }
+
+            if (! file_exists($path) || file_get_contents($path) !== $normalized) {
+                file_put_contents($path, $normalized);
                 chmod($path, 0600);
             }
 
