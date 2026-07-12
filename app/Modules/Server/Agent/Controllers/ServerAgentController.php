@@ -29,6 +29,8 @@ class ServerAgentController
             'execution_driver' => $server->execution_driver === 'ssh' ? 'auto' : $server->execution_driver,
         ])->save();
 
+        $this->ssh->execute($server, 'systemctl restart smuze-agent', timeout: 10);
+
         return response()->json([
             'success' => true,
             'token' => $token,
@@ -97,7 +99,7 @@ class ServerAgentController
             .' --app-url '.escapeshellarg($appUrl)
             .' --server-id '.escapeshellarg((string) $server->id)
             .' --token '.escapeshellarg($token)
-            .' && systemctl daemon-reload && systemctl enable --now smuze-agent';
+            .' && systemctl daemon-reload && systemctl restart smuze-agent';
     }
 
     private function buildRemoteInstallScript(string $appUrl, Server $server, string $token): string
@@ -105,15 +107,18 @@ class ServerAgentController
         $downloadUrl = rtrim($appUrl, '/').'/agent/download';
         $binaryPath = '/usr/local/bin/smuze-agent';
 
+        $tmpPath = $binaryPath.'.tmp';
+
         return implode(' && ', [
-            'curl -fsSL '.escapeshellarg($downloadUrl).' -o '.$binaryPath,
+            'curl -fsSL '.escapeshellarg($downloadUrl).' -o '.$tmpPath,
+            'mv '.$tmpPath.' '.$binaryPath,
             'chmod +x '.$binaryPath,
             $binaryPath.' install'
                 .' --app-url '.escapeshellarg($appUrl)
                 .' --server-id '.escapeshellarg((string) $server->id)
                 .' --token '.escapeshellarg($token),
             'systemctl daemon-reload',
-            'systemctl enable --now smuze-agent',
+            'systemctl restart smuze-agent',
         ]);
     }
 }

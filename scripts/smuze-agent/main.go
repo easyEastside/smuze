@@ -41,7 +41,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	client := NewClient(config)
+	client := NewClient(config, *configPath)
 	executor := NewExecutor(client)
 
 	if err := client.Heartbeat(ctx, version); err != nil {
