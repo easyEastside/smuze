@@ -142,6 +142,8 @@ function initializeFloatingCommandLog() {
     const storageKey = `smuze:server:${serverId}:command-log`;
     const collapsedKey = `smuze:server:${serverId}:command-log-collapsed`;
     const connectedKey = `smuze:server:${serverId}:command-log-connected`;
+    const widthKey = `smuze:server:${serverId}:command-log-width`;
+    const heightKey = `smuze:server:${serverId}:command-log-height`;
 
     if (! container || ! body || ! status || ! serverId || ! sessionEndpoint || ! csrfToken || ! window.SmuzeTerminal) {
         return;
@@ -182,6 +184,24 @@ function initializeFloatingCommandLog() {
     const setShouldReconnect = (value) => {
         try {
             localStorage.setItem(connectedKey, value ? '1' : '0');
+        } catch {
+            // Ignore unavailable storage.
+        }
+    };
+
+    const readStoredNumber = (key, defaultVal) => {
+        try {
+            const val = localStorage.getItem(key);
+
+            return val !== null ? parseInt(val, 10) : defaultVal;
+        } catch {
+            return defaultVal;
+        }
+    };
+
+    const storeNumber = (key, val) => {
+        try {
+            localStorage.setItem(key, String(val));
         } catch {
             // Ignore unavailable storage.
         }
@@ -398,6 +418,10 @@ function initializeFloatingCommandLog() {
     });
 
     panel.classList.remove('hidden');
+
+    panel.style.width = readStoredNumber(widthKey, 544) + 'px';
+    body.style.height = readStoredNumber(heightKey, 320) + 'px';
+
     setCollapsed(readStoredBoolean(collapsedKey));
     resizeTerminal();
 
@@ -427,6 +451,62 @@ function initializeFloatingCommandLog() {
         term.clear();
         status.textContent = 'Logs geleert';
     });
+
+    const resizeHandle = panel.querySelector('[data-command-log-resize]');
+
+    if (resizeHandle) {
+        let isResizing = false;
+        let startX, startY, startWidth, startHeight;
+
+        const onResizeStart = (e) => {
+            if (body.classList.contains('hidden')) return;
+
+            isResizing = true;
+            startX = e.clientX ?? e.touches[0].clientX;
+            startY = e.clientY ?? e.touches[0].clientY;
+            startWidth = panel.offsetWidth;
+            startHeight = body.offsetHeight;
+            document.body.style.cursor = 'nwse-resize';
+            document.body.style.userSelect = 'none';
+            e.preventDefault();
+        };
+
+        const onResizeMove = (e) => {
+            if (! isResizing) return;
+
+            const clientX = e.clientX ?? e.touches[0].clientX;
+            const clientY = e.clientY ?? e.touches[0].clientY;
+            const deltaX = startX - clientX;
+            const deltaY = startY - clientY;
+            const newWidth = Math.max(300, Math.min(window.innerWidth - 48, startWidth + deltaX));
+            const newHeight = Math.max(200, Math.min(window.innerHeight - 48, startHeight + deltaY));
+
+            panel.style.width = newWidth + 'px';
+            body.style.height = newHeight + 'px';
+        };
+
+        const onResizeEnd = () => {
+            if (! isResizing) return;
+
+            isResizing = false;
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            storeNumber(widthKey, panel.offsetWidth);
+            storeNumber(heightKey, body.offsetHeight);
+            fitAddon.fit();
+
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ channel: 'terminal', type: 'resize', cols: term.cols, rows: term.rows }));
+            }
+        };
+
+        resizeHandle.addEventListener('mousedown', onResizeStart);
+        document.addEventListener('mousemove', onResizeMove);
+        document.addEventListener('mouseup', onResizeEnd);
+        resizeHandle.addEventListener('touchstart', onResizeStart, { passive: false });
+        document.addEventListener('touchmove', onResizeMove, { passive: false });
+        document.addEventListener('touchend', onResizeEnd);
+    }
 
     window.SmuzeCommandLog = {
         open() {
