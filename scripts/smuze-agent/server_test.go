@@ -175,10 +175,30 @@ func TestActionEndpointRejectsUnknownAction(t *testing.T) {
 	}
 }
 
+func TestSystemActionsAreRegisteredByName(t *testing.T) {
+	expectedActions := []string{
+		"system.apt_update",
+		"system.apt_upgrade",
+		"system.reboot",
+		"system.shutdown",
+	}
+
+	for _, actionName := range expectedActions {
+		definition, ok := systemActions[actionName]
+		if !ok {
+			t.Fatalf("expected %s to be registered", actionName)
+		}
+		if definition.Name != actionName {
+			t.Fatalf("expected %s name, got %s", actionName, definition.Name)
+		}
+	}
+}
+
 func TestRunActionExecutesWhitelistedDefinition(t *testing.T) {
 	srv := NewServer(Config{Token: "test-token", Port: 9300})
 
 	result := srv.runAction(context.Background(), "test.echo", actionDefinition{
+		Name:    "test.echo",
 		Command: "echo action-ok",
 		Timeout: 10,
 		UseSudo: false,
