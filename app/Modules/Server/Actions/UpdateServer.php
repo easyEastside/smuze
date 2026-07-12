@@ -11,7 +11,6 @@ class UpdateServer
     {
         $data = $request->validated();
         $data['use_sudo'] = $request->boolean('use_sudo');
-        $data['ssh_compression'] = $request->boolean('ssh_compression');
 
         $server->update($data);
 

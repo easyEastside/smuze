@@ -178,38 +178,6 @@ test('user can create server with use_sudo and key_path', function () {
     ]);
 });
 
-test('user can create server with custom ssh options', function () {
-    $this->actingAs($this->user)
-        ->post(route('server.store'), [
-            'name' => 'Optimized Server',
-            'host' => '10.0.0.2',
-            'port' => 2222,
-            'username' => 'admin',
-            'auth_type' => 'key',
-            'ssh_connect_timeout' => 7,
-            'ssh_command_timeout' => 45,
-            'ssh_control_persist' => 60,
-            'ssh_server_alive_interval' => 20,
-            'ssh_server_alive_count_max' => 4,
-            'ssh_connection_attempts' => 3,
-            'ssh_compression' => '1',
-        ])
-        ->assertRedirect(route('server.index', absolute: false));
-
-    $this->assertDatabaseHas('servers', [
-        'user_id' => $this->user->id,
-        'name' => 'Optimized Server',
-        'ssh_connect_timeout' => 7,
-        'ssh_command_timeout' => 45,
-        'ssh_control_persist' => 60,
-        'ssh_server_alive_interval' => 20,
-        'ssh_server_alive_count_max' => 4,
-        'ssh_connection_attempts' => 3,
-        'ssh_compression' => 1,
-        'execution_driver' => 'ssh',
-    ]);
-});
-
 test('user can create server with password auth', function () {
     $this->actingAs($this->user)
         ->post(route('server.store'), [
@@ -294,41 +262,6 @@ test('user can update server with sudo disabled', function () {
     expect($server->refresh()->use_sudo)->toBeFalse();
 });
 
-test('user can update custom ssh options', function () {
-    $server = Server::factory()->create([
-        'user_id' => $this->user->id,
-        'ssh_compression' => false,
-    ]);
-
-    $this->actingAs($this->user)
-        ->put(route('server.update', $server), [
-            'name' => $server->name,
-            'host' => $server->host,
-            'port' => $server->port,
-            'username' => $server->username,
-            'auth_type' => $server->auth_type,
-            'ssh_connect_timeout' => 8,
-            'ssh_command_timeout' => 50,
-            'ssh_control_persist' => 90,
-            'ssh_server_alive_interval' => 25,
-            'ssh_server_alive_count_max' => 5,
-            'ssh_connection_attempts' => 4,
-            'ssh_compression' => '1',
-        ])
-        ->assertRedirect(route('server.index', absolute: false));
-
-    $server->refresh();
-
-    expect($server->ssh_connect_timeout)->toBe(8);
-    expect($server->ssh_command_timeout)->toBe(50);
-    expect($server->ssh_control_persist)->toBe(90);
-    expect($server->ssh_server_alive_interval)->toBe(25);
-    expect($server->ssh_server_alive_count_max)->toBe(5);
-    expect($server->ssh_connection_attempts)->toBe(4);
-    expect($server->ssh_compression)->toBeTrue();
-    expect($server->execution_driver)->toBe('ssh');
-});
-
 test('admin can view all servers in admin panel', function () {
     $role = Role::create(['name' => 'admin']);
     $permission = Permission::create(['name' => 'access-admin']);
@@ -342,45 +275,6 @@ test('admin can view all servers in admin panel', function () {
         ->get(route('admin.servers.index'))
         ->assertSuccessful()
         ->assertSee('User Server');
-});
-
-test('admin can create server with custom ssh options', function () {
-    $role = Role::create(['name' => 'admin']);
-    $permission = Permission::create(['name' => 'access-admin']);
-    $role->givePermissionTo($permission);
-
-    $admin = User::factory()->create()->assignRole('admin');
-
-    $this->actingAs($admin)
-        ->post(route('admin.servers.store'), [
-            'user_id' => $this->user->id,
-            'name' => 'Admin Optimized Server',
-            'host' => '10.0.0.3',
-            'port' => 22,
-            'username' => 'root',
-            'auth_type' => 'key',
-            'use_sudo' => '1',
-            'ssh_connect_timeout' => 9,
-            'ssh_command_timeout' => 55,
-            'ssh_control_persist' => 120,
-            'ssh_server_alive_interval' => 30,
-            'ssh_server_alive_count_max' => 6,
-            'ssh_connection_attempts' => 5,
-            'ssh_compression' => '1',
-        ])
-        ->assertRedirect(route('admin.servers.index', absolute: false));
-
-    $this->assertDatabaseHas('servers', [
-        'user_id' => $this->user->id,
-        'name' => 'Admin Optimized Server',
-        'ssh_connect_timeout' => 9,
-        'ssh_command_timeout' => 55,
-        'ssh_control_persist' => 120,
-        'ssh_server_alive_interval' => 30,
-        'ssh_server_alive_count_max' => 6,
-        'ssh_connection_attempts' => 5,
-        'ssh_compression' => 1,
-    ]);
 });
 
 test('admin can delete a server', function () {

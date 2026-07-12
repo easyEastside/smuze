@@ -149,8 +149,6 @@
                         <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">Befehle mit sudo DEBIAN_FRONTEND=noninteractive ausführen (Standard: aktiviert).</p>
                     </div>
 
-                    @include('modules.server.partials.ssh-options')
-
                     <div class="sm:col-span-2">
                         <label class="flex items-center gap-3">
                             <input

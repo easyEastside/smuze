@@ -125,19 +125,15 @@ class SshService
         $ssh = Ssh::create($server->username, $server->host, $server->port)
             ->useMultiplexing(
                 controlPath: $this->controlPath($server),
-                controlPersist: $this->option($server, 'ssh_control_persist', 30).'m',
+                controlPersist: '30m',
             )
             ->setTimeout($timeout)
-            ->addExtraOption('-o ConnectTimeout='.$this->option($server, 'ssh_connect_timeout', 5))
-            ->addExtraOption('-o ServerAliveInterval='.$this->option($server, 'ssh_server_alive_interval', 15))
-            ->addExtraOption('-o ServerAliveCountMax='.$this->option($server, 'ssh_server_alive_count_max', 3))
-            ->addExtraOption('-o ConnectionAttempts='.$this->option($server, 'ssh_connection_attempts', 2))
+            ->addExtraOption('-o ConnectTimeout=5')
+            ->addExtraOption('-o ServerAliveInterval=15')
+            ->addExtraOption('-o ServerAliveCountMax=3')
+            ->addExtraOption('-o ConnectionAttempts=2')
             ->disableStrictHostKeyChecking()
             ->enableQuietMode();
-
-        if ($server->ssh_compression) {
-            $ssh->addExtraOption('-o Compression=yes');
-        }
 
         if ($server->auth_type === 'key') {
             $keyPath = $this->resolveKeyPath($server);
@@ -205,14 +201,7 @@ class SshService
             return $timeout;
         }
 
-        return $this->option($server, 'ssh_command_timeout', 30);
-    }
-
-    private function option(Server $server, string $key, int $default): int
-    {
-        $value = $server->getAttribute($key);
-
-        return is_numeric($value) && (int) $value > 0 ? (int) $value : $default;
+        return 30;
     }
 
     private function applySudo(string $command): string

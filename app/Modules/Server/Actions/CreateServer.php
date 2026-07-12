@@ -19,7 +19,6 @@ class CreateServer
     {
         $data = $request->validated();
         $data['use_sudo'] = $request->boolean('use_sudo');
-        $data['ssh_compression'] = $request->boolean('ssh_compression');
         $data['execution_driver'] = 'ssh';
 
         $server = $request->user()->servers()->create($data);
