@@ -3,7 +3,7 @@
 namespace App\Modules\Server\Mysql\Actions;
 
 use App\Models\Server;
-use App\Services\SshService;
+use App\Services\ExecutionEngine\ExecutionEngine;
 
 class MysqlAction
 {
@@ -16,14 +16,14 @@ class MysqlAction
     private const HOST_REGEX = '/^(%|localhost|[A-Za-z0-9](?:[A-Za-z0-9.\-]{0,251}[A-Za-z0-9])?)$/';
 
     public function __construct(
-        private SshService $ssh,
+        private ExecutionEngine $engine,
     ) {}
 
     public function status(Server $server): array
     {
         $script = 'printf "ACTIVE=%s\n" "$(systemctl is-active mysql 2>/dev/null || echo unknown)" && (mysql --version 2>/dev/null || echo "NOT_INSTALLED")';
 
-        $result = $this->ssh->execute($server, $script, timeout: 15, useSudo: true);
+        $result = $this->engine->execute($server, $script, timeout: 15, useSudo: true);
 
         if (! $result->success) {
             return ['success' => false, 'error' => $result->stderr];
@@ -68,7 +68,7 @@ class MysqlAction
         $db = $this->quoteIdentifier($dbName);
         $command = 'DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt install mysql-server -y && systemctl start mysql && systemctl enable mysql && mysql -e '.escapeshellarg("CREATE DATABASE IF NOT EXISTS {$db} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
-        $result = $this->ssh->execute($server, $command, timeout: 300, useSudo: true);
+        $result = $this->engine->execute($server, $command, timeout: 300, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -80,7 +80,7 @@ class MysqlAction
     {
         $command = 'systemctl stop mysql 2>/dev/null || true && DEBIAN_FRONTEND=noninteractive apt remove --purge mysql-server mysql-client mysql-common -y && DEBIAN_FRONTEND=noninteractive apt autoremove -y && DEBIAN_FRONTEND=noninteractive apt autoclean && rm -rf /etc/mysql /var/lib/mysql';
 
-        $result = $this->ssh->execute($server, $command, timeout: 180, useSudo: true);
+        $result = $this->engine->execute($server, $command, timeout: 180, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -105,7 +105,7 @@ class MysqlAction
 
     private function serviceAction(Server $server, string $action): array
     {
-        $result = $this->ssh->execute($server, "systemctl {$action} mysql", timeout: 30, useSudo: true);
+        $result = $this->engine->execute($server, "systemctl {$action} mysql", timeout: 30, useSudo: true);
 
         $labels = ['start' => 'gestartet', 'stop' => 'gestoppt', 'restart' => 'neugestartet'];
 
@@ -221,7 +221,7 @@ class MysqlAction
 
     public function users(Server $server): array
     {
-        $result = $this->ssh->execute($server, "mysql -NBe \"SELECT User, Host, '*****' FROM mysql.user ORDER BY User\" 2>&1", timeout: 15, useSudo: true);
+        $result = $this->engine->execute($server, "mysql -NBe \"SELECT User, Host, '*****' FROM mysql.user ORDER BY User\" 2>&1", timeout: 15, useSudo: true);
 
         if (! $result->success) {
             return ['success' => false, 'users' => []];
@@ -308,7 +308,7 @@ class MysqlAction
     /** @return array{success: bool, message: string} */
     private function exec(Server $server, string $sql, int $timeout = 15): array
     {
-        $result = $this->ssh->execute($server, 'mysql -e '.escapeshellarg($sql).' 2>&1', timeout: $timeout, useSudo: true);
+        $result = $this->engine->execute($server, 'mysql -e '.escapeshellarg($sql).' 2>&1', timeout: $timeout, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -319,7 +319,7 @@ class MysqlAction
     /** @return array{0: bool, 1: array<int, string>} */
     private function execWithRows(Server $server, string $sql, int $timeout = 15): array
     {
-        $result = $this->ssh->execute($server, 'mysql -NBe '.escapeshellarg($sql).' 2>&1', timeout: $timeout, useSudo: true);
+        $result = $this->engine->execute($server, 'mysql -NBe '.escapeshellarg($sql).' 2>&1', timeout: $timeout, useSudo: true);
 
         if (! $result->success) {
             return [false, [$result->stderr]];

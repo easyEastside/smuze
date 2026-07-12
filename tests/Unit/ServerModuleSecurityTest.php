@@ -3,8 +3,8 @@
 use App\Models\Server;
 use App\Modules\Server\Apache\Actions\ApacheAction;
 use App\Modules\Server\Firewall\Actions\FirewallAction;
-use App\Services\SshResult;
-use App\Services\SshService;
+use App\Services\ExecutionEngine\ExecutionEngine;
+use App\Services\ExecutionEngine\ExecutionResult;
 use Tests\TestCase;
 
 uses(TestCase::class);
@@ -14,8 +14,8 @@ test('apache site config writes encoded content', function () {
     $content = '<VirtualHost *:80>example</VirtualHost>';
     $encoded = base64_encode($content);
 
-    $ssh = Mockery::mock(SshService::class);
-    $ssh->shouldReceive('execute')
+    $engine = Mockery::mock(ExecutionEngine::class);
+    $engine->shouldReceive('execute')
         ->once()
         ->withArgs(function (Server $serverArgument, string $command, int $timeout, bool $useSudo) use ($server, $encoded): bool {
             expect($serverArgument)->toBe($server);
@@ -26,18 +26,18 @@ test('apache site config writes encoded content', function () {
 
             return $timeout === 30 && $useSudo === true;
         })
-        ->andReturn(new SshResult(stdout: '', stderr: '', exitCode: 0, success: true));
+        ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
 
-    $result = (new ApacheAction($ssh))->saveSiteConfig($server, 'example.com', $content);
+    $result = (new ApacheAction($engine))->saveSiteConfig($server, 'example.com', $content);
 
     expect($result['success'])->toBeTrue();
 });
 
 test('apache module action rejects unsafe module names', function () {
-    $ssh = Mockery::mock(SshService::class);
-    $ssh->shouldReceive('execute')->never();
+    $engine = Mockery::mock(ExecutionEngine::class);
+    $engine->shouldReceive('execute')->never();
 
-    $result = (new ApacheAction($ssh))->enableModule(new Server, 'rewrite; reboot');
+    $result = (new ApacheAction($engine))->enableModule(new Server, 'rewrite; reboot');
 
     expect($result)
         ->toMatchArray([
@@ -49,8 +49,8 @@ test('apache module action rejects unsafe module names', function () {
 test('firewall allow escapes port specification', function () {
     $server = new Server;
 
-    $ssh = Mockery::mock(SshService::class);
-    $ssh->shouldReceive('execute')
+    $engine = Mockery::mock(ExecutionEngine::class);
+    $engine->shouldReceive('execute')
         ->once()
         ->withArgs(function (Server $serverArgument, string $command, int $timeout, bool $useSudo) use ($server): bool {
             expect($serverArgument)->toBe($server);
@@ -58,18 +58,18 @@ test('firewall allow escapes port specification', function () {
 
             return $timeout === 15 && $useSudo === true;
         })
-        ->andReturn(new SshResult(stdout: '', stderr: '', exitCode: 0, success: true));
+        ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
 
-    $result = (new FirewallAction($ssh))->allow($server, '80', 'tcp');
+    $result = (new FirewallAction($engine))->allow($server, '80', 'tcp');
 
     expect($result['success'])->toBeTrue();
 });
 
 test('firewall allow rejects unsafe protocols', function () {
-    $ssh = Mockery::mock(SshService::class);
-    $ssh->shouldReceive('execute')->never();
+    $engine = Mockery::mock(ExecutionEngine::class);
+    $engine->shouldReceive('execute')->never();
 
-    $result = (new FirewallAction($ssh))->allow(new Server, '80', 'tcp; reboot');
+    $result = (new FirewallAction($engine))->allow(new Server, '80', 'tcp; reboot');
 
     expect($result)
         ->toMatchArray([

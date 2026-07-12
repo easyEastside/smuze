@@ -3,17 +3,18 @@
 namespace App\Services;
 
 use App\Models\Server;
+use App\Services\ExecutionEngine\ExecutionEngine;
 
 class ServerMonitoringService
 {
     public function __construct(
-        private SshService $ssh,
+        private ExecutionEngine $engine,
     ) {}
 
     public function collectSystemInfo(Server $server): SystemInfo
     {
         $script = $this->buildSystemInfoScript();
-        $result = $this->ssh->execute($server, $script, timeout: 30, useSudo: false);
+        $result = $this->engine->execute($server, $script, timeout: 30, useSudo: false);
 
         if (! $result->success) {
             return new SystemInfo(error: $result->stderr);
@@ -24,7 +25,7 @@ class ServerMonitoringService
 
     public function testConnection(Server $server): ConnectionResult
     {
-        return $this->ssh->test($server);
+        return $this->engine->test($server);
     }
 
     private function buildSystemInfoScript(): string

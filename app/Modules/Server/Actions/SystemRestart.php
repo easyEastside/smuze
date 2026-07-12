@@ -3,18 +3,18 @@
 namespace App\Modules\Server\Actions;
 
 use App\Models\Server;
-use App\Services\SshService;
+use App\Services\ExecutionEngine\ExecutionEngine;
 
 class SystemRestart
 {
     public function __construct(
-        private SshService $ssh,
+        private ExecutionEngine $engine,
     ) {}
 
     /** @return array<string, mixed> */
     public function handle(Server $server): array
     {
-        $this->ssh->execute($server, 'reboot', timeout: 15);
+        $this->engine->execute($server, 'reboot', timeout: 15);
 
         return [
             'success' => true,

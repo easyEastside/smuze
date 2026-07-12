@@ -3,7 +3,7 @@
 namespace App\Modules\Server\Services\Actions;
 
 use App\Models\Server;
-use App\Services\SshService;
+use App\Services\ExecutionEngine\ExecutionEngine;
 
 class DeinstallService
 {
@@ -81,7 +81,7 @@ class DeinstallService
     ];
 
     public function __construct(
-        private SshService $ssh,
+        private ExecutionEngine $engine,
     ) {}
 
     /** @return array<string, mixed> */
@@ -97,7 +97,7 @@ class DeinstallService
         $timeout = self::TIMEOUTS[$service] ?? 120;
         $useSudo = ! in_array($service, self::NO_SUDO, true);
 
-        $result = $this->ssh->execute($server, $command, timeout: $timeout, useSudo: $useSudo, onOutput: $onOutput);
+        $result = $this->engine->execute($server, $command, timeout: $timeout, useSudo: $useSudo, onOutput: $onOutput);
 
         $label = self::LABELS[$service] ?? $service;
 

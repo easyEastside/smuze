@@ -3,21 +3,21 @@
 namespace App\Modules\Server\Apache\Actions;
 
 use App\Models\Server;
-use App\Services\SshService;
+use App\Services\ExecutionEngine\ExecutionEngine;
 
 class ApacheAction
 {
     private const HOST_REGEX = '/^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?)*$/';
 
     public function __construct(
-        private SshService $ssh,
+        private ExecutionEngine $engine,
     ) {}
 
     public function status(Server $server): array
     {
         $script = 'printf "ACTIVE=%s\n" "$(systemctl is-active apache2 2>/dev/null || echo unknown)" && (apache2 -v 2>/dev/null | sed -n "1p" | sed "s/^/VERSION=/")';
 
-        $result = $this->ssh->execute($server, $script, timeout: 15, useSudo: true);
+        $result = $this->engine->execute($server, $script, timeout: 15, useSudo: true);
 
         if (! $result->success) {
             return ['success' => false, 'error' => $result->stderr];
@@ -41,7 +41,7 @@ class ApacheAction
 
     public function install(Server $server): array
     {
-        $result = $this->ssh->execute($server, 'DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt install apache2 -y && systemctl enable --now apache2', timeout: 300, useSudo: true);
+        $result = $this->engine->execute($server, 'DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt install apache2 -y && systemctl enable --now apache2', timeout: 300, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -53,7 +53,7 @@ class ApacheAction
     {
         $command = 'systemctl stop apache2 2>/dev/null || true; DEBIAN_FRONTEND=noninteractive apt remove --purge apache2 apache2-bin apache2-data apache2-utils -y && apt autoremove -y && apt autoclean && rm -rf /etc/apache2';
 
-        $result = $this->ssh->execute($server, $command, timeout: 180, useSudo: true);
+        $result = $this->engine->execute($server, $command, timeout: 180, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -83,7 +83,7 @@ class ApacheAction
 
     private function serviceAction(Server $server, string $action): array
     {
-        $result = $this->ssh->execute($server, "systemctl {$action} apache2", timeout: 30, useSudo: true);
+        $result = $this->engine->execute($server, "systemctl {$action} apache2", timeout: 30, useSudo: true);
 
         $labels = ['start' => 'gestartet', 'stop' => 'gestoppt', 'restart' => 'neugestartet', 'reload' => 'neugeladen'];
 
@@ -95,7 +95,7 @@ class ApacheAction
 
     public function configtest(Server $server): array
     {
-        $result = $this->ssh->execute($server, 'apache2ctl configtest 2>&1', timeout: 20, useSudo: true);
+        $result = $this->engine->execute($server, 'apache2ctl configtest 2>&1', timeout: 20, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -120,7 +120,7 @@ for f in /etc/apache2/sites-available/*.conf; do
 done
 SCRIPT;
 
-        $result = $this->ssh->execute($server, $script, timeout: 20, useSudo: true);
+        $result = $this->engine->execute($server, $script, timeout: 20, useSudo: true);
 
         if (! $result->success) {
             return ['success' => false, 'sites' => []];
@@ -150,7 +150,7 @@ SCRIPT;
             return ['success' => false, 'message' => 'Ungültiger Site-Name.'];
         }
 
-        $result = $this->ssh->execute($server, 'cat '.escapeshellarg($path), timeout: 15, useSudo: true);
+        $result = $this->engine->execute($server, 'cat '.escapeshellarg($path), timeout: 15, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -177,7 +177,7 @@ SCRIPT;
 
         $command = "cp {$escaped} {$escapedBackup} && printf '%s' ".escapeshellarg($encoded)." | base64 -d > {$escaped} && apache2ctl configtest || (mv {$escapedBackup} {$escaped}; false) && rm -f {$escapedBackup} && systemctl reload apache2";
 
-        $result = $this->ssh->execute($server, $command, timeout: 30, useSudo: true);
+        $result = $this->engine->execute($server, $command, timeout: 30, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -194,7 +194,7 @@ SCRIPT;
 
         $escaped = escapeshellarg($siteName);
 
-        $result = $this->ssh->execute($server, "a2ensite {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
+        $result = $this->engine->execute($server, "a2ensite {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -211,7 +211,7 @@ SCRIPT;
 
         $escaped = escapeshellarg($siteName);
 
-        $result = $this->ssh->execute($server, "a2dissite {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
+        $result = $this->engine->execute($server, "a2dissite {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -243,7 +243,7 @@ SCRIPT;
         $commands[] = 'apache2ctl configtest';
         $commands[] = 'systemctl reload apache2';
 
-        $result = $this->ssh->execute($server, implode(' && ', $commands), timeout: 30, useSudo: true);
+        $result = $this->engine->execute($server, implode(' && ', $commands), timeout: 30, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -281,7 +281,7 @@ SCRIPT;
             'systemctl reload apache2',
         ];
 
-        $result = $this->ssh->execute($server, implode(' && ', $commands), timeout: 45, useSudo: true);
+        $result = $this->engine->execute($server, implode(' && ', $commands), timeout: 45, useSudo: true);
 
         if (! $result->success) {
             return ['success' => false, 'message' => $result->stderr];
@@ -308,7 +308,7 @@ for mod in /etc/apache2/mods-available/*.load; do
 done
 SCRIPT;
 
-        $result = $this->ssh->execute($server, $script, timeout: 20, useSudo: true);
+        $result = $this->engine->execute($server, $script, timeout: 20, useSudo: true);
 
         if (! $result->success) {
             return ['success' => false, 'modules' => []];
@@ -336,7 +336,7 @@ SCRIPT;
         }
 
         $escaped = escapeshellarg($module);
-        $result = $this->ssh->execute($server, "a2enmod {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
+        $result = $this->engine->execute($server, "a2enmod {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -351,7 +351,7 @@ SCRIPT;
         }
 
         $escaped = escapeshellarg($module);
-        $result = $this->ssh->execute($server, "a2dismod {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
+        $result = $this->engine->execute($server, "a2dismod {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -361,7 +361,7 @@ SCRIPT;
 
     public function installCertbot(Server $server): array
     {
-        $result = $this->ssh->execute($server, 'DEBIAN_FRONTEND=noninteractive apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq certbot python3-certbot-apache', timeout: 120, useSudo: true);
+        $result = $this->engine->execute($server, 'DEBIAN_FRONTEND=noninteractive apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq certbot python3-certbot-apache', timeout: 120, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -373,7 +373,7 @@ SCRIPT;
     {
         $command = 'DEBIAN_FRONTEND=noninteractive certbot --apache --non-interactive --agree-tos -m '.escapeshellarg($email).' -d '.escapeshellarg($domain).' --redirect --keep-until-expiring && systemctl reload apache2';
 
-        $result = $this->ssh->execute($server, $command, timeout: 120, useSudo: true);
+        $result = $this->engine->execute($server, $command, timeout: 120, useSudo: true);
 
         return [
             'success' => $result->success,

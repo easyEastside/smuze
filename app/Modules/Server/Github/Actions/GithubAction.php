@@ -3,7 +3,7 @@
 namespace App\Modules\Server\Github\Actions;
 
 use App\Models\Server;
-use App\Services\SshService;
+use App\Services\ExecutionEngine\ExecutionEngine;
 
 class GithubAction
 {
@@ -14,7 +14,7 @@ class GithubAction
     private const SAFE_NAME_REGEX = '/^[A-Za-z0-9._-]+$/';
 
     public function __construct(
-        private SshService $ssh,
+        private ExecutionEngine $engine,
     ) {}
 
     public function defaultTargetName(string $repoUrl): string
@@ -132,7 +132,7 @@ class GithubAction
 
         $script = $this->buildDeployScript($repoUrl, $targetPath, $host, $siteName, $sitePath, $vhostConfig, $useSsl, $email);
 
-        $result = $this->ssh->execute($server, 'sh -c '.escapeshellarg($script), timeout: 300, useSudo: true);
+        $result = $this->engine->execute($server, 'sh -c '.escapeshellarg($script), timeout: 300, useSudo: true);
 
         $message = $result->stdout ?: $result->stderr;
 

@@ -3,17 +3,17 @@
 namespace App\Modules\Server\Firewall\Actions;
 
 use App\Models\Server;
-use App\Services\SshService;
+use App\Services\ExecutionEngine\ExecutionEngine;
 
 class FirewallAction
 {
     public function __construct(
-        private SshService $ssh,
+        private ExecutionEngine $engine,
     ) {}
 
     public function status(Server $server): array
     {
-        $result = $this->ssh->execute($server, 'ufw status verbose 2>/dev/null || echo \'NOT_INSTALLED\'', timeout: 15, useSudo: true);
+        $result = $this->engine->execute($server, 'ufw status verbose 2>/dev/null || echo \'NOT_INSTALLED\'', timeout: 15, useSudo: true);
 
         if (! $result->success) {
             return ['success' => false, 'error' => $result->stderr];
@@ -37,7 +37,7 @@ class FirewallAction
 
     public function rules(Server $server): array
     {
-        $result = $this->ssh->execute($server, 'ufw status numbered 2>/dev/null || echo \'NOT_INSTALLED\'', timeout: 15, useSudo: true);
+        $result = $this->engine->execute($server, 'ufw status numbered 2>/dev/null || echo \'NOT_INSTALLED\'', timeout: 15, useSudo: true);
 
         if (! $result->success) {
             return ['success' => false, 'error' => $result->stderr];
@@ -99,7 +99,7 @@ class FirewallAction
 
     public function install(Server $server): array
     {
-        $result = $this->ssh->execute($server, 'DEBIAN_FRONTEND=noninteractive apt install ufw -y', timeout: 120, useSudo: true);
+        $result = $this->engine->execute($server, 'DEBIAN_FRONTEND=noninteractive apt install ufw -y', timeout: 120, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -119,7 +119,7 @@ class FirewallAction
         }
 
         $spec = $protocol ? "{$port}/{$protocol}" : $port;
-        $result = $this->ssh->execute($server, 'ufw allow '.escapeshellarg($spec), timeout: 15, useSudo: true);
+        $result = $this->engine->execute($server, 'ufw allow '.escapeshellarg($spec), timeout: 15, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -139,7 +139,7 @@ class FirewallAction
         }
 
         $spec = $protocol ? "{$port}/{$protocol}" : $port;
-        $result = $this->ssh->execute($server, 'ufw deny '.escapeshellarg($spec), timeout: 15, useSudo: true);
+        $result = $this->engine->execute($server, 'ufw deny '.escapeshellarg($spec), timeout: 15, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -149,7 +149,7 @@ class FirewallAction
 
     public function destroy(Server $server, int $ruleNumber): array
     {
-        $result = $this->ssh->execute($server, "ufw --force delete {$ruleNumber}", timeout: 15, useSudo: true);
+        $result = $this->engine->execute($server, "ufw --force delete {$ruleNumber}", timeout: 15, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -159,7 +159,7 @@ class FirewallAction
 
     public function enable(Server $server): array
     {
-        $result = $this->ssh->execute($server, 'ufw --force enable', timeout: 30, useSudo: true);
+        $result = $this->engine->execute($server, 'ufw --force enable', timeout: 30, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -169,7 +169,7 @@ class FirewallAction
 
     public function disable(Server $server): array
     {
-        $result = $this->ssh->execute($server, 'ufw --force disable', timeout: 15, useSudo: true);
+        $result = $this->engine->execute($server, 'ufw --force disable', timeout: 15, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -182,7 +182,7 @@ class FirewallAction
         $ports = ['22/tcp', '80/tcp', '443/tcp', '3306/tcp', '5432/tcp', '8080/tcp', '3000/tcp', '5000/tcp'];
         $commands = implode(' && ', array_map(fn (string $p): string => "ufw allow {$p}", $ports));
 
-        $result = $this->ssh->execute($server, $commands, timeout: 60, useSudo: true);
+        $result = $this->engine->execute($server, $commands, timeout: 60, useSudo: true);
 
         return [
             'success' => $result->success,
