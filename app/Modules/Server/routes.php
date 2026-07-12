@@ -22,8 +22,11 @@ Route::middleware('auth')->group(function (): void {
     Route::post('servers/{server}/stop', [ServerController::class, 'stopServer'])->name('server.stop');
 
     Route::post('servers/{server}/agent/token', [ServerAgentController::class, 'rotateToken'])->name('server.agent.token');
+    Route::post('servers/{server}/agent/install', [ServerAgentController::class, 'install'])->name('server.agent.install');
     Route::delete('servers/{server}/agent', [ServerAgentController::class, 'disable'])->name('server.agent.disable');
 });
+
+Route::get('agent/download', [ServerAgentController::class, 'downloadBinary']);
 
 require __DIR__.'/Firewall/routes.php';
 require __DIR__.'/Apache/routes.php';

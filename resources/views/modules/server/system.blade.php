@@ -180,9 +180,18 @@
                     <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Agent Setup</p>
                     <p class="mt-2 text-xs leading-5 text-[#706f6c] dark:text-[#A1A09A]">Generiere einen Token für den Polling-Agent. Der Token wird nur direkt nach der Rotation angezeigt.</p>
                     <div class="mt-4 flex flex-col gap-2 text-sm">
-                        <button type="button" onclick="rotateAgentToken()" class="rounded-lg bg-[#1b1b18] px-3 py-2 font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
-                            Agent-Token generieren
-                        </button>
+                        @if ($server->agent_enabled && $server->agent_status === 'connected')
+                            <span class="rounded-lg bg-green-50 px-3 py-2 text-center text-xs font-medium text-green-800 dark:bg-green-950 dark:text-green-200">
+                                Agent verbunden
+                            </span>
+                        @else
+                            <button type="button" onclick="installAgent()" class="rounded-lg bg-[#f53003] px-3 py-2 font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:hover:bg-[#e63a2e]">
+                                Agent per SSH installieren
+                            </button>
+                            <button type="button" onclick="rotateAgentToken()" class="rounded-lg bg-[#1b1b18] px-3 py-2 font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                                Nur Token generieren
+                            </button>
+                        @endif
                         @if ($server->agent_enabled)
                             <button type="button" onclick="disableAgent()" class="rounded-lg border border-[#19140035] px-3 py-2 font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                                 Agent deaktivieren
@@ -377,6 +386,38 @@
         result.className = 'mt-3 rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
         result.textContent = message;
         result.classList.remove('hidden');
+    }
+
+    async function installAgent() {
+        if (!confirm('Agent per SSH installieren? Der bestehende SSH-Zugang wird dafür einmalig genutzt.')) return;
+
+        const result = document.getElementById('action-result');
+        result.className = 'mt-3 rounded-xl p-3 text-sm';
+        result.textContent = 'Installiere Agent auf dem Server...';
+        result.classList.remove('hidden');
+
+        try {
+            const res = await fetch('{{ route('server.agent.install', $server) }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                },
+            });
+            const data = await res.json();
+
+            result.className = 'mt-3 rounded-xl p-3 text-sm ' + (data.success
+                ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200'
+                : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
+            result.textContent = data.message;
+
+            if (data.success) {
+                setTimeout(() => window.location.reload(), 2000);
+            }
+        } catch (err) {
+            result.className = 'mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+            result.textContent = 'Fehler: ' + err.message;
+        }
     }
 
     async function rotateAgentToken() {

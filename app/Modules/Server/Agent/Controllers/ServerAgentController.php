@@ -3,6 +3,7 @@
 namespace App\Modules\Server\Agent\Controllers;
 
 use App\Models\Server;
+use App\Services\SshService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -10,6 +11,10 @@ use Illuminate\Support\Str;
 
 class ServerAgentController
 {
+    public function __construct(
+        private SshService $ssh,
+    ) {}
+
     public function rotateToken(Request $request, Server $server): JsonResponse
     {
         Gate::authorize('update', $server);
@@ -47,6 +52,45 @@ class ServerAgentController
         return response()->json(['success' => true]);
     }
 
+    public function install(Request $request, Server $server): JsonResponse
+    {
+        Gate::authorize('update', $server);
+
+        $token = 'smz_'.Str::random(64);
+        $appUrl = $request->getSchemeAndHttpHost();
+
+        $server->forceFill([
+            'agent_enabled' => true,
+            'agent_token' => $token,
+            'agent_status' => 'disconnected',
+            'agent_transport' => 'polling',
+            'execution_driver' => $server->execution_driver === 'ssh' ? 'auto' : $server->execution_driver,
+        ])->save();
+
+        $script = $this->buildRemoteInstallScript($appUrl, $server, $token);
+        $result = $this->ssh->execute($server, $script, timeout: 120, useSudo: true);
+
+        return response()->json([
+            'success' => $result->success,
+            'message' => $result->success
+                ? 'Agent installiert und gestartet.'
+                : 'Installation fehlgeschlagen: '.$result->stderr,
+        ]);
+    }
+
+    public function downloadBinary(): mixed
+    {
+        $path = storage_path('app/agent/smuze-agent');
+
+        if (! file_exists($path)) {
+            abort(404, 'Agent binary not built. Run go build in scripts/smuze-agent first.');
+        }
+
+        return response()->file($path, [
+            'Content-Type' => 'application/octet-stream',
+        ]);
+    }
+
     private function installCommand(string $appUrl, Server $server, string $token): string
     {
         return 'smuze-agent install'
@@ -54,5 +98,22 @@ class ServerAgentController
             .' --server-id '.escapeshellarg((string) $server->id)
             .' --token '.escapeshellarg($token)
             .' && systemctl daemon-reload && systemctl enable --now smuze-agent';
+    }
+
+    private function buildRemoteInstallScript(string $appUrl, Server $server, string $token): string
+    {
+        $downloadUrl = rtrim($appUrl, '/').'/agent/download';
+        $binaryPath = '/usr/local/bin/smuze-agent';
+
+        return implode(' && ', [
+            'curl -fsSL '.escapeshellarg($downloadUrl).' -o '.$binaryPath,
+            'chmod +x '.$binaryPath,
+            $binaryPath.' install'
+                .' --app-url '.escapeshellarg($appUrl)
+                .' --server-id '.escapeshellarg((string) $server->id)
+                .' --token '.escapeshellarg($token),
+            'systemctl daemon-reload',
+            'systemctl enable --now smuze-agent',
+        ]);
     }
 }

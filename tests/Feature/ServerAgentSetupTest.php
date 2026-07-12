@@ -68,3 +68,44 @@ test('user cannot manage another users server agent', function () {
         ->postJson(route('server.agent.token', $server))
         ->assertForbidden();
 });
+
+test('user can install agent via ssh bootstrap', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->create([
+        'user_id' => $user->id,
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'username' => 'test',
+        'auth_type' => 'password',
+        'credentials' => 'password',
+        'agent_enabled' => false,
+        'execution_driver' => 'ssh',
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('server.agent.install', $server))
+        ->assertSuccessful()
+        ->assertJson(['success' => false]);
+
+    $server->refresh();
+
+    expect($server->agent_enabled)->toBeTrue()
+        ->and($server->agent_token)->toStartWith('smz_')
+        ->and($server->agent_status)->toBe('disconnected')
+        ->and($server->execution_driver)->toBe('auto');
+});
+
+test('agent download endpoint serves binary', function () {
+    $this->get('/agent/download')
+        ->assertSuccessful()
+        ->assertHeader('Content-Type', 'application/octet-stream');
+});
+
+test('user cannot install agent on another users server', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->create(['agent_enabled' => false]);
+
+    $this->actingAs($user)
+        ->postJson(route('server.agent.install', $server))
+        ->assertForbidden();
+});
