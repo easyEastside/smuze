@@ -16,7 +16,7 @@ class SshService
                 ->addExtraOption('-o StrictHostKeyChecking=no')
                 ->addExtraOption('-o UserKnownHostsFile=/dev/null');
 
-            if ($server->auth_type === 'key' || $server->key_content) {
+            if ($server->auth_type === 'key') {
                 $keyPath = $this->resolveKeyPath($server);
                 $ssh->usePrivateKey($keyPath);
             } else {
@@ -45,7 +45,13 @@ class SshService
 
     private function resolveKeyPath(Server $server): string
     {
-        $content = $server->key_content ?? $server->credentials;
+        $keyContent = $server->key_content;
+
+        if ($keyContent === null || $keyContent === '') {
+            throw new \RuntimeException('Kein SSH-Key hinterlegt. Bitte hinterlege einen gültigen SSH-Key.');
+        }
+
+        $normalized = str_replace(["\r\n", "\r"], "\n", trim($keyContent))."\n";
 
         $path = storage_path('ssh-sockets/keys/'.$server->id.'_key');
 
@@ -53,8 +59,10 @@ class SshService
             mkdir(dirname($path), 0700, true);
         }
 
-        file_put_contents($path, $content);
+        file_put_contents($path, $normalized);
         chmod($path, 0600);
+        chown($path, 'www-data');
+        chgrp($path, 'www-data');
 
         return $path;
     }
