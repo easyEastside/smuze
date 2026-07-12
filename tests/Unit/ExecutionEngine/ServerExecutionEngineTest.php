@@ -39,6 +39,7 @@ test('server execution engine uses agent for connected auto driver', function ()
         'execution_driver' => 'auto',
         'agent_enabled' => true,
         'agent_status' => 'connected',
+        'agent_last_seen_at' => now(),
     ]);
     $ssh = Mockery::mock(SshEngine::class);
     $agent = Mockery::mock(AgentEngine::class);
@@ -47,6 +48,22 @@ test('server execution engine uses agent for connected auto driver', function ()
     $agent->shouldReceive('test')->once()->andReturn(new ConnectionResult(success: true));
 
     expect((new ServerExecutionEngine($ssh, $agent))->test($server)->success)->toBeTrue();
+});
+
+test('server execution engine falls back to ssh for stale auto driver', function () {
+    $server = new Server([
+        'execution_driver' => 'auto',
+        'agent_enabled' => true,
+        'agent_status' => 'connected',
+        'agent_last_seen_at' => now()->subMinutes(5),
+    ]);
+    $ssh = Mockery::mock(SshEngine::class);
+    $agent = Mockery::mock(AgentEngine::class);
+
+    $ssh->shouldReceive('test')->once()->andReturn(new ConnectionResult(success: false));
+    $agent->shouldReceive('test')->never();
+
+    expect((new ServerExecutionEngine($ssh, $agent))->test($server)->success)->toBeFalse();
 });
 
 test('server execution engine falls back to ssh for disconnected auto driver', function () {

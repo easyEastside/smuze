@@ -73,14 +73,15 @@ test('user can install agent via ssh bootstrap', function () {
     $user = User::factory()->create();
     $server = Server::factory()->create([
         'user_id' => $user->id,
-        'host' => '127.0.0.1',
-        'port' => 1,
-        'username' => 'test',
-        'auth_type' => 'password',
-        'credentials' => 'password',
         'agent_enabled' => false,
         'execution_driver' => 'ssh',
     ]);
+
+    $ssh = Mockery::mock(App\Services\SshService::class);
+    $ssh->shouldReceive('execute')
+        ->once()
+        ->andReturn(new App\Services\SshResult(stdout: 'OK', stderr: '', exitCode: 0, success: true));
+    $this->app->instance(App\Services\SshService::class, $ssh);
 
     $this->actingAs($user)
         ->postJson(route('server.agent.install', $server))

@@ -38,10 +38,23 @@ class ServerExecutionEngine implements ExecutionEngine
             return $this->agent;
         }
 
-        if ($server->execution_driver === 'auto' && $server->agent_enabled && $server->agent_status === 'connected') {
+        if ($server->execution_driver === 'auto' && $this->agentConnected($server)) {
             return $this->agent;
         }
 
         return $this->ssh;
+    }
+
+    private function agentConnected(Server $server): bool
+    {
+        if (! $server->agent_enabled || $server->agent_status !== 'connected') {
+            return false;
+        }
+
+        if ($server->agent_last_seen_at === null) {
+            return false;
+        }
+
+        return $server->agent_last_seen_at->greaterThanOrEqualTo(now()->subMinute());
     }
 }
