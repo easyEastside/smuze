@@ -532,7 +532,9 @@ test('user can view their own services page', function () {
         ->assertSee('Terminal: '.$server->name)
         ->assertSee('Beenden')
         ->assertSee('data-server-id="'.$server->id.'"', false)
-        ->assertSee('data-session-endpoint=', false);
+        ->assertSee('data-session-endpoint=', false)
+        ->assertSee('data-command-log-prompt', false)
+        ->assertSee('data-command-log-input', false);
 });
 
 test('floating command log is hidden on terminal page', function () {

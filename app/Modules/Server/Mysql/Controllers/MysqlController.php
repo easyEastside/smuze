@@ -49,7 +49,14 @@ class MysqlController
     {
         Gate::authorize('update', $server);
 
-        return response()->json($mysqlAction->{$action}($server));
+        $result = match ($action) {
+            'start' => $mysqlAction->start($server),
+            'stop' => $mysqlAction->stop($server),
+            'restart' => $mysqlAction->restart($server),
+            default => abort(404),
+        };
+
+        return response()->json($result);
     }
 
     public function databases(Request $request, Server $server, MysqlAction $action): JsonResponse

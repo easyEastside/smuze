@@ -114,8 +114,12 @@ class FirewallAction
             return ['success' => false, 'message' => $validation['error']];
         }
 
+        if (! $this->validProtocol($protocol)) {
+            return ['success' => false, 'message' => 'Protokoll muss tcp oder udp sein.'];
+        }
+
         $spec = $protocol ? "{$port}/{$protocol}" : $port;
-        $result = $this->ssh->execute($server, "ufw allow {$spec}", timeout: 15, useSudo: true);
+        $result = $this->ssh->execute($server, 'ufw allow '.escapeshellarg($spec), timeout: 15, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -130,8 +134,12 @@ class FirewallAction
             return ['success' => false, 'message' => $validation['error']];
         }
 
+        if (! $this->validProtocol($protocol)) {
+            return ['success' => false, 'message' => 'Protokoll muss tcp oder udp sein.'];
+        }
+
         $spec = $protocol ? "{$port}/{$protocol}" : $port;
-        $result = $this->ssh->execute($server, "ufw deny {$spec}", timeout: 15, useSudo: true);
+        $result = $this->ssh->execute($server, 'ufw deny '.escapeshellarg($spec), timeout: 15, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -198,5 +206,10 @@ class FirewallAction
         }
 
         return ['valid' => true, 'error' => ''];
+    }
+
+    private function validProtocol(string $protocol): bool
+    {
+        return in_array($protocol, ['tcp', 'udp', ''], true);
     }
 }

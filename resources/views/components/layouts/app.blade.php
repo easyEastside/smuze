@@ -28,6 +28,8 @@
                 id="floating-command-log"
                 data-server-id="{{ $floatingCommandServer->id }}"
                 data-server-name="{{ $floatingCommandServer->name }}"
+                data-server-host="{{ $floatingCommandServer->host }}"
+                data-server-username="{{ $floatingCommandServer->username }}"
                 data-debug-enabled="{{ auth()->user()->write_debug_logs ? '1' : '0' }}"
                 data-session-endpoint="{{ route('server.socket.session', $floatingCommandServer) }}"
                 data-csrf-token="{{ csrf_token() }}"
@@ -57,8 +59,12 @@
                         </button>
                     </div>
                 </div>
-                <div data-command-log-body class="h-80 overflow-hidden p-2">
-                    <div data-command-log-output class="h-full overflow-hidden rounded-xl bg-[#0b0f14]"></div>
+                <div data-command-log-body class="flex h-80 flex-col overflow-hidden p-2">
+                    <div data-command-log-output class="flex-1 overflow-hidden rounded-xl bg-[#0b0f14]"></div>
+                    <div class="mt-1.5 flex items-center gap-2 rounded-xl bg-[#0b0f14] px-3 py-2">
+                        <span data-command-log-prompt class="shrink-0 text-sm text-green-400">{{ $floatingCommandServer->username }}@{{ $floatingCommandServer->host }} : </span>
+                        <input data-command-log-input type="text" class="min-w-0 flex-1 bg-transparent text-sm text-[#d6deeb] outline-none placeholder:text-slate-500" placeholder="Nicht verbunden..." disabled />
+                    </div>
                 </div>
             </aside>
         @endif

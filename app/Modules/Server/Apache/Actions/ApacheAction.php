@@ -150,7 +150,7 @@ SCRIPT;
             return ['success' => false, 'message' => 'Ungültiger Site-Name.'];
         }
 
-        $result = $this->ssh->execute($server, "cat {$path}", timeout: 15, useSudo: true);
+        $result = $this->ssh->execute($server, 'cat '.escapeshellarg($path), timeout: 15, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -175,7 +175,7 @@ SCRIPT;
         $escaped = escapeshellarg($path);
         $escapedBackup = escapeshellarg($backup);
 
-        $command = "cp {$escaped} {$escapedBackup} && printf '%s' {$escaped} | base64 -d > {$escaped} && apache2ctl configtest || (mv {$escapedBackup} {$escaped}; false) && rm -f {$escapedBackup} && systemctl reload apache2";
+        $command = "cp {$escaped} {$escapedBackup} && printf '%s' ".escapeshellarg($encoded)." | base64 -d > {$escaped} && apache2ctl configtest || (mv {$escapedBackup} {$escaped}; false) && rm -f {$escapedBackup} && systemctl reload apache2";
 
         $result = $this->ssh->execute($server, $command, timeout: 30, useSudo: true);
 
@@ -187,25 +187,35 @@ SCRIPT;
 
     public function enableSite(Server $server, string $site): array
     {
-        $escaped = escapeshellarg($site);
+        $siteName = $this->siteName($site);
+        if ($siteName === null) {
+            return ['success' => false, 'message' => 'Ungültiger Site-Name.'];
+        }
+
+        $escaped = escapeshellarg($siteName);
 
         $result = $this->ssh->execute($server, "a2ensite {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
 
         return [
             'success' => $result->success,
-            'message' => $result->success ? "Site {$site} wurde aktiviert." : $result->stderr,
+            'message' => $result->success ? "Site {$siteName} wurde aktiviert." : $result->stderr,
         ];
     }
 
     public function disableSite(Server $server, string $site): array
     {
-        $escaped = escapeshellarg($site);
+        $siteName = $this->siteName($site);
+        if ($siteName === null) {
+            return ['success' => false, 'message' => 'Ungültiger Site-Name.'];
+        }
+
+        $escaped = escapeshellarg($siteName);
 
         $result = $this->ssh->execute($server, "a2dissite {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
 
         return [
             'success' => $result->success,
-            'message' => $result->success ? "Site {$site} wurde deaktiviert." : $result->stderr,
+            'message' => $result->success ? "Site {$siteName} wurde deaktiviert." : $result->stderr,
         ];
     }
 
@@ -218,8 +228,8 @@ SCRIPT;
 
         $siteFile = basename($path);
         $commands = [
-            "a2dissite {$siteFile} 2>/dev/null || true",
-            "rm -f {$path}",
+            'a2dissite '.escapeshellarg($siteFile).' 2>/dev/null || true',
+            'rm -f '.escapeshellarg($path),
         ];
 
         if ($deleteProject && $documentRoot !== '') {
@@ -227,7 +237,7 @@ SCRIPT;
             if ($root === null) {
                 return ['success' => false, 'message' => 'Projektordner kann nur unter /var/www automatisch gelöscht werden.'];
             }
-            $commands[] = "rm -rf -- {$root}";
+            $commands[] = 'rm -rf -- '.escapeshellarg($root);
         }
 
         $commands[] = 'apache2ctl configtest';
@@ -321,7 +331,12 @@ SCRIPT;
 
     public function enableModule(Server $server, string $module): array
     {
-        $result = $this->ssh->execute($server, "a2enmod {$module} && systemctl reload apache2", timeout: 30, useSudo: true);
+        if (! $this->validApacheToken($module)) {
+            return ['success' => false, 'message' => 'Ungültiger Modulname.'];
+        }
+
+        $escaped = escapeshellarg($module);
+        $result = $this->ssh->execute($server, "a2enmod {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -331,7 +346,12 @@ SCRIPT;
 
     public function disableModule(Server $server, string $module): array
     {
-        $result = $this->ssh->execute($server, "a2dismod {$module} && systemctl reload apache2", timeout: 30, useSudo: true);
+        if (! $this->validApacheToken($module)) {
+            return ['success' => false, 'message' => 'Ungültiger Modulname.'];
+        }
+
+        $escaped = escapeshellarg($module);
+        $result = $this->ssh->execute($server, "a2dismod {$escaped} && systemctl reload apache2", timeout: 30, useSudo: true);
 
         return [
             'success' => $result->success,
@@ -394,6 +414,16 @@ SCRIPT;
 
     private function sitePath(string $site): ?string
     {
+        $name = $this->siteName($site);
+        if ($name === null) {
+            return null;
+        }
+
+        return '/etc/apache2/sites-available/'.$name;
+    }
+
+    private function siteName(string $site): ?string
+    {
         $name = trim($site);
         if ($name === '' || str_contains($name, '/') || str_contains($name, '..')) {
             return null;
@@ -403,7 +433,12 @@ SCRIPT;
             $name .= '.conf';
         }
 
-        return '/etc/apache2/sites-available/'.escapeshellarg($name);
+        return $this->validApacheToken($name) ? $name : null;
+    }
+
+    private function validApacheToken(string $value): bool
+    {
+        return preg_match('/^[A-Za-z0-9._-]+$/', $value) === 1;
     }
 
     private function projectRoot(string $documentRoot): ?string

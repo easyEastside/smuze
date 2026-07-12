@@ -133,6 +133,8 @@ function initializeFloatingCommandLog() {
     const connectButton = panel.querySelector('[data-command-log-connect]');
     const disconnectButton = panel.querySelector('[data-command-log-disconnect]');
     const endButton = panel.querySelector('[data-command-log-end]');
+    const promptEl = panel.querySelector('[data-command-log-prompt]');
+    const inputEl = panel.querySelector('[data-command-log-input]');
     const serverId = panel.dataset.serverId;
     const debugEnabled = panel.dataset.debugEnabled === '1';
     const sessionEndpoint = panel.dataset.sessionEndpoint;
@@ -230,6 +232,15 @@ function initializeFloatingCommandLog() {
         panel.classList.remove('hidden');
     };
 
+    const renderPrompt = () => {
+        if (! promptEl) return;
+        promptEl.textContent = `${username}@${host} : `;
+    };
+
+    const username = panel.dataset.serverUsername || 'user';
+    const host = panel.dataset.serverHost || 'host';
+    renderPrompt();
+
     const resizeTerminal = () => {
         if (body.classList.contains('hidden')) {
             return;
@@ -251,6 +262,11 @@ function initializeFloatingCommandLog() {
 
         socket = null;
         setConnectionStatus('Getrennt');
+        if (inputEl) {
+            inputEl.disabled = true;
+            inputEl.placeholder = 'Nicht verbunden...';
+            inputEl.value = '';
+        }
     };
 
     const endSession = () => {
@@ -261,6 +277,11 @@ function initializeFloatingCommandLog() {
         }
 
         append('SSH-Terminal-Session wird beendet...');
+        if (inputEl) {
+            inputEl.disabled = true;
+            inputEl.placeholder = 'Nicht verbunden...';
+            inputEl.value = '';
+        }
         disconnect();
     };
 
@@ -297,8 +318,12 @@ function initializeFloatingCommandLog() {
                 socket = new WebSocket(url.toString());
                 socket.addEventListener('open', () => {
                     setConnectionStatus('Verbunden', true);
+                    if (inputEl) {
+                        inputEl.disabled = false;
+                        inputEl.placeholder = '';
+                        inputEl.focus();
+                    }
                     socket.send(JSON.stringify({ channel: 'terminal', type: 'open', cols: term.cols, rows: term.rows }));
-                    term.focus();
                 });
                 socket.addEventListener('message', (event) => {
                     const payload = JSON.parse(event.data);
@@ -329,9 +354,17 @@ function initializeFloatingCommandLog() {
                 socket.addEventListener('close', () => {
                     socket = null;
                     setConnectionStatus('Getrennt');
+                    if (inputEl) {
+                        inputEl.disabled = true;
+                        inputEl.placeholder = 'Nicht verbunden...';
+                    }
                 });
                 socket.addEventListener('error', () => {
                     setConnectionStatus('Fehler');
+                    if (inputEl) {
+                        inputEl.disabled = true;
+                        inputEl.placeholder = 'Nicht verbunden...';
+                    }
                     append('WebSocket-Verbindung fehlgeschlagen. Läuft npm run terminal oder composer run dev?', 'error');
                 });
             })
@@ -349,9 +382,18 @@ function initializeFloatingCommandLog() {
     const resizeObserver = new ResizeObserver(resizeTerminal);
     resizeObserver.observe(container);
 
-    term.onData((data) => {
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ channel: 'terminal', type: 'input', data }));
+    term.onData(() => {
+        inputEl?.focus();
+    });
+
+    inputEl?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const cmd = inputEl.value;
+            if (cmd.trim() === '') return;
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ channel: 'terminal', type: 'input', data: cmd + '\r' }));
+            }
+            inputEl.value = '';
         }
     });
 
@@ -371,7 +413,7 @@ function initializeFloatingCommandLog() {
 
             if (! collapsed) {
                 resizeTerminal();
-                term.focus();
+                inputEl?.focus();
             }
         });
     });

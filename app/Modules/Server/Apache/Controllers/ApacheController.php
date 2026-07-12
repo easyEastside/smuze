@@ -44,7 +44,15 @@ class ApacheController
     {
         Gate::authorize('update', $server);
 
-        return response()->json($apacheAction->{$action}($server));
+        $result = match ($action) {
+            'start' => $apacheAction->start($server),
+            'stop' => $apacheAction->stop($server),
+            'restart' => $apacheAction->restart($server),
+            'reload' => $apacheAction->reload($server),
+            default => abort(404),
+        };
+
+        return response()->json($result);
     }
 
     public function configtest(Request $request, Server $server, ApacheAction $action): JsonResponse
