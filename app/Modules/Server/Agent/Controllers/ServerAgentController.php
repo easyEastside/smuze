@@ -29,7 +29,7 @@ class ServerAgentController
             'agent_status' => 'disconnected',
             'agent_transport' => 'push',
             'agent_port' => config('agent.push_port', 9300),
-            'execution_driver' => $server->execution_driver === 'ssh' ? 'auto' : $server->execution_driver,
+            'execution_driver' => 'agent',
         ])->save();
 
         $this->ssh->execute($server, 'systemctl restart smuze-agent', timeout: 10);
@@ -72,7 +72,7 @@ class ServerAgentController
             'agent_status' => 'disconnected',
             'agent_transport' => 'push',
             'agent_port' => $port,
-            'execution_driver' => $server->execution_driver === 'ssh' ? 'auto' : $server->execution_driver,
+            'execution_driver' => 'agent',
         ])->save();
 
         $script = $this->buildRemoteInstallScript($appUrl, $server, $token, $port);

@@ -193,7 +193,6 @@ test('user can create server with custom ssh options', function () {
             'ssh_server_alive_count_max' => 4,
             'ssh_connection_attempts' => 3,
             'ssh_compression' => '1',
-            'execution_driver' => 'auto',
         ])
         ->assertRedirect(route('server.index', absolute: false));
 
@@ -207,7 +206,7 @@ test('user can create server with custom ssh options', function () {
         'ssh_server_alive_count_max' => 4,
         'ssh_connection_attempts' => 3,
         'ssh_compression' => 1,
-        'execution_driver' => 'auto',
+        'execution_driver' => 'ssh',
     ]);
 });
 
@@ -315,7 +314,6 @@ test('user can update custom ssh options', function () {
             'ssh_server_alive_count_max' => 5,
             'ssh_connection_attempts' => 4,
             'ssh_compression' => '1',
-            'execution_driver' => 'agent',
         ])
         ->assertRedirect(route('server.index', absolute: false));
 
@@ -328,7 +326,7 @@ test('user can update custom ssh options', function () {
     expect($server->ssh_server_alive_count_max)->toBe(5);
     expect($server->ssh_connection_attempts)->toBe(4);
     expect($server->ssh_compression)->toBeTrue();
-    expect($server->execution_driver)->toBe('agent');
+    expect($server->execution_driver)->toBe('ssh');
 });
 
 test('admin can view all servers in admin panel', function () {

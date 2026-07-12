@@ -152,20 +152,24 @@
                     @include('modules.server.partials.ssh-options', ['server' => $server])
 
                     <div class="sm:col-span-2">
-                        <label for="execution_driver" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Ausführungsmodus</label>
-                        <select
-                            name="execution_driver"
-                            id="execution_driver"
-                            class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('execution_driver') border-[#f53003] @enderror"
-                        >
-                            <option value="ssh" @selected(old('execution_driver', $server->execution_driver) === 'ssh')>SSH</option>
-                            <option value="auto" @selected(old('execution_driver', $server->execution_driver) === 'auto')>Automatisch (Agent, sonst SSH)</option>
-                            <option value="agent" @selected(old('execution_driver', $server->execution_driver) === 'agent')>Nur Agent</option>
-                        </select>
-                        @error('execution_driver')
-                            <p class="mt-1 text-sm text-[#f53003]">{{ $message }}</p>
-                        @enderror
-                        <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">Agent-Modus setzt einen generierten Agent-Token und einen laufenden Agent auf dem Server voraus.</p>
+                        <label class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Ausführungsmodus</label>
+                        <p class="mt-1 text-sm">
+                            @if ($server->execution_driver === 'agent')
+                                <span class="rounded-lg bg-green-50 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-950 dark:text-green-200">Agent</span>
+                            @else
+                                <span class="rounded-lg bg-[#19140020] px-2 py-1 text-xs font-medium dark:bg-[#3E3E3A]">SSH</span>
+                            @endif
+                        </p>
+                        @if ($server->agent_enabled)
+                            <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">
+                                Agent auf Port {{ $server->agent_port ?? config('agent.push_port', 9300) }}
+                                @if ($server->agent_version) (v{{ $server->agent_version }}) @endif
+                            </p>
+                        @else
+                            <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">
+                                Kommunikation erfolgt per SSH. Wechsle in der System-Ansicht zum Agent-Modus.
+                            </p>
+                        @endif
                     </div>
 
                     <div class="sm:col-span-2">

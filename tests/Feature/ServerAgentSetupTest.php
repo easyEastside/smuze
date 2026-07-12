@@ -41,7 +41,7 @@ test('user can rotate server agent token', function () {
         ->and($installCommand)->toContain($token)
         ->and($rawToken)->not->toBe($token)
         ->and($server->agent_status)->toBe('disconnected')
-        ->and($server->execution_driver)->toBe('auto');
+        ->and($server->execution_driver)->toBe('agent');
 });
 
 test('user can disable server agent', function () {
@@ -106,7 +106,7 @@ test('user can install agent via ssh bootstrap', function () {
     expect($server->agent_enabled)->toBeTrue()
         ->and($server->agent_token)->toStartWith('smz_')
         ->and($server->agent_status)->toBe('connected')
-        ->and($server->execution_driver)->toBe('auto');
+        ->and($server->execution_driver)->toBe('agent');
 });
 
 test('agent download endpoint serves binary', function () {
