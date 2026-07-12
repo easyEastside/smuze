@@ -199,6 +199,10 @@
         btn.textContent = action === 'install' ? 'Installiert...' : 'Deinstalliert...';
         btn.style.opacity = '1';
 
+        window.SmuzeCommandLog?.open();
+        window.SmuzeCommandLog?.status(`${label}: ${action === 'install' ? 'Installation läuft' : 'Deinstallation läuft'}`);
+        window.SmuzeCommandLog?.write(`${label}: ${action === 'install' ? 'Installation gestartet' : 'Deinstallation gestartet'}`);
+
         const installUrlTemplate = '{{ route('server.services.install.stream', ['server' => $server, 'service' => '__SERVICE__']) }}';
         const deinstallUrlTemplate = '{{ route('server.services.deinstall.stream', ['server' => $server, 'service' => '__SERVICE__']) }}';
         const finalUrl = (action === 'deinstall' ? deinstallUrlTemplate : installUrlTemplate).replace('__SERVICE__', key);
@@ -207,18 +211,24 @@
             .then(data => {
                 if (data.success) {
                     result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
-                    setTimeout(() => loadServices(), 2000);
+                    setTimeout(() => window.location.reload(), 2000);
                 } else {
                     result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
                 }
 
                 const status = document.getElementById('services-live-status');
                 if (status) status.textContent = data.message;
+
+                window.SmuzeCommandLog?.status(data.message);
+                window.SmuzeCommandLog?.write(data.message, data.success ? 'success' : 'error');
             })
             .catch(err => {
                 result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
                 const status = document.getElementById('services-live-status');
                 if (status) status.textContent = 'Fehler: ' + err.message;
+
+                window.SmuzeCommandLog?.status('Fehler: ' + err.message);
+                window.SmuzeCommandLog?.write(`${label}: Fehler: ${err.message}`, 'error');
             })
             .finally(() => {
                 btn.textContent = originalButtonText;
@@ -279,11 +289,14 @@
 
         if (event.type === 'status' && status) {
             status.textContent = `${label}: ${event.data}`;
+            window.SmuzeCommandLog?.status(`${label}: ${event.data}`);
+            window.SmuzeCommandLog?.write(`${label}: ${event.data}`);
             return null;
         }
 
         if ((event.type === 'stdout' || event.type === 'stderr') && log) {
             appendServiceLog(log, event.data);
+            window.SmuzeCommandLog?.write(String(event.data || '').trimEnd(), event.type === 'stderr' ? 'error' : 'info');
             return null;
         }
 

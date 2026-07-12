@@ -65,6 +65,10 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
+document.addEventListener('DOMContentLoaded', () => {
+    initializeFloatingCommandLog();
+});
+
 function toggleNavbarMenu(toggle) {
     const menuName = toggle.dataset.navbarToggle;
     const menu = document.querySelector(`[data-navbar-menu="${menuName}"]`);
@@ -112,4 +116,115 @@ function reindexSurveyOptions(container) {
             input.name = `questions[0][options][${index}][label]`;
         }
     });
+}
+
+function initializeFloatingCommandLog() {
+    const panel = document.getElementById('floating-command-log');
+
+    if (! panel) {
+        return;
+    }
+
+    const output = panel.querySelector('[data-command-log-output]');
+    const status = panel.querySelector('[data-command-log-status]');
+    const toggles = panel.querySelectorAll('[data-command-log-toggle]');
+    const clearButton = panel.querySelector('[data-command-log-clear]');
+    const serverId = panel.dataset.serverId;
+    const storageKey = `smuze:server:${serverId}:command-log`;
+    const collapsedKey = `smuze:server:${serverId}:command-log-collapsed`;
+
+    if (! output || ! status || ! serverId) {
+        return;
+    }
+
+    const readLog = () => {
+        try {
+            return localStorage.getItem(storageKey) || '';
+        } catch {
+            return '';
+        }
+    };
+
+    const writeLog = (value) => {
+        try {
+            localStorage.setItem(storageKey, value.slice(-50000));
+        } catch {
+            // Ignore unavailable storage.
+        }
+    };
+
+    const setCollapsed = (collapsed) => {
+        output.classList.toggle('hidden', collapsed);
+        toggles.forEach((toggle) => {
+            toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+
+            if (toggle.textContent.trim() === 'Minimieren' || toggle.textContent.trim() === 'Öffnen') {
+                toggle.textContent = collapsed ? 'Öffnen' : 'Minimieren';
+            }
+        });
+
+        try {
+            localStorage.setItem(collapsedKey, collapsed ? '1' : '0');
+        } catch {
+            // Ignore unavailable storage.
+        }
+    };
+
+    const append = (message, level = 'info') => {
+        if (String(message || '').trim() === '') {
+            return;
+        }
+
+        const timestamp = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const prefix = level === 'error' ? 'ERR' : level === 'success' ? 'OK ' : 'CMD';
+        const nextLog = `${readLog()}[${timestamp}] ${prefix} ${message}\n`;
+
+        writeLog(nextLog);
+        output.textContent = readLog();
+        output.scrollTop = output.scrollHeight;
+        panel.classList.remove('hidden');
+    };
+
+    output.textContent = readLog();
+    panel.classList.remove('hidden');
+    setCollapsed(readStoredBoolean(collapsedKey));
+    output.scrollTop = output.scrollHeight;
+
+    toggles.forEach((toggle) => {
+        toggle.addEventListener('click', () => {
+            setCollapsed(! output.classList.contains('hidden'));
+        });
+    });
+
+    clearButton?.addEventListener('click', () => {
+        writeLog('');
+        output.textContent = '';
+        status.textContent = 'Logs geleert';
+    });
+
+    window.SmuzeCommandLog = {
+        open() {
+            panel.classList.remove('hidden');
+            setCollapsed(false);
+        },
+        write(message, level = 'info') {
+            append(message, level);
+        },
+        status(message) {
+            status.textContent = message;
+        },
+        clear() {
+            writeLog('');
+            output.textContent = '';
+            status.textContent = 'Logs geleert';
+        },
+    };
+}
+
+function readStoredBoolean(key) {
+    try {
+        return localStorage.getItem(key) === '1';
+    } catch {
+        return false;
+    }
 }

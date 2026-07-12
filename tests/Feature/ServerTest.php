@@ -528,7 +528,18 @@ test('user can view their own services page', function () {
         ->get(route('server.services.index', $server))
         ->assertSuccessful()
         ->assertSee('Dienstverwaltung')
-        ->assertSee($server->name);
+        ->assertSee($server->name)
+        ->assertSee('Terminal Logs: '.$server->name)
+        ->assertSee('data-server-id="'.$server->id.'"', false);
+});
+
+test('server overview does not show floating command log without selected server', function () {
+    Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.index'))
+        ->assertSuccessful()
+        ->assertDontSee('floating-command-log');
 });
 
 test('user cannot view another users services page', function () {
