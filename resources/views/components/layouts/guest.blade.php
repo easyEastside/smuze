@@ -15,9 +15,13 @@
                 {{ config('app.name', 'Laravel') }}
             </a>
 
-            <section class="w-full max-w-md rounded-xl bg-white p-8 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d]">
+            @if ($fullWidth ?? false)
                 {{ $slot }}
-            </section>
+            @else
+                <section class="w-full max-w-md rounded-xl bg-white p-8 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d]">
+                    {{ $slot }}
+                </section>
+            @endif
         </main>
     </body>
 </html>
