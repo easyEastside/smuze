@@ -10,7 +10,7 @@
                     </p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                    <button type="button" id="btn-test-connection" onclick="testConnection()" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                    <button type="button" id="btn-test-connection" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                         Verbindung testen
                     </button>
                     <a href="{{ route('server.edit', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
@@ -28,16 +28,16 @@
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <p class="text-sm text-[#f53003] dark:text-[#FF4433]">System-Aktionen</p>
                     <div class="mt-4 flex flex-wrap gap-2">
-                        <button type="button" onclick="systemAction('system.apt_update', 'apt update ausführen?')" class="rounded-lg bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                        <button type="button" data-system-action="system.apt_update" data-confirm="apt update ausführen?" class="rounded-lg bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
                             APT Update
                         </button>
-                        <button type="button" onclick="systemAction('system.apt_upgrade', 'System-Upgrade ausführen? Dies kann einige Minuten dauern.')" class="rounded-lg bg-[#f59e0b] px-4 py-2 text-sm font-medium text-white hover:bg-[#d97706]">
+                        <button type="button" data-system-action="system.apt_upgrade" data-confirm="System-Upgrade ausführen? Dies kann einige Minuten dauern." class="rounded-lg bg-[#f59e0b] px-4 py-2 text-sm font-medium text-white hover:bg-[#d97706]">
                             APT Upgrade
                         </button>
-                        <button type="button" onclick="systemAction('system.reboot', 'Server neu starten?')" class="rounded-lg bg-[#f53003] px-4 py-2 text-sm font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:hover:bg-[#e63a2e]">
+                        <button type="button" data-system-action="system.reboot" data-confirm="Server neu starten?" class="rounded-lg bg-[#f53003] px-4 py-2 text-sm font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:hover:bg-[#e63a2e]">
                             Neustart
                         </button>
-                        <button type="button" onclick="systemAction('system.shutdown', 'Server herunterfahren?')" class="rounded-lg border border-[#19140035] px-4 py-2 text-sm font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                        <button type="button" data-system-action="system.shutdown" data-confirm="Server herunterfahren?" class="rounded-lg border border-[#19140035] px-4 py-2 text-sm font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                             Herunterfahren
                         </button>
                     </div>
@@ -47,7 +47,7 @@
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <div class="flex items-center justify-between gap-3">
                         <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Systeminformationen</p>
-                        <button type="button" onclick="fetchMetrics()" class="rounded-lg border border-[#19140035] px-3 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                        <button type="button" id="btn-refresh-metrics" class="rounded-lg border border-[#19140035] px-3 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                             Aktualisieren
                         </button>
                     </div>
@@ -229,7 +229,7 @@
                         <span class="rounded-lg bg-yellow-50 px-3 py-2 text-center text-xs font-medium text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200">
                             Update verfügbar: <span id="agent-update-version"></span>
                         </span>
-                        <button type="button" onclick="updateAgent()" class="mt-2 w-full rounded-lg bg-[#f59e0b] px-3 py-2 text-sm font-medium text-white hover:bg-[#d97706]">
+                        <button type="button" id="btn-update-agent" class="mt-2 w-full rounded-lg bg-[#f59e0b] px-3 py-2 text-sm font-medium text-white hover:bg-[#d97706]">
                             Agent aktualisieren
                         </button>
                     </div>
@@ -239,15 +239,15 @@
                                 Agent verbunden
                             </span>
                         @else
-                            <button type="button" onclick="installAgent()" class="rounded-lg bg-[#f53003] px-3 py-2 font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:hover:bg-[#e63a2e]">
+                            <button type="button" id="btn-install-agent" class="rounded-lg bg-[#f53003] px-3 py-2 font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:hover:bg-[#e63a2e]">
                                 Install-Kommando generieren
                             </button>
-                            <button type="button" onclick="rotateAgentToken()" class="rounded-lg bg-[#1b1b18] px-3 py-2 font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                            <button type="button" id="btn-rotate-agent-token" class="rounded-lg bg-[#1b1b18] px-3 py-2 font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
                                 Token rotieren
                             </button>
                         @endif
                         @if ($server->agent_enabled)
-                            <button type="button" onclick="disableAgent()" class="rounded-lg border border-[#19140035] px-3 py-2 font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                            <button type="button" id="btn-disable-agent" class="rounded-lg border border-[#19140035] px-3 py-2 font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                                 Agent deaktivieren
                             </button>
                         @endif
@@ -360,7 +360,7 @@
                 loading.classList.add('hidden');
 
                 if (data.error) {
-                    error.innerHTML = '';
+                    error.replaceChildren();
                     error.appendChild(document.createTextNode(data.error));
                     error.appendChild(window.reportError(data.error, 'system.metrics'));
                     error.classList.remove('hidden');
@@ -379,7 +379,7 @@
             .catch(err => {
                 loading.classList.add('hidden');
                 const msg = 'Verbindungsfehler: ' + err.message;
-                error.innerHTML = '';
+                error.replaceChildren();
                 error.appendChild(document.createTextNode(msg));
                 error.appendChild(window.reportError(msg, 'system.metrics'));
                 error.classList.remove('hidden');
@@ -416,7 +416,7 @@
     function showActionResult(success, message, source) {
         const result = document.getElementById('action-result');
         result.className = 'mt-3 rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
-        result.innerHTML = '';
+        result.replaceChildren();
         result.appendChild(document.createTextNode(message));
         if (!success && source) {
             result.appendChild(window.reportError(message, source));
@@ -451,7 +451,7 @@
         .catch(err => {
             const msg = 'Fehler: ' + err.message;
             result.className = 'mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
-            result.innerHTML = '';
+            result.replaceChildren();
             result.appendChild(document.createTextNode(msg));
             result.appendChild(window.reportError(msg, 'system.action'));
         });
@@ -487,7 +487,7 @@
         } catch (err) {
             const msg = 'Fehler: ' + err.message;
             result.className = 'mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
-            result.innerHTML = '';
+            result.replaceChildren();
             result.appendChild(document.createTextNode(msg));
             result.appendChild(window.reportError(msg, 'agent.install'));
         }
@@ -593,7 +593,7 @@
         } catch (err) {
             const msg = 'Fehler: ' + err.message;
             result.className = 'mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
-            result.innerHTML = '';
+            result.replaceChildren();
             result.appendChild(document.createTextNode(msg));
             result.appendChild(window.reportError(msg, 'agent.update'));
         }
@@ -729,6 +729,17 @@
                 console.warn('Chart data could not be loaded');
             });
     }
+
+    document.getElementById('btn-test-connection')?.addEventListener('click', testConnection);
+    document.getElementById('btn-refresh-metrics')?.addEventListener('click', fetchMetrics);
+    document.getElementById('btn-install-agent')?.addEventListener('click', installAgent);
+    document.getElementById('btn-rotate-agent-token')?.addEventListener('click', rotateAgentToken);
+    document.getElementById('btn-disable-agent')?.addEventListener('click', disableAgent);
+    document.getElementById('btn-update-agent')?.addEventListener('click', updateAgent);
+
+    document.querySelectorAll('[data-system-action]').forEach(button => {
+        button.addEventListener('click', () => systemAction(button.dataset.systemAction, button.dataset.confirm));
+    });
 
     document.getElementById('chart-range-buttons')?.addEventListener('click', e => {
         const btn = e.target.closest('[data-range]');

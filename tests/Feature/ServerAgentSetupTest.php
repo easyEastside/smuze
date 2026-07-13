@@ -572,3 +572,41 @@ test('user can trigger whitelisted agent action', function () {
             'stdout' => 'updated',
         ]);
 });
+
+test('user can trigger every system page agent action', function (string $action) {
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/actions' => Http::response([
+            'success' => true,
+            'action' => $action,
+            'exit_code' => 0,
+            'stdout' => 'ok',
+            'stderr' => '',
+            'duration_ms' => 10,
+        ]),
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('server.agent.action', $server), [
+            'action' => $action,
+            'payload' => [],
+        ])
+        ->assertSuccessful()
+        ->assertJson([
+            'success' => true,
+            'action' => $action,
+            'exit_code' => 0,
+            'stdout' => 'ok',
+        ]);
+})->with([
+    'apt update' => 'system.apt_update',
+    'apt upgrade' => 'system.apt_upgrade',
+    'reboot' => 'system.reboot',
+    'shutdown' => 'system.shutdown',
+]);

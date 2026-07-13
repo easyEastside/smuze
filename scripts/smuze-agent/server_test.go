@@ -862,6 +862,24 @@ func TestGithubDeployRejectsUnsafeTargetName(t *testing.T) {
 	}
 }
 
+func TestSystemPowerCommandsAreExplicit(t *testing.T) {
+	if rebootAction().Command != "reboot" {
+		t.Fatalf("unexpected reboot command: %s", rebootAction().Command)
+	}
+	if shutdownAction().Command != "shutdown -h now" {
+		t.Fatalf("unexpected shutdown command: %s", shutdownAction().Command)
+	}
+}
+
+func TestSystemAptCommandsUseNonInteractiveApt(t *testing.T) {
+	if !strings.Contains(aptUpdateAction().Command, "apt-get update") || !strings.Contains(aptUpdateAction().Command, "--allow-releaseinfo-change") {
+		t.Fatalf("unexpected apt update command: %s", aptUpdateAction().Command)
+	}
+	if !strings.Contains(aptUpgradeAction().Command, "DEBIAN_FRONTEND=noninteractive") || !strings.Contains(aptUpgradeAction().Command, "apt-get upgrade -y") {
+		t.Fatalf("unexpected apt upgrade command: %s", aptUpgradeAction().Command)
+	}
+}
+
 func TestServicesInstallNodeUsesLatestNode(t *testing.T) {
 	definition := servicesInstallAction()
 	command, err := definition.command(map[string]any{"service": "node"})

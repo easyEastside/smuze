@@ -235,6 +235,36 @@ test('user can view their own server system', function () {
         ->assertSee('Unwichtig');
 });
 
+test('server system page uses safe dom event handlers for every system click path', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.system', $server))
+        ->assertSuccessful()
+        ->assertSee('id="btn-test-connection"', false)
+        ->assertSee('id="btn-refresh-metrics"', false)
+        ->assertSee('data-system-action="system.apt_update"', false)
+        ->assertSee('data-system-action="system.apt_upgrade"', false)
+        ->assertSee('data-system-action="system.reboot"', false)
+        ->assertSee('data-system-action="system.shutdown"', false)
+        ->assertSee("addEventListener('click', testConnection)", false)
+        ->assertSee("addEventListener('click', fetchMetrics)", false)
+        ->assertSee("addEventListener('click', installAgent)", false)
+        ->assertSee("addEventListener('click', rotateAgentToken)", false)
+        ->assertSee("addEventListener('click', disableAgent)", false)
+        ->assertSee("addEventListener('click', updateAgent)", false)
+        ->assertSee("querySelectorAll('[data-system-action]')", false)
+        ->assertDontSee('onclick="testConnection()"', false)
+        ->assertDontSee('onclick="fetchMetrics()"', false)
+        ->assertDontSee('onclick="installAgent()"', false)
+        ->assertDontSee('onclick="rotateAgentToken()"', false)
+        ->assertDontSee('onclick="disableAgent()"', false)
+        ->assertDontSee('onclick="updateAgent()"', false)
+        ->assertDontSee('innerHTML', false)
+        ->assertSee('replaceChildren', false)
+        ->assertSee('textContent', false);
+});
+
 test('guest cannot view server terminal', function () {
     $server = Server::factory()->create();
 
