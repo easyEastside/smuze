@@ -258,12 +258,6 @@
                     </div>
                 </div>
 
-                <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
-                    <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Installierte Dienste</p>
-                    <div id="services-list" class="mt-4 space-y-2 text-sm">
-                        <div class="flex items-center gap-2 text-[#706f6c] dark:text-[#A1A09A]">-</div>
-                    </div>
-                </div>
             </aside>
         </div>
     </section>
@@ -328,28 +322,6 @@
             updateUsage('disk-bar', 'disk-text', data.disk_percent, data.disk_used_mb, data.disk_total_mb);
         } else {
             document.getElementById('disk-text').textContent = '-';
-        }
-
-        const servicesList = document.getElementById('services-list');
-        servicesList.innerHTML = '';
-        const services = [
-            { label: 'PHP', version: data.php_version },
-            { label: 'Apache', version: data.apache_version },
-            { label: 'Nginx', version: data.nginx_version },
-            { label: 'MySQL', version: data.mysql_version },
-            { label: 'Node.js', version: data.node_version },
-            { label: 'nvm', version: data.nvm_version },
-            { label: 'npm', version: data.npm_version },
-            { label: 'Composer', version: data.composer_version },
-        ];
-
-        for (const svc of services) {
-            const div = document.createElement('div');
-            div.className = 'flex items-center justify-between';
-            div.innerHTML = svc.version
-                ? `<span class="flex items-center gap-1.5"><span class="size-2 rounded-full bg-green-500"></span>${svc.label}</span><span class="text-xs text-[#706f6c] dark:text-[#A1A09A]">${svc.version}</span>`
-                : `<span class="flex items-center gap-1.5"><span class="size-2 rounded-full bg-[#19140035] dark:bg-[#3E3E3A]"></span>${svc.label}</span><span class="text-xs text-[#706f6c] dark:text-[#A1A09A]">Nicht installiert</span>`;
-            servicesList.appendChild(div);
         }
 
         setConnectionStatus('Online', 'font-medium text-green-500');

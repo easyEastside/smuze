@@ -33,6 +33,7 @@ Route::middleware('auth')->group(function (): void {
 Route::get('agent/download', [ServerAgentController::class, 'downloadBinary']);
 Route::get('agent/version', [ServerAgentController::class, 'version']);
 
+require __DIR__.'/Logs/routes.php';
 require __DIR__.'/Firewall/routes.php';
 require __DIR__.'/Apache/routes.php';
 require __DIR__.'/Nginx/routes.php';

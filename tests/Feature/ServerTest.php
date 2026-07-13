@@ -2126,3 +2126,58 @@ test('proxyMetrics stores metrics on success', function () {
         'ram_percent' => 55,
     ]);
 });
+
+test('user can view logs page', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.logs.index', $server))
+        ->assertSuccessful()
+        ->assertSee('Log-Dateien')
+        ->assertSee('syslog')
+        ->assertSee('Nginx Access')
+        ->assertSee('MySQL Error');
+});
+
+test('user can fetch log content', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('execute')
+        ->once()
+        ->with(Mockery::type(Server::class), Mockery::on(fn ($cmd) => str_contains($cmd, 'syslog')), 15, true)
+        ->andReturn(new ExecutionResult(
+            stdout: "line1\nline2\nline3\n",
+            stderr: '',
+            exitCode: 0,
+            success: true,
+        ));
+
+    $this->instance(PushAgentEngine::class, $engine);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.logs.fetch', $server), [
+            'source' => 'syslog',
+            'lines' => 50,
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('total', 3)
+        ->assertJsonCount(3, 'lines');
+});
+
+test('user cannot fetch logs on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.logs.fetch', $server), [
+            'source' => 'syslog',
+        ])
+        ->assertForbidden();
+});
+
+test('guest cannot view logs', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.logs.index', $server))->assertRedirect(route('login', absolute: false));
+});

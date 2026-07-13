@@ -30,6 +30,7 @@
         ['label' => 'Firewall', 'route' => 'server.firewall.index', 'active' => 'server.firewall.*'],
         ['label' => 'Dienste', 'route' => 'server.services.index', 'active' => 'server.services.*'],
         ['label' => 'GitHub', 'route' => 'server.github.index', 'active' => 'server.github.*'],
+        ['label' => 'Logs', 'route' => 'server.logs.index', 'active' => 'server.logs.*'],
     ];
 
     $webhostingLinks = [
