@@ -53,7 +53,7 @@ test('user can create a backup configuration', function () {
         ->post(route('server.backups.store', $server), [
             'name' => 'Daily MySQL',
             'type' => 'mysql',
-            'targets' => ['database', 'blog'],
+            'targets' => "database\nblog",
             'storage' => 'local',
             'retention_days' => 7,
             'enabled' => '1',
@@ -77,7 +77,7 @@ test('user can create a backup configuration with s3', function () {
         ->post(route('server.backups.store', $server), [
             'name' => 'S3 Backup',
             'type' => 'files',
-            'targets' => ['/var/www'],
+            'targets' => '/var/www',
             'storage' => 's3',
             's3_config' => [
                 'bucket' => 'my-bucket',
@@ -109,7 +109,7 @@ test('user can update a backup configuration', function () {
         ->patch(route('server.backups.update', [$server, $backup]), [
             'name' => 'New Name',
             'type' => 'mysql',
-            'targets' => ['database'],
+            'targets' => 'database',
             'storage' => 'local',
             'retention_days' => 14,
             'enabled' => '1',

@@ -37,7 +37,7 @@ class BackupController
         $server->backups()->create([
             'name' => $data['name'],
             'type' => $data['type'],
-            'targets' => $data['targets'],
+            'targets' => $this->parseTargets($data['targets']),
             'storage' => $data['storage'],
             's3_config' => $data['storage'] === 's3' ? [
                 'bucket' => $data['s3_config']['bucket'],
@@ -68,7 +68,7 @@ class BackupController
         $backup->update([
             'name' => $data['name'],
             'type' => $data['type'],
-            'targets' => $data['targets'],
+            'targets' => $this->parseTargets($data['targets']),
             'storage' => $data['storage'],
             's3_config' => $data['storage'] === 's3' ? [
                 'bucket' => $data['s3_config']['bucket'],
@@ -232,5 +232,11 @@ class BackupController
             'bucket' => $archive->backup->s3_config['bucket'] ?? null,
             'key' => $archive->storage_path,
         ]);
+    }
+
+    /** @return array<int, string> */
+    private function parseTargets(string $targets): array
+    {
+        return array_values(array_filter(array_map('trim', explode("\n", $targets)), fn (string $line): bool => $line !== ''));
     }
 }

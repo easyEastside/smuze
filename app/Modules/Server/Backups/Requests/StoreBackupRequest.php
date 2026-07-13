@@ -18,9 +18,9 @@ class StoreBackupRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:120', 'not_regex:/[\r\n]/'],
             'type' => ['required', Rule::in(['mysql', 'files', 'both'])],
-            'targets' => ['required', 'array', 'min:1'],
-            'targets.*' => ['required', 'string', 'max:255', 'not_regex:/[\r\n]/'],
+            'targets' => ['required', 'string'],
             'storage' => ['required', Rule::in(['local', 's3'])],
+            's3_config' => ['nullable', 'array'],
             's3_config.bucket' => ['required_if:storage,s3', 'nullable', 'string', 'max:255'],
             's3_config.region' => ['required_if:storage,s3', 'nullable', 'string', 'max:64'],
             's3_config.endpoint' => ['nullable', 'string', 'max:255'],
