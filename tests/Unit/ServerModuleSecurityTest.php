@@ -694,3 +694,13 @@ test('github deploy rejects unsafe repo before agent action', function () {
 
     expect($result['success'])->toBeFalse();
 });
+
+test('github deploy rejects unsafe target before agent action', function () {
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')->never();
+
+    $result = (new GithubAction($engine))->deploy(new Server, 'https://github.com/owner/repo.git', '../repo');
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->toBe('Zielordner darf nur Buchstaben, Zahlen, Punkt, Unterstrich und Bindestrich enthalten.');
+});

@@ -842,6 +842,16 @@ func TestGithubDeployRejectsNonGithubURL(t *testing.T) {
 	}
 }
 
+func TestGithubDeployRejectsURLWithQuery(t *testing.T) {
+	_, err := githubDeployAction().command(map[string]any{
+		"repo_url":    "https://github.com/owner/repo.git?token=secret",
+		"target_name": "repo",
+	})
+	if err == nil {
+		t.Fatal("expected github url with query to be rejected")
+	}
+}
+
 func TestGithubDeployRejectsUnsafeTargetName(t *testing.T) {
 	_, err := githubDeployAction().command(map[string]any{
 		"repo_url":    "https://github.com/owner/repo.git",

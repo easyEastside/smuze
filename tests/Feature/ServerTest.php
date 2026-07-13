@@ -2213,6 +2213,23 @@ test('user can view their own github page', function () {
         ->assertDontSee('SSL mit Let');
 });
 
+test('github page uses safe dom event handlers for every click path', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.github.index', $server))
+        ->assertSuccessful()
+        ->assertSee("addEventListener('input', syncTargetName)", false)
+        ->assertSee("addEventListener('input', updatePreview)", false)
+        ->assertSee("addEventListener('click', deployProject)", false)
+        ->assertDontSee('onclick="deployProject()"', false)
+        ->assertDontSee('onkeyup="syncTargetName()"', false)
+        ->assertDontSee('onkeyup="updatePreview()"', false)
+        ->assertDontSee('innerHTML', false)
+        ->assertSee('replaceChildren', false)
+        ->assertSee('textContent', false);
+});
+
 test('user cannot view another users github page', function () {
     $otherUser = User::factory()->create();
     $server = Server::factory()->create(['user_id' => $otherUser->id]);
@@ -2290,6 +2307,42 @@ test('github deploy rejects non-https url', function () {
             'target_name' => 'myproject',
         ])
         ->assertJsonStructure(['success']);
+});
+
+test('github deploy rejects unsafe target before agent action', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+    ]);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.github.deploy', $server), [
+            'repo_url' => 'https://github.com/owner/repo.git',
+            'target_name' => '../repo',
+        ])
+        ->assertSuccessful()
+        ->assertJson([
+            'success' => false,
+            'message' => 'Zielordner darf nur Buchstaben, Zahlen, Punkt, Unterstrich und Bindestrich enthalten.',
+        ]);
+});
+
+test('github deploy rejects github url query before agent action', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+    ]);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.github.deploy', $server), [
+            'repo_url' => 'https://github.com/owner/repo.git?x=1',
+            'target_name' => 'repo',
+        ])
+        ->assertSuccessful()
+        ->assertJson([
+            'success' => false,
+            'message' => 'GitHub-URL darf keine Query-Parameter oder Fragmente enthalten.',
+        ]);
 });
 
 test('user cannot deploy on another users server', function () {
