@@ -201,7 +201,13 @@
             renderRemoteCronjobs(data.entries || []);
             status.textContent = new Date().toLocaleTimeString('de-DE');
         } catch (error) {
-            document.getElementById('remote-cronjobs').innerHTML = `<div class="rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">${escapeHtml(error.message)}</div>`;
+            const remoteCronjobs = document.getElementById('remote-cronjobs');
+            remoteCronjobs.innerHTML = '';
+            const div = document.createElement('div');
+            div.className = 'rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+            div.appendChild(document.createTextNode(error.message));
+            div.appendChild(window.reportError(error.message, 'cronjobs'));
+            remoteCronjobs.appendChild(div);
             status.textContent = 'Fehler';
         }
     }
@@ -232,7 +238,9 @@
             result.innerHTML = `Ausgeführt mit Exit-Code ${escapeHtml(data.exit_code)}<pre class="mt-2 overflow-auto whitespace-pre-wrap font-mono text-xs">${escapeHtml(data.stdout || '')}</pre>`;
         } catch (error) {
             result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
-            result.textContent = error.message;
+            result.innerHTML = '';
+            result.appendChild(document.createTextNode(error.message));
+            result.appendChild(window.reportError(error.message, 'cronjobs'));
         } finally {
             button.disabled = false;
         }

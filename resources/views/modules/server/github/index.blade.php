@@ -87,7 +87,11 @@
     function showResult(msg, success) {
         const el = document.getElementById('gh-deploy-result');
         el.className = 'rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
-        el.textContent = msg;
+        el.innerHTML = '';
+        el.appendChild(document.createTextNode(msg));
+        if (!success) {
+            el.appendChild(window.reportError(msg, 'github'));
+        }
         el.classList.remove('hidden');
     }
 

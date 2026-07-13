@@ -114,7 +114,11 @@
     function showResult(msg, success) {
         const el = document.getElementById('ngx-result');
         el.className = 'rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
-        el.textContent = msg;
+        el.innerHTML = '';
+        el.appendChild(document.createTextNode(msg));
+        if (!success) {
+            el.appendChild(window.reportError(msg, 'nginx'));
+        }
         el.classList.remove('hidden');
     }
 
@@ -292,7 +296,11 @@
     function showSslResult(message, success) {
         const el = document.getElementById('ngx-ssl-result');
         el.className = 'mt-3 rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
-        el.textContent = message;
+        el.innerHTML = '';
+        el.appendChild(document.createTextNode(message));
+        if (!success) {
+            el.appendChild(window.reportError(message, 'nginx.ssl'));
+        }
         el.classList.remove('hidden');
     }
 

@@ -120,7 +120,11 @@
         result.className = 'mt-6 rounded-xl p-3 text-sm ' + (success
             ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200'
             : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
-        result.textContent = message;
+        result.innerHTML = '';
+        result.appendChild(document.createTextNode(message));
+        if (!success) {
+            result.appendChild(window.reportError(message, 'files'));
+        }
         result.classList.remove('hidden');
     }
 

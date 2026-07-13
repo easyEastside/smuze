@@ -58,7 +58,12 @@
             })
             .catch(err => {
                 loading.classList.add('hidden');
-                content.innerHTML = `<div class="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">Verbindungsfehler: ${err.message}</div>`;
+                content.innerHTML = '';
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+                errorDiv.appendChild(document.createTextNode('Verbindungsfehler: ' + err.message));
+                errorDiv.appendChild(window.reportError('Verbindungsfehler: ' + err.message, 'services'));
+                content.appendChild(errorDiv);
                 content.classList.remove('hidden');
             });
     }
@@ -69,7 +74,12 @@
         loading.classList.add('hidden');
 
         if (data.error) {
-            content.innerHTML = `<div class="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">${data.error}</div>`;
+            content.innerHTML = '';
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+            errorDiv.appendChild(document.createTextNode(data.error));
+            errorDiv.appendChild(window.reportError(data.error, 'services'));
+            content.appendChild(errorDiv);
             content.classList.remove('hidden');
             return;
         }
@@ -142,6 +152,9 @@
                     setTimeout(() => window.location.reload(), 2000);
                 } else {
                     result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+                    result.innerHTML = '';
+                    result.appendChild(document.createTextNode(data.message));
+                    result.appendChild(window.reportError(data.message, 'services'));
                 }
 
                 const status = document.getElementById('services-live-status');
@@ -151,6 +164,9 @@
             })
             .catch(err => {
                 result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+                result.innerHTML = '';
+                result.appendChild(document.createTextNode('Fehler: ' + err.message));
+                result.appendChild(window.reportError('Fehler: ' + err.message, 'services'));
                 const status = document.getElementById('services-live-status');
                 if (status) status.textContent = 'Fehler: ' + err.message;
 
