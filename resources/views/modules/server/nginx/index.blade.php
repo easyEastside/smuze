@@ -203,18 +203,50 @@
             }
             empty.classList.add('hidden');
             table.classList.remove('hidden');
-            tbody.innerHTML = data.sites.map(site => `
-                <tr class="border-b border-[#19140010] dark:border-[#3E3E3A]">
-                    <td class="px-3 py-2 font-medium">${site.name}</td>
-                    <td class="px-3 py-2">${site.enabled === 'yes' ? 'Aktiv' : 'Inaktiv'}</td>
-                    <td class="px-3 py-2">${site.server_name}</td>
-                    <td class="px-3 py-2">${site.document_root}</td>
-                    <td class="px-3 py-2 text-right space-x-2">
-                        ${site.enabled === 'yes' ? `<button onclick="nginxSiteAction('disable', '${site.name}')" class="text-xs text-yellow-600 hover:text-yellow-800 dark:text-yellow-400">Deaktivieren</button>` : `<button onclick="nginxSiteAction('enable', '${site.name}')" class="text-xs text-green-600 hover:text-green-800 dark:text-green-400">Aktivieren</button>`}
-                        <button onclick="nginxDeleteSite('${site.name}', '${site.document_root}')" class="text-xs text-red-600 hover:text-red-800 dark:text-red-400">Löschen</button>
-                    </td>
-                </tr>`).join('');
+            tbody.innerHTML = '';
+            data.sites.forEach(site => tbody.appendChild(siteRow(site)));
         }).catch(err => showResult('Fehler: ' + err.message, false));
+    }
+
+    function siteRow(site) {
+        const row = document.createElement('tr');
+        row.className = 'border-b border-[#19140010] dark:border-[#3E3E3A]';
+
+        row.appendChild(siteCell(site.name, 'px-3 py-2 font-medium'));
+        row.appendChild(siteCell(site.enabled === 'yes' ? 'Aktiv' : 'Inaktiv'));
+        row.appendChild(siteCell(site.server_name));
+        row.appendChild(siteCell(site.document_root));
+
+        const actions = document.createElement('td');
+        actions.className = 'px-3 py-2 text-right space-x-2';
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.textContent = site.enabled === 'yes' ? 'Deaktivieren' : 'Aktivieren';
+        toggle.className = site.enabled === 'yes'
+            ? 'text-xs text-yellow-600 hover:text-yellow-800 dark:text-yellow-400'
+            : 'text-xs text-green-600 hover:text-green-800 dark:text-green-400';
+        toggle.addEventListener('click', () => nginxSiteAction(site.enabled === 'yes' ? 'disable' : 'enable', site.name));
+        actions.appendChild(toggle);
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = 'Löschen';
+        remove.className = 'text-xs text-red-600 hover:text-red-800 dark:text-red-400';
+        remove.addEventListener('click', () => nginxDeleteSite(site.name, site.document_root));
+        actions.appendChild(remove);
+
+        row.appendChild(actions);
+
+        return row;
+    }
+
+    function siteCell(value, className = 'px-3 py-2') {
+        const cell = document.createElement('td');
+        cell.className = className;
+        cell.textContent = value || '-';
+
+        return cell;
     }
 
     function nginxSiteAction(action, site) {

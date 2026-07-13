@@ -282,6 +282,17 @@ class NginxAction
     /** @return array<string, mixed> */
     public function obtainSsl(Server $server, string $domain, string $email): array
     {
+        $domain = trim($domain);
+        $email = trim($email);
+
+        if (! preg_match(self::HOST_REGEX, $domain)) {
+            return ['success' => false, 'message' => 'Domain darf nur gültige DNS-Zeichen enthalten, z. B. example.com.'];
+        }
+
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['success' => false, 'message' => 'Bitte eine gültige E-Mail-Adresse angeben.'];
+        }
+
         $result = $this->engine->action($server, 'nginx.obtain_ssl', [
             'domain' => $domain,
             'email' => $email,

@@ -8,6 +8,7 @@ import (
 )
 
 const nginxDeinstallCommand = `systemctl disable --now nginx 2>/dev/null || true && DEBIAN_FRONTEND=noninteractive apt-get purge -y nginx nginx-common nginx-core && DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y && rm -rf /etc/nginx && apt-get clean && systemctl daemon-reload && systemctl reset-failed`
+const nginxReloadIfActiveCommand = `if systemctl is-active --quiet nginx; then systemctl reload nginx; fi`
 
 func nginxStatusAction() actionDefinition {
 	return actionDefinition{Name: "nginx.status", Command: `printf "ACTIVE=%s\n" "$(systemctl is-active nginx 2>/dev/null || echo unknown)" && printf "INSTALLED=%s\n" "$(command -v nginx >/dev/null 2>&1 && echo yes || echo no)" && (nginx -v 2>&1 | sed -n "1p" | sed "s/^/VERSION=/")`, Timeout: 15, UseSudo: true}
@@ -66,7 +67,7 @@ func nginxSaveSiteConfigAction() actionDefinition {
 		backup := path + ".smuzecp.bak"
 		encoded := base64.StdEncoding.EncodeToString([]byte(content))
 
-		return "cp " + shellQuote(path) + " " + shellQuote(backup) + " && printf '%s' " + shellQuote(encoded) + " | base64 -d > " + shellQuote(path) + " && nginx -t || (mv " + shellQuote(backup) + " " + shellQuote(path) + "; false) && rm -f " + shellQuote(backup) + " && systemctl reload nginx", nil
+		return "cp " + shellQuote(path) + " " + shellQuote(backup) + " && printf '%s' " + shellQuote(encoded) + " | base64 -d > " + shellQuote(path) + " && nginx -t || (mv " + shellQuote(backup) + " " + shellQuote(path) + "; false) && rm -f " + shellQuote(backup) + " && " + nginxReloadIfActiveCommand, nil
 	}, Timeout: 30, UseSudo: true}
 }
 
@@ -77,7 +78,7 @@ func nginxEnableSiteAction() actionDefinition {
 			return "", err
 		}
 
-		return "ln -sfn " + shellQuote("/etc/nginx/sites-available/"+site) + " " + shellQuote("/etc/nginx/sites-enabled/"+site) + " && nginx -t && systemctl reload nginx", nil
+		return "ln -sfn " + shellQuote("/etc/nginx/sites-available/"+site) + " " + shellQuote("/etc/nginx/sites-enabled/"+site) + " && nginx -t && " + nginxReloadIfActiveCommand, nil
 	}, Timeout: 30, UseSudo: true}
 }
 
@@ -88,7 +89,7 @@ func nginxDisableSiteAction() actionDefinition {
 			return "", err
 		}
 
-		return "rm -f " + shellQuote("/etc/nginx/sites-enabled/"+site) + " && nginx -t && systemctl reload nginx", nil
+		return "rm -f " + shellQuote("/etc/nginx/sites-enabled/"+site) + " && nginx -t && " + nginxReloadIfActiveCommand, nil
 	}, Timeout: 30, UseSudo: true}
 }
 
@@ -114,7 +115,7 @@ func nginxDeleteSiteAction() actionDefinition {
 			commands = append(commands, "rm -rf -- "+shellQuote(root))
 		}
 
-		commands = append(commands, "nginx -t", "systemctl reload nginx")
+		commands = append(commands, "nginx -t", nginxReloadIfActiveCommand)
 
 		return strings.Join(commands, " && "), nil
 	}, Timeout: 30, UseSudo: true}
@@ -144,7 +145,7 @@ func nginxCreateVhostAction() actionDefinition {
 		siteName := domain + ".conf"
 		path := "/etc/nginx/sites-available/" + siteName
 		encoded := base64.StdEncoding.EncodeToString([]byte(config))
-		commands := []string{"mkdir -p " + shellQuote(documentRoot), "mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled", "printf '%s' " + shellQuote(encoded) + " | base64 -d > " + shellQuote(path), "ln -sfn " + shellQuote(path) + " " + shellQuote("/etc/nginx/sites-enabled/"+siteName), "nginx -t", "systemctl reload nginx"}
+		commands := []string{"mkdir -p " + shellQuote(documentRoot), "mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled", "printf '%s' " + shellQuote(encoded) + " | base64 -d > " + shellQuote(path), "ln -sfn " + shellQuote(path) + " " + shellQuote("/etc/nginx/sites-enabled/"+siteName), "nginx -t", nginxReloadIfActiveCommand}
 
 		return strings.Join(commands, " && "), nil
 	}, Timeout: 45, UseSudo: true}

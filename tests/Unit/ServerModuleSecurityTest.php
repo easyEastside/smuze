@@ -121,6 +121,176 @@ test('nginx site action rejects unsafe site names', function () {
         ]);
 });
 
+test('nginx sites parses tab separated agent output safely', function () {
+    $server = new Server;
+    $stdout = "default.conf\tyes\texample.com\t/var/www/html\nquote\"site.conf\tno\t<script>alert(1)</script>\t/var/www/app/public\ninvalid\tline\n";
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(fn (Server $s, string $action, array $payload): bool => $action === 'nginx.sites' && $payload === [])
+        ->andReturn(new ExecutionResult(stdout: $stdout, stderr: '', exitCode: 0, success: true));
+
+    $result = (new NginxAction($engine))->sites($server);
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['sites'])->toHaveCount(2)
+        ->and($result['sites'][0])->toMatchArray([
+            'name' => 'default.conf',
+            'enabled' => 'yes',
+            'server_name' => 'example.com',
+            'document_root' => '/var/www/html',
+        ])
+        ->and($result['sites'][1])->toMatchArray([
+            'name' => 'quote"site.conf',
+            'enabled' => 'no',
+            'server_name' => '<script>alert(1)</script>',
+            'document_root' => '/var/www/app/public',
+        ]);
+});
+
+test('nginx install deinstall and service actions delegate to agent', function (string $method, string $agentAction, string $message) {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(fn (Server $s, string $action, array $payload): bool => $s === $server && $action === $agentAction && $payload === [])
+        ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
+
+    $result = (new NginxAction($engine))->{$method}($server);
+
+    expect($result)->toMatchArray([
+        'success' => true,
+        'message' => $message,
+    ]);
+})->with([
+    ['install', 'nginx.install', 'Nginx wurde installiert.'],
+    ['deinstall', 'nginx.deinstall', 'Nginx wurde deinstalliert.'],
+    ['start', 'nginx.start', 'Nginx wurde gestartet.'],
+    ['stop', 'nginx.stop', 'Nginx wurde gestoppt.'],
+    ['restart', 'nginx.restart', 'Nginx wurde neugestartet.'],
+    ['reload', 'nginx.reload', 'Nginx wurde neugeladen.'],
+]);
+
+test('nginx create vhost delegates sanitized config payload', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(function (Server $serverArgument, string $action, array $payload) use ($server): bool {
+            expect($serverArgument)->toBe($server);
+            expect($action)->toBe('nginx.create_vhost')
+                ->and($payload['domain'])->toBe('example.com')
+                ->and($payload['document_root'])->toBe('/var/www/example/public')
+                ->and($payload['config'])->toContain('server_name example.com www.example.com;')
+                ->and($payload['config'])->toContain('root /var/www/example/public;')
+                ->and($payload['config'])->toContain('fastcgi_pass unix:/run/php/php8.5-fpm.sock;');
+
+            return true;
+        })
+        ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
+
+    $result = (new NginxAction($engine))->createVhost($server, ' example.com ', ' /var/www/example/public ', ' www.example.com ');
+
+    expect($result)->toMatchArray([
+        'success' => true,
+        'message' => 'VHost für example.com wurde erstellt.',
+    ]);
+});
+
+test('nginx create vhost obtains ssl only after vhost creation succeeds', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->ordered()
+        ->withArgs(fn (Server $s, string $action, array $payload): bool => $s === $server && $action === 'nginx.create_vhost' && $payload['domain'] === 'secure.example.com')
+        ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
+    $engine->shouldReceive('action')
+        ->once()
+        ->ordered()
+        ->withArgs(fn (Server $s, string $action, array $payload): bool => $s === $server && $action === 'nginx.obtain_ssl' && $payload === [
+            'domain' => 'secure.example.com',
+            'email' => 'admin@example.com',
+        ])
+        ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
+
+    $result = (new NginxAction($engine))->createVhost($server, 'secure.example.com', '/var/www/secure/public', useSsl: true, email: 'admin@example.com');
+
+    expect($result)->toMatchArray([
+        'success' => true,
+        'message' => 'SSL-Zertifikat für secure.example.com wurde ausgestellt.',
+    ]);
+});
+
+test('nginx create vhost rejects invalid aliases before agent action', function () {
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')->never();
+
+    $result = (new NginxAction($engine))->createVhost(new Server, 'example.com', '/var/www/example/public', 'valid.example.com bad_alias!');
+
+    expect($result)->toMatchArray([
+        'success' => false,
+        'message' => 'ServerAlias ist ungültig: bad_alias!',
+    ]);
+});
+
+test('nginx obtain ssl rejects invalid input before agent action', function (string $domain, string $email, string $message) {
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')->never();
+
+    $result = (new NginxAction($engine))->obtainSsl(new Server, $domain, $email);
+
+    expect($result)->toMatchArray([
+        'success' => false,
+        'message' => $message,
+    ]);
+})->with([
+    ['bad domain', 'admin@example.com', 'Domain darf nur gültige DNS-Zeichen enthalten, z. B. example.com.'],
+    ['example.com', 'not-an-email', 'Bitte eine gültige E-Mail-Adresse angeben.'],
+]);
+
+test('nginx obtain ssl delegates validated payload to agent', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(function (Server $serverArgument, string $action, array $payload) use ($server): bool {
+            expect($serverArgument)->toBe($server);
+            expect($action)->toBe('nginx.obtain_ssl')
+                ->and($payload)->toBe([
+                    'domain' => 'example.com',
+                    'email' => 'admin@example.com',
+                ]);
+
+            return true;
+        })
+        ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
+
+    $result = (new NginxAction($engine))->obtainSsl($server, ' example.com ', ' admin@example.com ');
+
+    expect($result)->toMatchArray([
+        'success' => true,
+        'message' => 'SSL-Zertifikat für example.com wurde ausgestellt.',
+    ]);
+});
+
+test('nginx delete site rejects unsafe project deletion paths before agent action', function () {
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')->never();
+
+    $result = (new NginxAction($engine))->deleteSite(new Server, 'example.com', true, '/etc/nginx/sites-available/example.conf');
+
+    expect($result)->toMatchArray([
+        'success' => false,
+        'message' => 'Projektordner kann nur unter /var/www automatisch gelöscht werden.',
+    ]);
+});
+
 test('firewall allow delegates to validated agent action', function () {
     $server = new Server;
 

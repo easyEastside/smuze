@@ -1509,7 +1509,12 @@ test('user can view their own nginx page', function () {
         ->assertSuccessful()
         ->assertSee('Nginx-Webserver-Verwaltung')
         ->assertSee($server->name)
-        ->assertSee('encodeURIComponent(value)', false);
+        ->assertSee('encodeURIComponent(value)', false)
+        ->assertSee('function siteRow(site)', false)
+        ->assertSee('cell.textContent = value ||', false)
+        ->assertSee('addEventListener', false)
+        ->assertDontSee('onclick="nginxSiteAction', false)
+        ->assertDontSee('onclick="nginxDeleteSite', false);
 });
 
 test('user cannot view another users nginx page', function () {
