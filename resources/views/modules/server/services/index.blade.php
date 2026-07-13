@@ -85,38 +85,81 @@
             return;
         }
 
-        let html = '<div class="space-y-2">';
+        content.innerHTML = '';
+        const serviceList = document.createElement('div');
+        serviceList.className = 'space-y-2';
+
         for (const svc of SERVICES) {
             const version = data[svc.versionField];
             const installed = !!version;
-            html += `
-                <div class="flex items-center justify-between rounded-xl border border-[#19140020] p-4 dark:border-[#3E3E3A]">
-                    <div class="flex items-center gap-3">
-                        <span class="size-3 shrink-0 rounded-full ${installed ? 'bg-green-500' : 'bg-[#19140035] dark:bg-[#3E3E3A]'}"></span>
-                        <div>
-                            <p class="text-sm font-medium">${svc.label}</p>
-                            <p class="text-xs text-[#706f6c] dark:text-[#A1A09A]">${installed ? version : 'Nicht installiert'}</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        ${!installed && svc.key === 'php' ? phpVersionSelect() : ''}
-                        ${installed
-                            ? `<button data-service-key="${svc.key}" data-service-action="deinstall" onclick="serviceAction(this)" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Deinstallieren</button>`
-                            : `<button data-service-key="${svc.key}" data-service-action="install" onclick="serviceAction(this)" class="rounded-lg bg-[#1b1b18] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">Installieren</button>`
-                        }
-                    </div>
-                </div>
-            `;
+            serviceList.appendChild(serviceRow(svc, installed, version));
         }
-        html += '</div>';
-        content.innerHTML = html;
+
+        content.appendChild(serviceList);
         content.classList.remove('hidden');
     }
 
-    function phpVersionSelect() {
-        const options = PHP_VERSIONS.map(version => `<option value="${version}">PHP ${version}</option>`).join('');
+    function serviceRow(svc, installed, version) {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between rounded-xl border border-[#19140020] p-4 dark:border-[#3E3E3A]';
 
-        return `<select data-php-version class="rounded-lg border border-[#19140035] bg-transparent px-2 py-1.5 text-xs dark:border-[#3E3E3A]">${options}</select>`;
+        const info = document.createElement('div');
+        info.className = 'flex items-center gap-3';
+
+        const dot = document.createElement('span');
+        dot.className = 'size-3 shrink-0 rounded-full ' + (installed ? 'bg-green-500' : 'bg-[#19140035] dark:bg-[#3E3E3A]');
+        info.appendChild(dot);
+
+        const text = document.createElement('div');
+        const label = document.createElement('p');
+        label.className = 'text-sm font-medium';
+        label.textContent = svc.label;
+        text.appendChild(label);
+
+        const versionText = document.createElement('p');
+        versionText.className = 'text-xs text-[#706f6c] dark:text-[#A1A09A]';
+        versionText.textContent = installed ? version : 'Nicht installiert';
+        text.appendChild(versionText);
+
+        info.appendChild(text);
+        row.appendChild(info);
+
+        const actions = document.createElement('div');
+        actions.className = 'flex items-center gap-2';
+
+        if (!installed && svc.key === 'php') {
+            actions.appendChild(phpVersionSelect());
+        }
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.serviceKey = svc.key;
+        button.dataset.serviceAction = installed ? 'deinstall' : 'install';
+        button.textContent = installed ? 'Deinstallieren' : 'Installieren';
+        button.className = installed
+            ? 'rounded-lg border border-[#19140035] px-3 py-1.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]'
+            : 'rounded-lg bg-[#1b1b18] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]';
+        button.addEventListener('click', () => serviceAction(button));
+        actions.appendChild(button);
+
+        row.appendChild(actions);
+
+        return row;
+    }
+
+    function phpVersionSelect() {
+        const select = document.createElement('select');
+        select.dataset.phpVersion = '';
+        select.className = 'rounded-lg border border-[#19140035] bg-transparent px-2 py-1.5 text-xs dark:border-[#3E3E3A]';
+
+        for (const version of PHP_VERSIONS) {
+            const option = document.createElement('option');
+            option.value = version;
+            option.textContent = 'PHP ' + version;
+            select.appendChild(option);
+        }
+
+        return select;
     }
 
     function serviceAction(btn) {

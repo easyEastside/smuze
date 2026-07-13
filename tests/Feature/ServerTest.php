@@ -850,9 +850,14 @@ test('user can view their own services page', function () {
         ->assertSee('Dienstverwaltung')
         ->assertSee($server->name)
         ->assertSee(route('server.agent.metrics', $server), false)
-        ->assertSee('data-php-version', false)
+        ->assertSee('serviceRow(svc, installed, version)', false)
+        ->assertSee('addEventListener(\'click\'', false)
+        ->assertSee('dataset.phpVersion', false)
         ->assertSee('"8.5"', false)
         ->assertSee('"8.2"', false)
+        ->assertDontSee('onclick="serviceAction', false)
+        ->assertDontSee('${svc.label}', false)
+        ->assertDontSee('${installed ? version', false)
         ->assertDontSee('sessionStorage', false)
         ->assertDontSee("http://{$server->host}:{$server->agent_port}/metrics", false);
 });
