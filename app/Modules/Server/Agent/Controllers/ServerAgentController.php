@@ -236,6 +236,10 @@ class ServerAgentController
                 ->acceptJson()
                 ->get($this->agentBaseUrl($server).'/metrics');
 
+            if ($response->successful()) {
+                $this->recordAgentHealth($server, $response->json() ?: []);
+            }
+
             return response()->json($response->json() ?: ['error' => 'invalid_response'], $response->status());
         } catch (ConnectionException) {
             return response()->json(['error' => 'Agent nicht erreichbar'], 503);

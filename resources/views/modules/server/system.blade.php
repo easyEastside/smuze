@@ -194,12 +194,10 @@
                                 <dd id="agent-version" class="font-medium">{{ $server->agent_version ?? '-' }}</dd>
                             </div>
                         @endif
-                        @if ($server->agent_last_seen_at)
-                            <div class="flex justify-between">
-                                <dt class="text-[#706f6c] dark:text-[#A1A09A]">Agent zuletzt</dt>
-                                <dd class="font-medium">{{ $server->agent_last_seen_at->diffForHumans() }}</dd>
-                            </div>
-                        @endif
+                        <div class="flex justify-between">
+                            <dt class="text-[#706f6c] dark:text-[#A1A09A]">Agent zuletzt</dt>
+                            <dd id="agent-last-seen" class="font-medium">{{ $server->agent_last_seen_at ? $server->agent_last_seen_at->diffForHumans() : '-' }}</dd>
+                        </div>
                         @if ($server->notes)
                             <div class="flex justify-between">
                                 <dt class="text-[#706f6c] dark:text-[#A1A09A]">Notizen</dt>
@@ -382,6 +380,12 @@
         const updateMode = document.getElementById('update-mode');
         updateMode.textContent = 'alle 15 Sekunden';
         updateMode.title = 'Zuletzt aktualisiert: ' + new Date().toLocaleTimeString('de-DE');
+
+        const statusDetail = document.getElementById('agent-status-detail');
+        if (statusDetail) statusDetail.textContent = 'connected';
+
+        const lastSeen = document.getElementById('agent-last-seen');
+        if (lastSeen) lastSeen.textContent = 'gerade eben';
     }
 
     function fetchMetrics() {
@@ -409,6 +413,10 @@
                 if (data.error) {
                     error.textContent = data.error;
                     error.classList.remove('hidden');
+
+                    const statusDetail = document.getElementById('agent-status-detail');
+                    if (statusDetail) statusDetail.textContent = 'disconnected';
+
                     return;
                 }
 
@@ -421,6 +429,9 @@
                 error.textContent = 'Verbindungsfehler: ' + err.message;
                 error.classList.remove('hidden');
                 setConnectionStatus('Offline', 'font-medium text-red-500');
+
+                const statusDetail = document.getElementById('agent-status-detail');
+                if (statusDetail) statusDetail.textContent = 'disconnected';
             })
             .finally(() => {
                 isFetchingMetrics = false;
