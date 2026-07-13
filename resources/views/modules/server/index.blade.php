@@ -83,9 +83,9 @@
                                     <div class="flex items-center justify-end gap-1">
                                         <a
                                             href="{{ route('server.system', $server) }}"
-                                            class="rounded-lg px-3 py-1.5 text-xs font-medium text-white bg-[#f53003] hover:bg-[#d42a02] dark:bg-[#FF4433] dark:hover:bg-[#e63a2e]"
+                                            class="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-[#1b1b18] hover:bg-[#f5f5f4] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]"
                                         >
-                                            System
+                                            Verwalten
                                         </a>
                                         <a
                                             href="{{ route('server.edit', $server) }}"
