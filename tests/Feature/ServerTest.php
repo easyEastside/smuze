@@ -2,6 +2,7 @@
 
 use App\Models\Server;
 use App\Models\ServerAgentCommand;
+use App\Models\ServerCronjob;
 use App\Models\User;
 use App\Services\ExecutionEngine\ExecutionResult;
 use App\Services\ExecutionEngine\PushAgentEngine;
@@ -31,6 +32,7 @@ test('authenticated user can view their own servers', function () {
         ->assertSee('Bitte zuerst Server auswählen')
         ->assertSee('Webhosting')
         ->assertSee('Monitoring')
+        ->assertSee('Cronjobs')
         ->assertSee('Dienste')
         ->assertSee('Unwichtig')
         ->assertSee('Bank')
@@ -391,6 +393,160 @@ test('server monitoring validates mutation payloads', function () {
             'pid' => 1,
         ])
         ->assertInvalid(['pid']);
+});
+
+test('guest cannot view server cronjobs', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.cronjobs.index', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user can view their own server cronjobs', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+    ServerCronjob::factory()->create([
+        'server_id' => $server->id,
+        'user_id' => $this->user->id,
+        'name' => 'Laravel Scheduler',
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.cronjobs.index', $server))
+        ->assertSuccessful()
+        ->assertSee('Zeitgesteuerte Aufgaben')
+        ->assertSee('Laravel Scheduler')
+        ->assertSee(route('server.cronjobs.remote', $server), false);
+});
+
+test('user cannot view another users server cronjobs', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.cronjobs.index', $server))
+        ->assertForbidden();
+});
+
+test('server cronjobs can load remote crontab entries including foreign jobs', function () {
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/actions' => Http::response([
+            'success' => true,
+            'action' => 'cronjobs.list',
+            'exit_code' => 0,
+            'stdout' => json_encode([
+                ['managed' => false, 'schedule' => '* * * * *', 'command' => 'echo foreign', 'line' => '* * * * * echo foreign'],
+                ['managed' => true, 'schedule' => '0 * * * *', 'command' => 'php artisan schedule:run', 'line' => '0 * * * * php artisan schedule:run'],
+            ]),
+            'stderr' => '',
+            'duration_ms' => 10,
+        ]),
+    ]);
+
+    $this->actingAs($this->user)
+        ->getJson(route('server.cronjobs.remote', $server))
+        ->assertSuccessful()
+        ->assertJsonPath('entries.0.managed', false)
+        ->assertJsonPath('entries.0.command', 'echo foreign')
+        ->assertJsonPath('entries.1.managed', true);
+});
+
+test('server cronjobs can be created and synced to agent', function () {
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/actions' => Http::response([
+            'success' => true,
+            'action' => 'cronjobs.install',
+            'exit_code' => 0,
+            'stdout' => '',
+            'stderr' => '',
+            'duration_ms' => 10,
+        ]),
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.cronjobs.store', $server), [
+            'name' => 'Scheduler',
+            'schedule' => '* * * * *',
+            'command' => 'php artisan schedule:run',
+            'working_directory' => '/var/www/html',
+            'enabled' => '1',
+        ])
+        ->assertRedirect(route('server.cronjobs.index', $server, absolute: false));
+
+    $this->assertDatabaseHas('server_cronjobs', [
+        'server_id' => $server->id,
+        'user_id' => $this->user->id,
+        'name' => 'Scheduler',
+        'schedule' => '* * * * *',
+        'command' => 'php artisan schedule:run',
+    ]);
+
+    Http::assertSent(fn ($request): bool => $request['action'] === 'cronjobs.install'
+        && $request['payload']['jobs'][0]['command'] === 'php artisan schedule:run');
+});
+
+test('server cronjobs validate unsafe payloads', function () {
+    $server = Server::factory()->withAgent()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.cronjobs.store', $server), [
+            'name' => "Bad\nName",
+            'schedule' => '* * * * *',
+            'command' => 'php artisan schedule:run',
+        ])
+        ->assertInvalid(['name']);
+
+    $this->actingAs($this->user)
+        ->post(route('server.cronjobs.store', $server), [
+            'name' => 'Bad Path',
+            'schedule' => '* * * * *',
+            'command' => 'php artisan schedule:run',
+            'working_directory' => '../app',
+        ])
+        ->assertInvalid(['working_directory']);
+});
+
+test('server cronjob run stores latest result', function () {
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+    $cronjob = ServerCronjob::factory()->create([
+        'server_id' => $server->id,
+        'user_id' => $this->user->id,
+        'command' => 'php artisan schedule:run',
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/actions' => Http::response([
+            'success' => true,
+            'action' => 'cronjobs.run',
+            'exit_code' => 0,
+            'stdout' => 'ok',
+            'stderr' => '',
+            'duration_ms' => 10,
+        ]),
+    ]);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.cronjobs.run', [$server, $cronjob]))
+        ->assertSuccessful()
+        ->assertJsonPath('stdout', 'ok');
+
+    expect($cronjob->refresh())
+        ->last_exit_code->toBe(0)
+        ->last_stdout->toBe('ok');
 });
 
 test('user can view server agent audit commands', function () {

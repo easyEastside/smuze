@@ -81,6 +81,12 @@ class User extends Authenticatable
         return $this->hasMany(ServerAgentCommand::class);
     }
 
+    /** @return HasMany<ServerCronjob, $this> */
+    public function serverCronjobs(): HasMany
+    {
+        return $this->hasMany(ServerCronjob::class);
+    }
+
     /** @return BelongsToMany<Achievement, $this> */
     public function achievements(): BelongsToMany
     {

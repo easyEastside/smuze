@@ -46,4 +46,10 @@ class Server extends Model
     {
         return $this->hasMany(ServerAgentCommand::class);
     }
+
+    /** @return HasMany<ServerCronjob, $this> */
+    public function cronjobs(): HasMany
+    {
+        return $this->hasMany(ServerCronjob::class);
+    }
 }

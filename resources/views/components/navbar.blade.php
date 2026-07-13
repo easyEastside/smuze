@@ -24,6 +24,7 @@
     $serverLinks = [
         ['label' => 'System', 'route' => 'server.system', 'active' => 'server.system'],
         ['label' => 'Monitoring', 'route' => 'server.monitoring.index', 'active' => 'server.monitoring.*'],
+        ['label' => 'Cronjobs', 'route' => 'server.cronjobs.index', 'active' => 'server.cronjobs.*'],
         ['label' => 'Terminal', 'route' => 'server.terminal', 'active' => 'server.terminal'],
         ['label' => 'Firewall', 'route' => 'server.firewall.index', 'active' => 'server.firewall.*'],
         ['label' => 'Dienste', 'route' => 'server.services.index', 'active' => 'server.services.*'],

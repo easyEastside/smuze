@@ -259,6 +259,10 @@ func TestSystemActionsAreRegisteredByName(t *testing.T) {
 		"apache.disable_module",
 		"apache.install_certbot",
 		"apache.obtain_ssl",
+		"cronjobs.list",
+		"cronjobs.install",
+		"cronjobs.remove",
+		"cronjobs.run",
 		"firewall.status",
 		"firewall.rules",
 		"firewall.install",
@@ -308,6 +312,78 @@ func TestSystemActionsAreRegisteredByName(t *testing.T) {
 		if definition.Name != actionName {
 			t.Fatalf("expected %s name, got %s", actionName, definition.Name)
 		}
+	}
+}
+
+func TestCronjobsInstallPreservesForeignCrontabAndWritesManagedBlock(t *testing.T) {
+	command, err := cronjobsInstallAction().command(map[string]any{
+		"jobs": []any{
+			map[string]any{
+				"id":                float64(7),
+				"name":              "Laravel Scheduler",
+				"schedule":          "* * * * *",
+				"command":           "php artisan schedule:run",
+				"working_directory": "/var/www/html",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected command, got error: %v", err)
+	}
+
+	if !strings.Contains(command, "awk 'BEGIN{skip=0}") || !strings.Contains(command, "# SMUZE MANAGED START") {
+		t.Fatalf("expected managed block preserving command, got: %s", command)
+	}
+
+	if !strings.Contains(command, "* * * * * cd '/var/www/html' && php artisan schedule:run") {
+		t.Fatalf("expected cron line, got: %s", command)
+	}
+}
+
+func TestCronjobsRejectUnsafeScheduleAndWorkingDirectory(t *testing.T) {
+	_, err := cronjobsInstallAction().command(map[string]any{
+		"jobs": []any{
+			map[string]any{
+				"id":       float64(1),
+				"name":     "Unsafe",
+				"schedule": "* * *",
+				"command":  "date",
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected invalid schedule to be rejected")
+	}
+
+	_, err = cronjobsInstallAction().command(map[string]any{
+		"jobs": []any{
+			map[string]any{
+				"id":                float64(1),
+				"name":              "Unsafe",
+				"schedule":          "* * * * *",
+				"command":           "date",
+				"working_directory": "../tmp",
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected invalid working_directory to be rejected")
+	}
+}
+
+func TestCronjobsRunBuildsCommandWithRunAs(t *testing.T) {
+	command, err := cronjobsRunAction().command(map[string]any{
+		"id":                float64(3),
+		"command":           "php artisan schedule:run",
+		"working_directory": "/var/www/html",
+		"run_as":            "www-data",
+	})
+	if err != nil {
+		t.Fatalf("expected command, got error: %v", err)
+	}
+
+	if !strings.Contains(command, "sudo -u 'www-data' sh -lc") || !strings.Contains(command, "php artisan schedule:run") {
+		t.Fatalf("unexpected command: %s", command)
 	}
 }
 
