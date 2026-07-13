@@ -1392,6 +1392,35 @@ func TestTerminalEndpointRejectsInvalidToken(t *testing.T) {
 	}
 }
 
+func TestTerminalEndpointRejectsWrongOrigin(t *testing.T) {
+	srv := NewServer(Config{Token: "test-token", Port: 9300, ServerID: 42, AppURL: "http://example.test"})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	token := testTerminalToken(42, time.Now().Add(time.Minute).Unix())
+	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/terminal?token=" + token
+	_, response, err := websocket.DefaultDialer.Dial(wsURL, http.Header{"Origin": []string{"http://evil.test"}})
+	if err == nil {
+		t.Fatal("expected dial to fail for wrong origin")
+	}
+	if response == nil || response.StatusCode != http.StatusForbidden {
+		status := 0
+		if response != nil {
+			status = response.StatusCode
+		}
+		t.Fatalf("expected 403 for wrong origin, got %d", status)
+	}
+}
+
+func TestTerminalTokenRejectsExpiredToken(t *testing.T) {
+	srv := NewServer(Config{Token: "test-token", Port: 9300, ServerID: 42, AppURL: "http://example.test"})
+
+	err := srv.validateTerminalToken(testTerminalToken(42, time.Now().Add(-time.Minute).Unix()))
+	if err == nil {
+		t.Fatal("expected expired terminal token to be rejected")
+	}
+}
+
 func TestTerminalEndpointRunsInteractivePty(t *testing.T) {
 	srv := NewServer(Config{Token: "test-token", Port: 9300, ServerID: 42, AppURL: "http://example.test"})
 	ts := httptest.NewServer(srv.Handler())

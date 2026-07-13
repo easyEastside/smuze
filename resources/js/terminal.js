@@ -75,7 +75,15 @@ if (root) {
             });
 
             socket.addEventListener('message', (event) => {
-                const message = JSON.parse(event.data);
+                let message;
+
+                try {
+                    message = JSON.parse(event.data);
+                } catch {
+                    terminal.writeln('\r\nFehler: Ungültige Terminal-Nachricht');
+
+                    return;
+                }
 
                 if (message.type === 'output') {
                     terminal.write(message.data || '');

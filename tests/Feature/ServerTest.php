@@ -287,6 +287,23 @@ test('user can view their own server terminal', function () {
         ->assertDontSee('use_sudo', false);
 });
 
+test('server terminal page exposes safe websocket click paths', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.terminal', $server))
+        ->assertSuccessful()
+        ->assertSee('id="terminal-connect"', false)
+        ->assertSee('id="terminal-disconnect"', false)
+        ->assertSee('data-terminal-token-url="'.route('server.agent.terminal-token', $server).'"', false)
+        ->assertSee('terminal', false)
+        ->assertDontSee('onclick="connect', false)
+        ->assertDontSee('onclick="disconnect', false)
+        ->assertDontSee('terminal-command', false)
+        ->assertDontSee('body.getReader()', false)
+        ->assertDontSee('use_sudo', false);
+});
+
 test('user cannot view another users server terminal', function () {
     $otherUser = User::factory()->create();
     $server = Server::factory()->create(['user_id' => $otherUser->id]);

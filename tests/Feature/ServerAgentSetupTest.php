@@ -151,6 +151,23 @@ test('user cannot create terminal websocket token for another users server', fun
         ->assertForbidden();
 });
 
+test('terminal websocket token requires an enabled agent token', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->create([
+        'user_id' => $user->id,
+        'agent_enabled' => false,
+        'agent_token' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->getJson(route('server.agent.terminal-token', $server))
+        ->assertStatus(422)
+        ->assertJson([
+            'success' => false,
+            'message' => 'Agent ist nicht aktiviert.',
+        ]);
+});
+
 test('agent download endpoint serves binary', function () {
     $this->get('/agent/download')
         ->assertSuccessful()
