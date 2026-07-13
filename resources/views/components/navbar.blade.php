@@ -25,13 +25,13 @@
         ['label' => 'System', 'route' => 'server.system', 'active' => 'server.system'],
         ['label' => 'Terminal', 'route' => 'server.terminal', 'active' => 'server.terminal'],
         ['label' => 'Firewall', 'route' => 'server.firewall.index', 'active' => 'server.firewall.*'],
+        ['label' => 'Dienste', 'route' => 'server.services.index', 'active' => 'server.services.*'],
         ['label' => 'GitHub', 'route' => 'server.github.index', 'active' => 'server.github.*'],
     ];
 
     $webhostingLinks = [
         ['label' => 'Apache', 'route' => 'server.apache.index', 'active' => 'server.apache.*'],
         ['label' => 'Nginx', 'route' => 'server.nginx.index', 'active' => 'server.nginx.*'],
-        ['label' => 'PHP', 'route' => 'server.services.index', 'active' => 'server.services.*'],
         ['label' => 'MySQL', 'route' => 'server.mysql.index', 'active' => 'server.mysql.*'],
     ];
 @endphp
@@ -54,7 +54,7 @@
             @endforeach
 
             <div class="group relative">
-                <button type="button" class="{{ request()->routeIs('server.apache.*', 'server.nginx.*', 'server.services.*', 'server.mysql.*') ? $activeLinkClass : $linkClass }} inline-flex items-center gap-1">
+                <button type="button" class="{{ request()->routeIs('server.apache.*', 'server.nginx.*', 'server.mysql.*') ? $activeLinkClass : $linkClass }} inline-flex items-center gap-1">
                     Webhosting
                     <svg class="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
@@ -122,7 +122,7 @@
                 @endforeach
 
                 <div class="relative">
-                    <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="{{ request()->routeIs('server.apache.*', 'server.nginx.*', 'server.services.*', 'server.mysql.*') ? $activeLinkClass : $linkClass }} inline-flex w-full items-center justify-between gap-1">
+                    <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="{{ request()->routeIs('server.apache.*', 'server.nginx.*', 'server.mysql.*') ? $activeLinkClass : $linkClass }} inline-flex w-full items-center justify-between gap-1">
                         Webhosting
                         <svg class="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                     </button>
