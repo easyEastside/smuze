@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Errors\Controllers\ErrorReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -9,6 +10,8 @@ Route::get('/', function () {
 
     return view('welcome');
 });
+
+Route::middleware('auth')->post('errors/report', [ErrorReportController::class, 'store'])->name('errors.report');
 
 require app_path('Modules/Register/routes.php');
 require app_path('Modules/Login/routes.php');

@@ -92,6 +92,13 @@
             </x-admin.sidebar-link>
 
             <x-admin.sidebar-link
+                :active="request()->routeIs('admin.errors.*')"
+                href="{{ route('admin.errors') }}"
+            >
+                Fehlerberichte
+            </x-admin.sidebar-link>
+
+            <x-admin.sidebar-link
                 :active="request()->routeIs('admin.settings')"
                 href="{{ route('admin.settings') }}"
             >

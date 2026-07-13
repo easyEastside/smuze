@@ -360,7 +360,9 @@
                 loading.classList.add('hidden');
 
                 if (data.error) {
-                    error.textContent = data.error;
+                    error.innerHTML = '';
+                    error.appendChild(document.createTextNode(data.error));
+                    error.appendChild(window.reportError(data.error, 'system.metrics'));
                     error.classList.remove('hidden');
 
                     const statusDetail = document.getElementById('agent-status-detail');
@@ -376,7 +378,10 @@
             })
             .catch(err => {
                 loading.classList.add('hidden');
-                error.textContent = 'Verbindungsfehler: ' + err.message;
+                const msg = 'Verbindungsfehler: ' + err.message;
+                error.innerHTML = '';
+                error.appendChild(document.createTextNode(msg));
+                error.appendChild(window.reportError(msg, 'system.metrics'));
                 error.classList.remove('hidden');
                 setConnectionStatus('Offline', 'font-medium text-red-500');
 
@@ -408,10 +413,38 @@
             });
     }
 
-    function showActionResult(success, message) {
+    window.reportError = function (message, source, details = {}) {
+        const btn = document.createElement('button');
+        btn.className = 'ml-2 rounded-lg border border-[#19140035] px-2 py-0.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]';
+        btn.textContent = 'Fehler melden';
+
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            btn.textContent = '...';
+            try {
+                const res = await fetch('{{ route('errors.report') }}', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, source, details }),
+                });
+                const data = await res.json();
+                btn.textContent = data.success ? '✓' : '✗';
+            } catch {
+                btn.textContent = '✗';
+            }
+        });
+
+        return btn;
+    };
+
+    function showActionResult(success, message, source) {
         const result = document.getElementById('action-result');
         result.className = 'mt-3 rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
-        result.textContent = message;
+        result.innerHTML = '';
+        result.appendChild(document.createTextNode(message));
+        if (!success && source) {
+            result.appendChild(window.reportError(message, source));
+        }
         result.classList.remove('hidden');
     }
 
@@ -440,8 +473,11 @@
             result.textContent = ok ? (output || 'Action ausgeführt.') : (data.error || output || 'Fehler bei Ausführung.');
         })
         .catch(err => {
+            const msg = 'Fehler: ' + err.message;
             result.className = 'mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
-            result.textContent = 'Fehler: ' + err.message;
+            result.innerHTML = '';
+            result.appendChild(document.createTextNode(msg));
+            result.appendChild(window.reportError(msg, 'system.action'));
         });
     }
 
@@ -473,8 +509,11 @@
                 document.getElementById('agent-token-box').classList.remove('hidden');
             }
         } catch (err) {
+            const msg = 'Fehler: ' + err.message;
             result.className = 'mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
-            result.textContent = 'Fehler: ' + err.message;
+            result.innerHTML = '';
+            result.appendChild(document.createTextNode(msg));
+            result.appendChild(window.reportError(msg, 'agent.install'));
         }
     }
 
@@ -492,7 +531,7 @@
             const data = await res.json();
 
             if (!res.ok || !data.success) {
-                showActionResult(false, data.message || 'Agent-Token konnte nicht generiert werden.');
+                showActionResult(false, data.message || 'Agent-Token konnte nicht generiert werden.', 'agent.token');
                 return;
             }
 
@@ -504,7 +543,7 @@
             document.getElementById('agent-token-box').classList.remove('hidden');
             showActionResult(true, 'Agent-Token generiert. Speichere ihn jetzt in der Agent-Konfiguration.');
         } catch (err) {
-            showActionResult(false, 'Fehler: ' + err.message);
+            showActionResult(false, 'Fehler: ' + err.message, 'agent.token');
         }
     }
 
@@ -522,14 +561,14 @@
             const data = await res.json();
 
             if (!res.ok || !data.success) {
-                showActionResult(false, data.message || 'Agent konnte nicht deaktiviert werden.');
+                showActionResult(false, data.message || 'Agent konnte nicht deaktiviert werden.', 'agent.disable');
                 return;
             }
 
             showActionResult(true, 'Agent deaktiviert. Seite wird aktualisiert...');
             setTimeout(() => window.location.reload(), 800);
         } catch (err) {
-            showActionResult(false, 'Fehler: ' + err.message);
+            showActionResult(false, 'Fehler: ' + err.message, 'agent.disable');
         }
     }
 
@@ -576,8 +615,11 @@
                 document.getElementById('agent-update-section').classList.add('hidden');
             }
         } catch (err) {
+            const msg = 'Fehler: ' + err.message;
             result.className = 'mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
-            result.textContent = 'Fehler: ' + err.message;
+            result.innerHTML = '';
+            result.appendChild(document.createTextNode(msg));
+            result.appendChild(window.reportError(msg, 'agent.update'));
         }
     }
 

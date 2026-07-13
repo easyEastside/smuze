@@ -3,6 +3,7 @@
 use App\Modules\Admin\Achievements\Controllers\AdminAchievementsController;
 use App\Modules\Admin\Agent\Controllers\AdminAgentController;
 use App\Modules\Admin\Dashboard\Controllers\AdminDashboardController;
+use App\Modules\Admin\Errors\Controllers\AdminErrorReportsController;
 use App\Modules\Admin\Inventory\Controllers\AdminInventoryController;
 use App\Modules\Admin\Permissions\Controllers\AdminPermissionsController;
 use App\Modules\Admin\Roles\Controllers\AdminRolesController;
@@ -40,4 +41,8 @@ Route::middleware(['auth', 'permission:access-admin'])->prefix('admin')->name('a
 
     Route::get('agent', [AdminAgentController::class, 'index'])->name('agent');
     Route::post('agent/build', [AdminAgentController::class, 'build'])->name('agent.build');
+
+    Route::get('errors', [AdminErrorReportsController::class, 'index'])->name('errors');
+    Route::get('errors/{errorReport}', [AdminErrorReportsController::class, 'show'])->name('errors.show');
+    Route::delete('errors/{errorReport}', [AdminErrorReportsController::class, 'destroy'])->name('errors.destroy');
 });
