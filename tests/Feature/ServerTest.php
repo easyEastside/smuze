@@ -854,7 +854,7 @@ test('user can view their own services page', function () {
         ->assertSee('data-php-version', false)
         ->assertSee('"8.5"', false)
         ->assertSee('"8.2"', false)
-        ->assertSee('sessionStorage.removeItem(systemCacheKey)', false)
+        ->assertDontSee('sessionStorage', false)
         ->assertDontSee("http://{$server->host}:{$server->agent_port}/metrics", false);
 });
 

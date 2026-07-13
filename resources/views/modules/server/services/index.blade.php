@@ -40,52 +40,20 @@
         { key: 'composer', label: 'Composer', versionField: 'composer_version' },
     ];
     const PHP_VERSIONS = @json($phpVersions);
-    const systemCacheKey = 'smuze:server:{{ $server->id }}:system-info';
-
-    function cachedSystemData() {
-        try {
-            const cached = JSON.parse(sessionStorage.getItem(systemCacheKey) || 'null');
-
-            if (!cached || !cached.data || Date.now() - cached.cached_at > 60000) {
-                return null;
-            }
-
-            return cached.data;
-        } catch {
-            return null;
-        }
-    }
-
-    function cacheSystemData(data) {
-        try {
-            sessionStorage.setItem(systemCacheKey, JSON.stringify({ data, cached_at: Date.now() }));
-        } catch {
-            // Ignore unavailable storage.
-        }
-    }
-
     function loadServices() {
         const loading = document.getElementById('services-loading');
         const content = document.getElementById('services-content');
         const result = document.getElementById('services-result');
         result.classList.add('hidden');
 
-        const cached = cachedSystemData();
-
-        if (cached) {
-            renderServicesView(cached);
-            loading.textContent = 'Aktualisiere Dienstinformationen...';
-        } else {
-            loading.textContent = 'Lade Dienstinformationen...';
-            loading.classList.remove('hidden');
-            content.classList.add('hidden');
-        }
+        loading.textContent = 'Lade Dienstinformationen...';
+        loading.classList.remove('hidden');
+        content.classList.add('hidden');
 
         fetch('{{ route('server.agent.metrics', $server) }}')
             .then(r => r.json())
             .then(data => {
                 loading.classList.add('hidden');
-                cacheSystemData(data);
                 renderServicesView(data);
             })
             .catch(err => {
@@ -171,7 +139,6 @@
             .then(data => {
                 if (data.success) {
                     result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
-                    sessionStorage.removeItem(systemCacheKey);
                     setTimeout(() => window.location.reload(), 2000);
                 } else {
                     result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
