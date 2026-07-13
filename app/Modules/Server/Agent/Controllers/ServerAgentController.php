@@ -136,6 +136,30 @@ class ServerAgentController
         return response()->json($result);
     }
 
+    public function terminalToken(Request $request, Server $server): JsonResponse
+    {
+        Gate::authorize('update', $server);
+
+        if (! $server->agent_enabled || blank($server->agent_token)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Agent ist nicht aktiviert.',
+            ], 422);
+        }
+
+        $ttl = (int) config('agent.terminal_token_ttl', 60);
+        $expiresAt = now()->addSeconds($ttl);
+        $token = $this->terminalTokenFor($server, $expiresAt->getTimestamp());
+        $scheme = $request->isSecure() ? 'wss' : 'ws';
+        $port = $server->agent_port ?? config('agent.push_port', 9300);
+
+        return response()->json([
+            'success' => true,
+            'url' => "{$scheme}://{$server->host}:{$port}/terminal?token={$token}",
+            'expires_at' => $expiresAt->toIso8601String(),
+        ]);
+    }
+
     public function downloadBinary(): mixed
     {
         $path = storage_path('app/agent/smuze-agent');
@@ -442,6 +466,24 @@ class ServerAgentController
         $port = $server->agent_port ?? config('agent.push_port', 9300);
 
         return "http://{$server->host}:{$port}";
+    }
+
+    private function terminalTokenFor(Server $server, int $expiresAt): string
+    {
+        $payload = $this->base64UrlEncode(json_encode([
+            'server_id' => $server->id,
+            'exp' => $expiresAt,
+            'purpose' => 'terminal',
+        ], JSON_THROW_ON_ERROR));
+
+        $signature = hash_hmac('sha256', $payload, $server->agent_token, true);
+
+        return $payload.'.'.$this->base64UrlEncode($signature);
+    }
+
+    private function base64UrlEncode(string $value): string
+    {
+        return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
     }
 
     private function refreshAgentHealth(Server $server): void

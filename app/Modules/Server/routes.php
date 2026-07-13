@@ -23,6 +23,7 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('servers/{server}/agent/health', [ServerAgentController::class, 'proxyHealth'])->name('server.agent.health');
     Route::get('servers/{server}/agent/metrics', [ServerAgentController::class, 'proxyMetrics'])->name('server.agent.metrics');
+    Route::get('servers/{server}/agent/terminal-token', [ServerAgentController::class, 'terminalToken'])->name('server.agent.terminal-token');
     Route::post('servers/{server}/agent/action', [ServerAgentController::class, 'proxyAction'])->name('server.agent.action');
     Route::post('servers/{server}/agent/execute', [ServerAgentController::class, 'proxyExecute'])->name('server.agent.execute');
     Route::post('servers/{server}/agent/execute-stream', [ServerAgentController::class, 'proxyExecuteStream'])->name('server.agent.execute.stream');

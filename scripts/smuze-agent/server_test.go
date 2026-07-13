@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +13,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 func newTestServer(t *testing.T) *httptest.Server {
@@ -20,6 +26,15 @@ func newTestServer(t *testing.T) *httptest.Server {
 
 func authHeader() (string, string) {
 	return "Authorization", "Bearer test-token"
+}
+
+func testTerminalToken(serverID int64, exp int64) string {
+	payload, _ := json.Marshal(terminalTokenPayload{ServerID: serverID, Exp: exp, Purpose: terminalPurpose})
+	encodedPayload := base64.RawURLEncoding.EncodeToString(payload)
+	mac := hmac.New(sha256.New, []byte("test-token"))
+	mac.Write([]byte(encodedPayload))
+
+	return encodedPayload + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
 func TestHealthEndpoint(t *testing.T) {
@@ -991,4 +1006,54 @@ func TestExecuteWithSudo(t *testing.T) {
 	if !strings.Contains(string(respBody), `"done":true`) {
 		t.Fatal("expected done chunk in response")
 	}
+}
+
+func TestTerminalEndpointRejectsInvalidToken(t *testing.T) {
+	srv := NewServer(Config{Token: "test-token", Port: 9300, ServerID: 42, AppURL: "http://example.test"})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	res, err := http.Get(ts.URL + "/terminal?token=invalid")
+	if err != nil {
+		t.Fatalf("GET /terminal: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 403 {
+		t.Fatalf("expected 403, got %d", res.StatusCode)
+	}
+}
+
+func TestTerminalEndpointRunsInteractivePty(t *testing.T) {
+	srv := NewServer(Config{Token: "test-token", Port: 9300, ServerID: 42, AppURL: "http://example.test"})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	token := testTerminalToken(42, time.Now().Add(time.Minute).Unix())
+	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/terminal?token=" + token
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, http.Header{"Origin": []string{"http://example.test"}})
+	if err != nil {
+		t.Fatalf("dial terminal: %v", err)
+	}
+	defer conn.Close()
+
+	if err := conn.WriteJSON(terminalMessage{Type: "input", Data: "echo terminal-ok\nexit\n"}); err != nil {
+		t.Fatalf("write terminal input: %v", err)
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		_ = conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+
+		var message terminalMessage
+		if err := conn.ReadJSON(&message); err != nil {
+			continue
+		}
+
+		if message.Type == "output" && strings.Contains(message.Data, "terminal-ok") {
+			return
+		}
+	}
+
+	t.Fatal("expected terminal output to contain terminal-ok")
 }

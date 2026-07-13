@@ -207,7 +207,7 @@ test('user can view their own server system', function () {
         ->assertSee('const metricsRefreshMs = 15000', false)
         ->assertSee('clearInterval(metricsRefreshTimer)', false)
         ->assertSee('Webhosting')
-        ->assertSee('PHP')
+        ->assertSee('Dienste')
         ->assertSee('Unwichtig');
 });
 
@@ -225,11 +225,12 @@ test('user can view their own server terminal', function () {
         ->assertSuccessful()
         ->assertSee('Freies Terminal')
         ->assertSee($server->name)
-        ->assertSee(route('server.agent.execute.stream', $server), false)
-        ->assertSee('body.getReader()', false)
-        ->assertDontSee('AbortController', false)
-        ->assertSee('terminal-command', false)
-        ->assertSee('use_sudo', false);
+        ->assertSee(route('server.agent.terminal-token', $server), false)
+        ->assertSee('terminal-root', false)
+        ->assertSee('Interaktive Shell')
+        ->assertDontSee('body.getReader()', false)
+        ->assertDontSee('terminal-command', false)
+        ->assertDontSee('use_sudo', false);
 });
 
 test('user cannot view another users server terminal', function () {

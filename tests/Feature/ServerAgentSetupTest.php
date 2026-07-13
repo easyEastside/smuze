@@ -96,6 +96,45 @@ test('user can generate manual agent install command', function () {
         ->and($response->json('install_command'))->toContain('$SUDO systemctl enable --now smuze-agent');
 });
 
+test('user can create terminal websocket token for their server', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('server.agent.terminal-token', $server))
+        ->assertSuccessful()
+        ->assertJsonPath('success', true);
+
+    $url = $response->json('url');
+    $query = parse_url($url, PHP_URL_QUERY);
+    parse_str($query, $params);
+
+    [$payload, $signature] = explode('.', $params['token']);
+    $expectedSignature = rtrim(strtr(base64_encode(hash_hmac('sha256', $payload, $server->agent_token, true)), '+/', '-_'), '=');
+    $decodedPayload = json_decode(base64_decode(strtr($payload, '-_', '+/')), true);
+
+    expect($url)->toStartWith('ws://127.0.0.1:9300/terminal?token=')
+        ->and($signature)->toBe($expectedSignature)
+        ->and($decodedPayload['server_id'])->toBe($server->id)
+        ->and($decodedPayload['purpose'])->toBe('terminal')
+        ->and($decodedPayload['exp'])->toBeGreaterThan(now()->getTimestamp());
+});
+
+test('user cannot create terminal websocket token for another users server', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => User::factory(),
+    ]);
+
+    $this->actingAs($user)
+        ->getJson(route('server.agent.terminal-token', $server))
+        ->assertForbidden();
+});
+
 test('agent download endpoint serves binary', function () {
     $this->get('/agent/download')
         ->assertSuccessful()

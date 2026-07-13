@@ -57,6 +57,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/metrics", authMiddleware(s.config.Token, s.handleMetrics))
 	mux.HandleFunc("/cancel", authMiddleware(s.config.Token, s.handleCancel))
 	mux.HandleFunc("/update", authMiddleware(s.config.Token, s.handleUpdate))
+	mux.HandleFunc("/terminal", s.handleTerminal)
 
 	return mux
 }
