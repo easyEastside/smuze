@@ -32,11 +32,10 @@ test('authenticated user can view their own servers', function () {
         ->assertSee('Meine Server')
         ->assertSee('Web Server')
         ->assertSee('Bitte zuerst Server auswählen')
-        ->assertSee('Webhosting')
-        ->assertSee('Monitoring')
-        ->assertSee('Cronjobs')
-        ->assertSee('Dateien')
+        ->assertSee('System')
         ->assertSee('Dienste')
+        ->assertSee('Firewall')
+        ->assertSee('Daten')
         ->assertSee('Unwichtig')
         ->assertSee('Bank')
         ->assertSee('Inventory');
@@ -232,7 +231,6 @@ test('user can view their own server system', function () {
         ->assertSee('setInterval(fetchMetrics, metricsRefreshMs)', false)
         ->assertSee('const metricsRefreshMs = 15000', false)
         ->assertSee('clearInterval(metricsRefreshTimer)', false)
-        ->assertSee('Webhosting')
         ->assertSee('Dienste')
         ->assertSee('Unwichtig');
 });
