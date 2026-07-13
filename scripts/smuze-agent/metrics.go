@@ -74,6 +74,9 @@ func readServiceVersions() map[string]string {
 	if version := readCommandVersion("composer --version 2>/dev/null"); version != "" {
 		versions["composer_version"] = version
 	}
+	if version := readCommandVersion("python3 --version 2>&1"); version != "" {
+		versions["python_version"] = version
+	}
 
 	return versions
 }

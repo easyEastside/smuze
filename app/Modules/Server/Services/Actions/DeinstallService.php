@@ -16,6 +16,7 @@ class DeinstallService
         'nvm' => 'nvm',
         'npm' => 'npm',
         'composer' => 'Composer',
+        'python' => 'Python',
     ];
 
     public function __construct(

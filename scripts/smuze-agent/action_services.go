@@ -91,6 +91,11 @@ var serviceInstallCommands = map[string]serviceCommand{
 		Timeout: 120,
 		UseSudo: true,
 	},
+	"python": {
+		Command: "DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y python3 python3-pip python3-venv && python3 --version && pip3 --version",
+		Timeout: 300,
+		UseSudo: true,
+	},
 }
 
 var serviceDeinstallCommands = map[string]serviceCommand{
@@ -133,6 +138,11 @@ var serviceDeinstallCommands = map[string]serviceCommand{
 		Command: composerDeinstallCommand,
 		Timeout: 60,
 		UseSudo: false,
+	},
+	"python": {
+		Command: `DEBIAN_FRONTEND=noninteractive apt-get purge -y python3 python3-pip python3-venv python3-minimal 2>/dev/null || true && DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y && apt-get clean && rm -rf ~/.cache/pip`,
+		Timeout: 180,
+		UseSudo: true,
 	},
 }
 

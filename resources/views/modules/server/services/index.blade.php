@@ -38,6 +38,7 @@
         { key: 'nvm', label: 'nvm', versionField: 'nvm_version' },
         { key: 'npm', label: 'npm', versionField: 'npm_version' },
         { key: 'composer', label: 'Composer', versionField: 'composer_version' },
+        { key: 'python', label: 'Python', versionField: 'python_version' },
     ];
     const PHP_VERSIONS = @json($phpVersions);
     function loadServices() {
@@ -122,7 +123,7 @@
         const key = btn.dataset.serviceKey;
         const action = btn.dataset.serviceAction;
         const originalButtonText = btn.textContent;
-        const labels = { php: 'PHP', apache: 'Apache', nginx: 'Nginx', mysql: 'MySQL', node: 'Node.js', nvm: 'nvm', npm: 'npm', composer: 'Composer' };
+        const labels = { php: 'PHP', apache: 'Apache', nginx: 'Nginx', mysql: 'MySQL', node: 'Node.js', nvm: 'nvm', npm: 'npm', composer: 'Composer', python: 'Python' };
         const label = labels[key] || key;
         const msg = action === 'install' ? `${label} installieren? Dies kann einige Minuten dauern.` : `${label} deinstallieren?`;
         if (!confirm(msg)) return;

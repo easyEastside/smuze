@@ -18,6 +18,7 @@ class InstallService
         'nvm' => 'nvm',
         'npm' => 'npm',
         'composer' => 'Composer',
+        'python' => 'Python',
     ];
 
     public function __construct(
