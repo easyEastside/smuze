@@ -629,9 +629,20 @@ test('user can view their own server files', function () {
         ->assertSuccessful()
         ->assertSee('Server-Dateien')
         ->assertSee('path-input', false)
+        ->assertSee('data-directory-shortcut="/tmp"', false)
+        ->assertSee('files-create-directory-button', false)
+        ->assertSee('files-create-file-button', false)
+        ->assertSee('addEventListener(\'click\'', false)
+        ->assertSee('replaceChildren', false)
         ->assertSee(route('server.files.list', $server), false)
         ->assertSee(route('server.files.upload', $server), false)
-        ->assertSee(route('server.files.chmod', $server), false);
+        ->assertSee(route('server.files.chmod', $server), false)
+        ->assertDontSee('onclick="loadDirectory', false)
+        ->assertDontSee('onclick="promptCreateDirectory', false)
+        ->assertDontSee('onclick="promptCreateFile', false)
+        ->assertDontSee('onclick="downloadSelectedFile', false)
+        ->assertDontSee('onclick="saveSelectedFile', false)
+        ->assertDontSee('innerHTML', false);
 });
 
 test('user cannot view another users server files', function () {
@@ -708,6 +719,60 @@ test('server files can list read write and delete through agent', function () {
         ->assertJsonPath('data.path', '/var/www/index.php');
 });
 
+test('server files can create directories files and rename through agent', function () {
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/actions' => Http::sequence()
+            ->push([
+                'success' => true,
+                'action' => 'files.mkdir',
+                'exit_code' => 0,
+                'stdout' => json_encode(['path' => '/tmp/smuze-files']),
+                'stderr' => '',
+                'duration_ms' => 10,
+            ])
+            ->push([
+                'success' => true,
+                'action' => 'files.touch',
+                'exit_code' => 0,
+                'stdout' => json_encode(['path' => '/tmp/smuze-files/a.txt']),
+                'stderr' => '',
+                'duration_ms' => 10,
+            ])
+            ->push([
+                'success' => true,
+                'action' => 'files.rename',
+                'exit_code' => 0,
+                'stdout' => json_encode(['path' => '/tmp/smuze-files/b.txt']),
+                'stderr' => '',
+                'duration_ms' => 10,
+            ]),
+    ]);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.files.directories.store', $server), ['path' => '/tmp/smuze-files'])
+        ->assertSuccessful()
+        ->assertJsonPath('data.path', '/tmp/smuze-files');
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.files.files.store', $server), ['path' => '/tmp/smuze-files/a.txt'])
+        ->assertSuccessful()
+        ->assertJsonPath('data.path', '/tmp/smuze-files/a.txt');
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.files.rename', $server), [
+            'path' => '/tmp/smuze-files/a.txt',
+            'new_path' => '/tmp/smuze-files/b.txt',
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('data.path', '/tmp/smuze-files/b.txt');
+});
+
 test('server files can upload and download through agent', function () {
     $server = Server::factory()->withAgent()->create([
         'user_id' => $this->user->id,
@@ -748,6 +813,21 @@ test('server files can upload and download through agent', function () {
         ->assertSuccessful()
         ->assertHeader('Content-Disposition', 'attachment; filename="test.txt"')
         ->assertContent('content');
+});
+
+test('server files reject unsafe upload file names', function () {
+    $server = Server::factory()->withAgent()->create(['user_id' => $this->user->id]);
+
+    Http::fake();
+
+    $this->actingAs($this->user)
+        ->post(route('server.files.upload', $server), [
+            'directory' => '/var/www',
+            'file' => UploadedFile::fake()->createWithContent('bad..txt', 'content'),
+        ])
+        ->assertStatus(422);
+
+    Http::assertNothingSent();
 });
 
 test('server files can chmod through agent', function () {

@@ -10,9 +10,9 @@
                     </p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                    <button type="button" onclick="loadDirectory(currentPath)" class="rounded-lg bg-[#1b1b18] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">Aktualisieren</button>
-                    <button type="button" onclick="promptCreateDirectory()" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Ordner</button>
-                    <button type="button" onclick="promptCreateFile()" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Datei</button>
+                    <button type="button" id="files-refresh-button" class="rounded-lg bg-[#1b1b18] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">Aktualisieren</button>
+                    <button type="button" id="files-create-directory-button" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Ordner</button>
+                    <button type="button" id="files-create-file-button" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Datei</button>
                 </div>
             </div>
         </div>
@@ -37,12 +37,12 @@
                 </div>
 
                 <div class="mt-3 flex flex-wrap gap-2">
-                    <button type="button" onclick="loadDirectory('/')" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]">/</button>
-                    <button type="button" onclick="loadDirectory('/var/www')" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]">/var/www</button>
-                    <button type="button" onclick="loadDirectory('/home')" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]">/home</button>
-                    <button type="button" onclick="loadDirectory('/etc')" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]">/etc</button>
-                    <button type="button" onclick="loadDirectory('/tmp')" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]">/tmp</button>
-                    <button type="button" onclick="loadDirectory('/root')" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]">/root</button>
+                    <button type="button" data-directory-shortcut="/" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]">/</button>
+                    <button type="button" data-directory-shortcut="/var/www" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]">/var/www</button>
+                    <button type="button" data-directory-shortcut="/home" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]">/home</button>
+                    <button type="button" data-directory-shortcut="/etc" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]">/etc</button>
+                    <button type="button" data-directory-shortcut="/tmp" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]">/tmp</button>
+                    <button type="button" data-directory-shortcut="/root" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]">/root</button>
                 </div>
 
                 <form id="upload-form" class="mt-4 flex flex-wrap items-center gap-2">
@@ -76,8 +76,8 @@
                         <p id="editor-path" class="mt-1 break-all font-mono text-xs text-[#706f6c] dark:text-[#A1A09A]">Keine Datei ausgewählt.</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <button type="button" id="download-button" onclick="downloadSelectedFile()" class="hidden rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Download</button>
-                        <button type="button" id="save-button" onclick="saveSelectedFile()" class="hidden rounded-lg bg-[#1b1b18] px-2 py-1 text-xs font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">Speichern</button>
+                        <button type="button" id="download-button" class="hidden rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Download</button>
+                        <button type="button" id="save-button" class="hidden rounded-lg bg-[#1b1b18] px-2 py-1 text-xs font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">Speichern</button>
                     </div>
                 </div>
                 <textarea id="editor" class="mt-4 hidden h-[560px] w-full resize-y rounded-xl border border-[#19140020] bg-[#19140008] p-3 font-mono text-xs outline-none dark:border-[#3E3E3A] dark:bg-black/20" spellcheck="false"></textarea>
@@ -94,6 +94,16 @@
     let currentPath = '/var/www';
     let selectedFile = null;
 
+    document.getElementById('files-refresh-button').addEventListener('click', () => loadDirectory(currentPath));
+    document.getElementById('files-create-directory-button').addEventListener('click', promptCreateDirectory);
+    document.getElementById('files-create-file-button').addEventListener('click', promptCreateFile);
+    document.getElementById('download-button').addEventListener('click', downloadSelectedFile);
+    document.getElementById('save-button').addEventListener('click', saveSelectedFile);
+
+    document.querySelectorAll('[data-directory-shortcut]').forEach(button => {
+        button.addEventListener('click', () => loadDirectory(button.dataset.directoryShortcut));
+    });
+
     document.getElementById('path-form').addEventListener('submit', event => {
         event.preventDefault();
         const path = document.getElementById('path-input').value.trim();
@@ -105,14 +115,12 @@
         uploadFile(event.target);
     });
 
-    function escapeHtml(value) {
-        return String(value ?? '').replace(/[&<>'"]/g, char => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            "'": '&#039;',
-            '"': '&quot;',
-        }[char]));
+    function textElement(tag, className, text) {
+        const element = document.createElement(tag);
+        element.className = className;
+        element.textContent = text;
+
+        return element;
     }
 
     function showResult(success, message) {
@@ -120,7 +128,7 @@
         result.className = 'mt-6 rounded-xl p-3 text-sm ' + (success
             ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200'
             : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
-        result.innerHTML = '';
+        result.replaceChildren();
         result.appendChild(document.createTextNode(message));
         if (!success) {
             result.appendChild(window.reportError(message, 'files'));
@@ -151,10 +159,23 @@
         const breadcrumb = document.getElementById('breadcrumb');
         const parts = path.split('/').filter(Boolean);
         let built = '';
-        breadcrumb.innerHTML = `<button type="button" onclick="loadDirectory('/')" class="hover:text-[#f53003]">/</button>` + parts.map(part => {
+        breadcrumb.replaceChildren();
+
+        const rootButton = textElement('button', 'hover:text-[#f53003]', '/');
+        rootButton.type = 'button';
+        rootButton.addEventListener('click', () => loadDirectory('/'));
+        breadcrumb.appendChild(rootButton);
+
+        parts.forEach(part => {
             built += '/' + part;
-            return `<span>/</span><button type="button" onclick="loadDirectory('${escapeHtml(built)}')" class="font-mono hover:text-[#f53003]">${escapeHtml(part)}</button>`;
-        }).join('');
+
+            const separator = textElement('span', '', '/');
+            const button = textElement('button', 'font-mono hover:text-[#f53003]', part);
+            const targetPath = built;
+            button.type = 'button';
+            button.addEventListener('click', () => loadDirectory(targetPath));
+            breadcrumb.append(separator, button);
+        });
     }
 
     async function requestJson(url, options = {}) {
@@ -194,11 +215,17 @@
         }
 
         if (entries.length === 0) {
-            body.innerHTML = '<tr><td colspan="5" class="py-4 text-[#706f6c] dark:text-[#A1A09A]">Verzeichnis ist leer.</td></tr>';
+            const row = document.createElement('tr');
+            const cell = textElement('td', 'py-4 text-[#706f6c] dark:text-[#A1A09A]', 'Verzeichnis ist leer.');
+            cell.colSpan = 5;
+            row.appendChild(cell);
+            body.replaceChildren(row);
             return;
         }
 
-        body.innerHTML = entries.map(entry => {
+        body.replaceChildren();
+
+        entries.forEach(entry => {
             const isDirectory = entry.type === 'directory' || entry.type === 'parent';
             const typeLabel = entry.type === 'parent' ? 'UP' : (isDirectory ? 'ORDNER' : (entry.type === 'symlink' ? 'LINK' : 'DATEI'));
             const typeClass = entry.type === 'parent'
@@ -210,30 +237,51 @@
                         : 'border-[#19140020] bg-white text-[#706f6c] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#A1A09A]'));
             const rowClass = isDirectory ? 'bg-amber-50/35 hover:bg-amber-50 dark:bg-amber-950/10 dark:hover:bg-amber-950/25' : 'hover:bg-[#19140005] dark:hover:bg-[#fffaed08]';
             const nameClass = isDirectory ? 'font-semibold text-[#1b1b18] dark:text-[#EDEDEC]' : 'text-[#1b1b18] dark:text-[#EDEDEC]';
-            const primaryAction = isDirectory
-                ? `loadDirectory('${escapeHtml(entry.path)}')`
-                : `readFile('${escapeHtml(entry.path)}')`;
-            const actions = entry.type === 'parent' ? '' : `
-                <button type="button" onclick="promptRename('${escapeHtml(entry.path)}')" class="rounded border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]">Rename</button>
-                <button type="button" onclick="promptChmod('${escapeHtml(entry.path)}', '${escapeHtml(entry.mode || '')}')" class="rounded border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]">Chmod</button>
-                <button type="button" onclick="deletePath('${escapeHtml(entry.path)}', ${isDirectory ? 'true' : 'false'})" class="rounded border border-red-300 px-2 py-1 text-xs text-red-700 dark:border-red-900 dark:text-red-300">Delete</button>
-            `;
+            const row = document.createElement('tr');
+            row.className = rowClass;
 
-            return `
-                <tr class="${rowClass}">
-                    <td class="max-w-[360px] py-2 pr-3">
-                        <button type="button" onclick="${primaryAction}" class="flex max-w-full items-center gap-3 text-left hover:text-[#f53003]">
-                            <span class="inline-flex min-w-16 justify-center rounded-md border px-2 py-0.5 text-[10px] font-semibold tracking-wide ${typeClass}">${typeLabel}</span>
-                            <span class="truncate font-mono text-xs ${nameClass}" title="${escapeHtml(entry.path)}">${escapeHtml(entry.name)}</span>
-                        </button>
-                    </td>
-                    <td class="py-2 pr-3 text-right text-xs text-[#706f6c] dark:text-[#A1A09A]">${isDirectory ? '-' : formatBytes(entry.size)}</td>
-                    <td class="py-2 pr-3 font-mono text-xs text-[#706f6c] dark:text-[#A1A09A]">${escapeHtml(entry.mode || '')}</td>
-                    <td class="py-2 pr-3 text-xs text-[#706f6c] dark:text-[#A1A09A]">${escapeHtml(entry.modified || '')}</td>
-                    <td class="py-2 text-right"><div class="flex flex-wrap justify-end gap-1">${actions}</div></td>
-                </tr>
-            `;
-        }).join('');
+            const nameCell = document.createElement('td');
+            nameCell.className = 'max-w-[360px] py-2 pr-3';
+            const primaryButton = document.createElement('button');
+            primaryButton.type = 'button';
+            primaryButton.className = 'flex max-w-full items-center gap-3 text-left hover:text-[#f53003]';
+            primaryButton.addEventListener('click', () => isDirectory ? loadDirectory(entry.path) : readFile(entry.path));
+            primaryButton.append(
+                textElement('span', `inline-flex min-w-16 justify-center rounded-md border px-2 py-0.5 text-[10px] font-semibold tracking-wide ${typeClass}`, typeLabel),
+                textElement('span', `truncate font-mono text-xs ${nameClass}`, entry.name),
+            );
+            primaryButton.querySelector('span:last-child').title = entry.path;
+            nameCell.appendChild(primaryButton);
+
+            const actionsCell = document.createElement('td');
+            actionsCell.className = 'py-2 text-right';
+            const actions = document.createElement('div');
+            actions.className = 'flex flex-wrap justify-end gap-1';
+            if (entry.type !== 'parent') {
+                const renameButton = textElement('button', 'rounded border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]', 'Rename');
+                renameButton.type = 'button';
+                renameButton.addEventListener('click', () => promptRename(entry.path));
+
+                const chmodButton = textElement('button', 'rounded border border-[#19140035] px-2 py-1 text-xs dark:border-[#3E3E3A]', 'Chmod');
+                chmodButton.type = 'button';
+                chmodButton.addEventListener('click', () => promptChmod(entry.path, entry.mode || ''));
+
+                const deleteButton = textElement('button', 'rounded border border-red-300 px-2 py-1 text-xs text-red-700 dark:border-red-900 dark:text-red-300', 'Delete');
+                deleteButton.type = 'button';
+                deleteButton.addEventListener('click', () => deletePath(entry.path, isDirectory));
+                actions.append(renameButton, chmodButton, deleteButton);
+            }
+            actionsCell.appendChild(actions);
+
+            row.append(
+                nameCell,
+                textElement('td', 'py-2 pr-3 text-right text-xs text-[#706f6c] dark:text-[#A1A09A]', isDirectory ? '-' : formatBytes(entry.size)),
+                textElement('td', 'py-2 pr-3 font-mono text-xs text-[#706f6c] dark:text-[#A1A09A]', entry.mode || ''),
+                textElement('td', 'py-2 pr-3 text-xs text-[#706f6c] dark:text-[#A1A09A]', entry.modified || ''),
+                actionsCell,
+            );
+            body.appendChild(row);
+        });
     }
 
     async function readFile(path) {

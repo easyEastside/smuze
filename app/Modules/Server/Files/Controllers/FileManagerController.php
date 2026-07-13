@@ -129,8 +129,12 @@ class FileManagerController
         abort_unless($file !== null && $file->isValid(), 422);
         abort_if($file->getSize() > self::MAX_UPLOAD_BYTES, 422);
 
+        $filename = basename($file->getClientOriginalName());
+        abort_if($filename === '' || $filename !== $file->getClientOriginalName(), 422, 'Dateiname ist ungültig.');
+        abort_if(preg_match('/[\r\n\x00]/', $filename) === 1 || str_contains($filename, '..'), 422, 'Dateiname ist ungültig.');
+
         return $this->jsonAction($server, 'files.upload', [
-            'path' => rtrim($data['directory'], '/').'/'.$file->getClientOriginalName(),
+            'path' => rtrim($data['directory'], '/').'/'.$filename,
             'content_base64' => base64_encode($file->getContent()),
         ]);
     }
