@@ -21,7 +21,7 @@
 @if ($toasts)
     <div
         id="toasts-container"
-        class="pointer-events-none fixed inset-x-0 top-4 z-50 mx-auto flex w-full max-w-md flex-col gap-2 px-4"
+        class="pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2"
         role="status"
         aria-live="polite"
     >
@@ -71,7 +71,7 @@
                     if (toast.dataset.dismissing) return;
                     toast.dataset.dismissing = 'true';
                     toast.style.opacity = '0';
-                    toast.style.transform = 'translateY(-16px)';
+                    toast.style.transform = 'translateY(16px)';
                     setTimeout(() => toast.remove(), 300);
                 }
             })();

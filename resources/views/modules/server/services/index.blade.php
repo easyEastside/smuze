@@ -150,6 +150,7 @@
             .then(data => {
                 if (data.success) {
                     result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
+                    window.showToast(data.message, 'success');
                     setTimeout(() => window.location.reload(), 2000);
                 } else {
                     result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';

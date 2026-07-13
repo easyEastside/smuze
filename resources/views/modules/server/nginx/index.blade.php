@@ -265,7 +265,7 @@
         result.textContent = 'Nginx wird installiert. Bitte warten...';
         result.classList.remove('hidden');
         fetch('{{ route('server.nginx.install', $server) }}', { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
-            .then(r => r.json()).then(data => { result.textContent = data.message; if (data.success) setTimeout(refreshNginx, 2000); })
+            .then(r => r.json()).then(data => { result.textContent = data.message; if (data.success) { window.showToast(data.message, 'success'); setTimeout(refreshNginx, 2000); } })
             .catch(err => { result.textContent = 'Fehler: ' + err.message; })
             .finally(() => { btn.disabled = false; btn.textContent = 'Nginx installieren'; });
     }
@@ -274,7 +274,7 @@
         if (!confirm('Nginx wirklich deinstallieren?\nAlle Konfigurationen werden gelöscht.')) return;
         showResult('Deinstalliere Nginx...', true);
         fetch('{{ route('server.nginx.deinstall', $server) }}', { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
-            .then(r => r.json()).then(data => { showResult(data.message, data.success); if (data.success) setTimeout(refreshNginx, 2000); })
+            .then(r => r.json()).then(data => { showResult(data.message, data.success); if (data.success) { window.showToast(data.message, 'success'); setTimeout(refreshNginx, 2000); } })
             .catch(err => showResult('Fehler: ' + err.message, false));
     }
 

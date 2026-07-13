@@ -132,6 +132,59 @@ window.reportError = function (message, source, details = {}) {
     return box;
 };
 
+function getOrCreateToastContainer() {
+    let container = document.getElementById('dynamic-toasts-container');
+    if (container) return container;
+
+    container = document.createElement('div');
+    container.id = 'dynamic-toasts-container';
+    container.className = 'pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2';
+    container.setAttribute('role', 'status');
+    container.setAttribute('aria-live', 'polite');
+    document.body.appendChild(container);
+    return container;
+}
+
+window.showToast = function (message, type = 'success') {
+    const container = getOrCreateToastContainer();
+    const toast = document.createElement('div');
+    toast.className = 'pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg transition-all duration-300 ease-out';
+
+    const classes = {
+        success: 'border-green-200 bg-green-50 text-green-800 dark:border-green-800/30 dark:bg-green-900/20 dark:text-green-300',
+        error: 'border-red-200 bg-red-50 text-red-800 dark:border-red-800/30 dark:bg-red-900/20 dark:text-red-300',
+        info: 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800/30 dark:bg-blue-900/20 dark:text-blue-300',
+    };
+    toast.className += ' ' + (classes[type] || classes.success);
+
+    toast.innerHTML = '<span class="flex-1">' + message + '</span>'
+        + '<button type="button" class="shrink-0 rounded-lg p-0.5 opacity-60 hover:opacity-100" aria-label="Schließen">'
+        + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4">'
+        + '<path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg></button>';
+
+    toast.style.transform = 'translateY(16px)';
+    toast.style.opacity = '0';
+    requestAnimationFrame(() => {
+        toast.style.transform = 'translateY(0)';
+        toast.style.opacity = '1';
+    });
+
+    const closeBtn = toast.querySelector('button');
+    closeBtn.addEventListener('click', () => dismissToast(toast));
+
+    container.appendChild(toast);
+
+    setTimeout(() => dismissToast(toast), 5000);
+};
+
+function dismissToast(toast) {
+    if (toast.dataset.dismissing) return;
+    toast.dataset.dismissing = 'true';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(16px)';
+    setTimeout(() => toast.remove(), 300);
+}
+
 function reindexSurveyOptions(container) {
     container.querySelectorAll('[data-survey-option]').forEach((option, index) => {
         const label = option.querySelector('label');

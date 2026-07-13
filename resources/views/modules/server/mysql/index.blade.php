@@ -214,7 +214,10 @@
             .then(r => r.json())
             .then(data => {
                 showResult(data.message, data.success);
-                if (data.success) setTimeout(refreshMysql, 2000);
+                if (data.success) {
+                    window.showToast(data.message, 'success');
+                    setTimeout(refreshMysql, 2000);
+                }
             })
             .catch(err => showResult('Fehler: ' + err.message, false));
     }
@@ -457,6 +460,7 @@
                 if (data.success) {
                     result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
                     result.textContent = 'MySQL wurde installiert.';
+                    window.showToast('MySQL wurde installiert.', 'success');
                     setTimeout(refreshMysql, 2000);
                 } else {
                     result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
