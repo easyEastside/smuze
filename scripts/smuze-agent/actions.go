@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const maxActionBodyBytes = 16 * 1024
+const maxActionBodyBytes = 40 * 1024 * 1024
 
 type actionRequest struct {
 	Action  string         `json:"action"`

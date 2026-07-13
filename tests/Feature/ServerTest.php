@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\ExecutionEngine\ExecutionResult;
 use App\Services\ExecutionEngine\PushAgentEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -33,6 +34,7 @@ test('authenticated user can view their own servers', function () {
         ->assertSee('Webhosting')
         ->assertSee('Monitoring')
         ->assertSee('Cronjobs')
+        ->assertSee('Dateien')
         ->assertSee('Dienste')
         ->assertSee('Unwichtig')
         ->assertSee('Bank')
@@ -547,6 +549,184 @@ test('server cronjob run stores latest result', function () {
     expect($cronjob->refresh())
         ->last_exit_code->toBe(0)
         ->last_stdout->toBe('ok');
+});
+
+test('guest cannot view server files', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.files.index', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user can view their own server files', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.files.index', $server))
+        ->assertSuccessful()
+        ->assertSee('Server-Dateien')
+        ->assertSee('path-input', false)
+        ->assertSee(route('server.files.list', $server), false)
+        ->assertSee(route('server.files.upload', $server), false)
+        ->assertSee(route('server.files.chmod', $server), false);
+});
+
+test('user cannot view another users server files', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.files.index', $server))
+        ->assertForbidden();
+});
+
+test('server files can list read write and delete through agent', function () {
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/actions' => Http::sequence()
+            ->push([
+                'success' => true,
+                'action' => 'files.list',
+                'exit_code' => 0,
+                'stdout' => json_encode(['path' => '/var/www', 'entries' => [['name' => 'index.php', 'path' => '/var/www/index.php', 'type' => 'file']]]),
+                'stderr' => '',
+                'duration_ms' => 10,
+            ])
+            ->push([
+                'success' => true,
+                'action' => 'files.read',
+                'exit_code' => 0,
+                'stdout' => json_encode(['path' => '/var/www/index.php', 'content' => 'hello', 'size' => 5]),
+                'stderr' => '',
+                'duration_ms' => 10,
+            ])
+            ->push([
+                'success' => true,
+                'action' => 'files.write',
+                'exit_code' => 0,
+                'stdout' => json_encode(['path' => '/var/www/index.php', 'size' => 7]),
+                'stderr' => '',
+                'duration_ms' => 10,
+            ])
+            ->push([
+                'success' => true,
+                'action' => 'files.delete',
+                'exit_code' => 0,
+                'stdout' => json_encode(['path' => '/var/www/index.php']),
+                'stderr' => '',
+                'duration_ms' => 10,
+            ]),
+    ]);
+
+    $this->actingAs($this->user)
+        ->getJson(route('server.files.list', $server).'?path=/var/www')
+        ->assertSuccessful()
+        ->assertJsonPath('data.path', '/var/www')
+        ->assertJsonPath('data.entries.0.name', 'index.php');
+
+    $this->actingAs($this->user)
+        ->getJson(route('server.files.read', $server).'?path=/var/www/index.php')
+        ->assertSuccessful()
+        ->assertJsonPath('data.content', 'hello');
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.files.write', $server), ['path' => '/var/www/index.php', 'content' => 'updated'])
+        ->assertSuccessful()
+        ->assertJsonPath('data.size', 7);
+
+    $this->actingAs($this->user)
+        ->deleteJson(route('server.files.delete', $server), ['path' => '/var/www/index.php'])
+        ->assertSuccessful()
+        ->assertJsonPath('data.path', '/var/www/index.php');
+});
+
+test('server files can upload and download through agent', function () {
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/actions' => Http::sequence()
+            ->push([
+                'success' => true,
+                'action' => 'files.upload',
+                'exit_code' => 0,
+                'stdout' => json_encode(['path' => '/var/www/test.txt', 'size' => 7]),
+                'stderr' => '',
+                'duration_ms' => 10,
+            ])
+            ->push([
+                'success' => true,
+                'action' => 'files.download',
+                'exit_code' => 0,
+                'stdout' => json_encode(['path' => '/var/www/test.txt', 'content_base64' => base64_encode('content')]),
+                'stderr' => '',
+                'duration_ms' => 10,
+            ]),
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.files.upload', $server), [
+            'directory' => '/var/www',
+            'file' => UploadedFile::fake()->createWithContent('test.txt', 'content'),
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('data.size', 7);
+
+    $this->actingAs($this->user)
+        ->get(route('server.files.download', $server).'?path=/var/www/test.txt')
+        ->assertSuccessful()
+        ->assertHeader('Content-Disposition', 'attachment; filename="test.txt"')
+        ->assertContent('content');
+});
+
+test('server files can chmod through agent', function () {
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/actions' => Http::response([
+            'success' => true,
+            'action' => 'files.chmod',
+            'exit_code' => 0,
+            'stdout' => json_encode(['path' => '/var/www/index.php', 'mode' => '0o755']),
+            'stderr' => '',
+            'duration_ms' => 10,
+        ]),
+    ]);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.files.chmod', $server), [
+            'path' => '/var/www/index.php',
+            'mode' => '0755',
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('data.mode', '0o755');
+});
+
+test('server files validate unsafe paths', function () {
+    $server = Server::factory()->withAgent()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->getJson(route('server.files.read', $server).'?path=../etc/passwd')
+        ->assertInvalid(['path']);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.files.write', $server), ['path' => '/var/www/../bad', 'content' => 'x'])
+        ->assertInvalid(['path']);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.files.chmod', $server), ['path' => '/var/www/index.php', 'mode' => '999'])
+        ->assertInvalid(['mode']);
 });
 
 test('user can view server agent audit commands', function () {

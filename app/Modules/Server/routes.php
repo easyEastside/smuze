@@ -40,3 +40,4 @@ require __DIR__.'/Github/routes.php';
 require __DIR__.'/Services/routes.php';
 require __DIR__.'/Monitoring/routes.php';
 require __DIR__.'/Cronjobs/routes.php';
+require __DIR__.'/Files/routes.php';

@@ -263,6 +263,16 @@ func TestSystemActionsAreRegisteredByName(t *testing.T) {
 		"cronjobs.install",
 		"cronjobs.remove",
 		"cronjobs.run",
+		"files.list",
+		"files.read",
+		"files.write",
+		"files.mkdir",
+		"files.touch",
+		"files.rename",
+		"files.chmod",
+		"files.delete",
+		"files.upload",
+		"files.download",
 		"firewall.status",
 		"firewall.rules",
 		"firewall.install",
@@ -312,6 +322,67 @@ func TestSystemActionsAreRegisteredByName(t *testing.T) {
 		if definition.Name != actionName {
 			t.Fatalf("expected %s name, got %s", actionName, definition.Name)
 		}
+	}
+}
+
+func TestFilesListBuildsSafeCommand(t *testing.T) {
+	command, err := filesListAction().command(map[string]any{"path": "/var/www"})
+	if err != nil {
+		t.Fatalf("expected command, got error: %v", err)
+	}
+
+	if !strings.Contains(command, "SMUZE_FILE_PAYLOAD=") || !strings.Contains(command, "python3 - <<'PY'") {
+		t.Fatalf("unexpected command: %s", command)
+	}
+}
+
+func TestFilesListAllowsParentSystemDirectory(t *testing.T) {
+	_, err := filesListAction().command(map[string]any{"path": "/var"})
+	if err != nil {
+		t.Fatalf("expected /var to be allowed, got error: %v", err)
+	}
+}
+
+func TestFilesRejectUnsafePath(t *testing.T) {
+	_, err := filesReadAction().command(map[string]any{"path": "/var/www/../secret"})
+	if err == nil {
+		t.Fatal("expected unsafe path to be rejected")
+	}
+
+	_, err = filesReadAction().command(map[string]any{"path": "relative/path"})
+	if err == nil {
+		t.Fatal("expected relative path to be rejected")
+	}
+}
+
+func TestFilesDeleteRejectsProtectedPath(t *testing.T) {
+	_, err := filesDeleteAction().command(map[string]any{"path": "/var/www", "recursive": true})
+	if err == nil {
+		t.Fatal("expected protected delete path to be rejected")
+	}
+}
+
+func TestFilesRenameValidatesBothPaths(t *testing.T) {
+	_, err := filesRenameAction().command(map[string]any{"path": "/var/www/a.txt", "new_path": "/home/user/a.txt"})
+	if err != nil {
+		t.Fatalf("expected rename command, got error: %v", err)
+	}
+
+	_, err = filesRenameAction().command(map[string]any{"path": "/var/www/a.txt", "new_path": "a.txt"})
+	if err == nil {
+		t.Fatal("expected invalid new_path to be rejected")
+	}
+}
+
+func TestFilesChmodValidatesOctalMode(t *testing.T) {
+	_, err := filesChmodAction().command(map[string]any{"path": "/var/www/index.php", "mode": "0755"})
+	if err != nil {
+		t.Fatalf("expected chmod command, got error: %v", err)
+	}
+
+	_, err = filesChmodAction().command(map[string]any{"path": "/var/www/index.php", "mode": "999"})
+	if err == nil {
+		t.Fatal("expected invalid chmod mode to be rejected")
 	}
 }
 

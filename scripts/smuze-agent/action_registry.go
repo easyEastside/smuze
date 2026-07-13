@@ -4,6 +4,7 @@ var systemActions = registerActionGroups(
 	apacheActionDefinitions(),
 	aptActionDefinitions(),
 	cronjobActionDefinitions(),
+	fileActionDefinitions(),
 	firewallActionDefinitions(),
 	githubActionDefinitions(),
 	monitoringActionDefinitions(),
