@@ -269,6 +269,12 @@ func TestSystemActionsAreRegisteredByName(t *testing.T) {
 		"firewall.delete",
 		"firewall.allow_standard_ports",
 		"github.deploy",
+		"monitoring.processes",
+		"monitoring.services",
+		"monitoring.service_start",
+		"monitoring.service_stop",
+		"monitoring.service_restart",
+		"monitoring.process_kill",
 		"mysql.status",
 		"mysql.install",
 		"mysql.deinstall",
@@ -302,6 +308,54 @@ func TestSystemActionsAreRegisteredByName(t *testing.T) {
 		if definition.Name != actionName {
 			t.Fatalf("expected %s name, got %s", actionName, definition.Name)
 		}
+	}
+}
+
+func TestMonitoringServiceControlBuildsSafeCommand(t *testing.T) {
+	command, err := monitoringServiceRestartAction().command(map[string]any{"service": "nginx.service"})
+	if err != nil {
+		t.Fatalf("expected command, got error: %v", err)
+	}
+
+	if command != "systemctl restart 'nginx.service'" {
+		t.Fatalf("unexpected command: %s", command)
+	}
+}
+
+func TestMonitoringServiceControlRejectsUnsafeService(t *testing.T) {
+	_, err := monitoringServiceStopAction().command(map[string]any{"service": "nginx;reboot.service"})
+	if err == nil {
+		t.Fatal("expected unsafe service to be rejected")
+	}
+}
+
+func TestMonitoringProcessKillBuildsTermCommand(t *testing.T) {
+	command, err := monitoringProcessKillAction().command(map[string]any{"pid": float64(123)})
+	if err != nil {
+		t.Fatalf("expected command, got error: %v", err)
+	}
+
+	if command != "kill -TERM 123" {
+		t.Fatalf("unexpected command: %s", command)
+	}
+}
+
+func TestMonitoringProcessKillRejectsPidOne(t *testing.T) {
+	_, err := monitoringProcessKillAction().command(map[string]any{"pid": float64(1)})
+	if err == nil {
+		t.Fatal("expected pid 1 to be rejected")
+	}
+}
+
+func TestMonitoringActionsUseReadOnlyCommands(t *testing.T) {
+	processCommand := monitoringProcessesAction().Command
+	if !strings.Contains(processCommand, "ps -eo") || strings.Contains(processCommand, "systemctl") {
+		t.Fatalf("unexpected process command: %s", processCommand)
+	}
+
+	servicesCommand := monitoringServicesAction().Command
+	if !strings.Contains(servicesCommand, "systemctl list-units") || strings.Contains(servicesCommand, "restart") {
+		t.Fatalf("unexpected services command: %s", servicesCommand)
 	}
 }
 

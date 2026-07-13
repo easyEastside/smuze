@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\ExecutionEngine\ExecutionResult;
 use App\Services\ExecutionEngine\PushAgentEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -29,6 +30,7 @@ test('authenticated user can view their own servers', function () {
         ->assertSee('Web Server')
         ->assertSee('Bitte zuerst Server auswählen')
         ->assertSee('Webhosting')
+        ->assertSee('Monitoring')
         ->assertSee('Dienste')
         ->assertSee('Unwichtig')
         ->assertSee('Bank')
@@ -259,6 +261,136 @@ test('user cannot view another users server terminal', function () {
     $this->actingAs($this->user)
         ->get(route('server.terminal', $server))
         ->assertForbidden();
+});
+
+test('guest cannot view server monitoring', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.monitoring.index', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user can view their own server monitoring', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.monitoring.index', $server))
+        ->assertSuccessful()
+        ->assertSee('Prozesse &amp; Services', false)
+        ->assertSee(route('server.monitoring.processes', $server), false)
+        ->assertSee(route('server.monitoring.services', $server), false)
+        ->assertSee(route('server.monitoring.processes.kill', $server), false)
+        ->assertSee(route('server.monitoring.services.action', $server), false);
+});
+
+test('user cannot view another users server monitoring', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.monitoring.index', $server))
+        ->assertForbidden();
+});
+
+test('server monitoring proxies process and service data', function () {
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/actions' => Http::sequence()
+            ->push([
+                'success' => true,
+                'action' => 'monitoring.processes',
+                'exit_code' => 0,
+                'stdout' => "1 0 root Ss 0.1 0.2 systemd /sbin/init\n",
+                'stderr' => '',
+                'duration_ms' => 10,
+            ])
+            ->push([
+                'success' => true,
+                'action' => 'monitoring.services',
+                'exit_code' => 0,
+                'stdout' => "nginx.service loaded active running nginx\n",
+                'stderr' => '',
+                'duration_ms' => 10,
+            ]),
+    ]);
+
+    $this->actingAs($this->user)
+        ->getJson(route('server.monitoring.processes', $server))
+        ->assertSuccessful()
+        ->assertJsonPath('action', 'monitoring.processes')
+        ->assertJsonPath('stdout', "1 0 root Ss 0.1 0.2 systemd /sbin/init\n");
+
+    $this->actingAs($this->user)
+        ->getJson(route('server.monitoring.services', $server))
+        ->assertSuccessful()
+        ->assertJsonPath('action', 'monitoring.services')
+        ->assertJsonPath('stdout', "nginx.service loaded active running nginx\n");
+});
+
+test('server monitoring can control service and kill process', function () {
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/actions' => Http::sequence()
+            ->push([
+                'success' => true,
+                'action' => 'monitoring.service_restart',
+                'exit_code' => 0,
+                'stdout' => '',
+                'stderr' => '',
+                'duration_ms' => 10,
+            ])
+            ->push([
+                'success' => true,
+                'action' => 'monitoring.process_kill',
+                'exit_code' => 0,
+                'stdout' => '',
+                'stderr' => '',
+                'duration_ms' => 10,
+            ]),
+    ]);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.monitoring.services.action', $server), [
+            'service' => 'nginx.service',
+            'action' => 'restart',
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('action', 'monitoring.service_restart');
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.monitoring.processes.kill', $server), [
+            'pid' => 123,
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('action', 'monitoring.process_kill');
+});
+
+test('server monitoring validates mutation payloads', function () {
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $this->user->id,
+    ]);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.monitoring.services.action', $server), [
+            'service' => 'nginx;reboot.service',
+            'action' => 'restart',
+        ])
+        ->assertInvalid(['service']);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.monitoring.processes.kill', $server), [
+            'pid' => 1,
+        ])
+        ->assertInvalid(['pid']);
 });
 
 test('user can view server agent audit commands', function () {

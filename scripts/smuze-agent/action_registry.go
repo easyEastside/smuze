@@ -5,6 +5,7 @@ var systemActions = registerActionGroups(
 	aptActionDefinitions(),
 	firewallActionDefinitions(),
 	githubActionDefinitions(),
+	monitoringActionDefinitions(),
 	mysqlActionDefinitions(),
 	nginxActionDefinitions(),
 	serviceActionDefinitions(),
@@ -27,6 +28,10 @@ func firewallActionDefinitions() []actionDefinition {
 
 func githubActionDefinitions() []actionDefinition {
 	return []actionDefinition{githubDeployAction()}
+}
+
+func monitoringActionDefinitions() []actionDefinition {
+	return []actionDefinition{monitoringProcessesAction(), monitoringServicesAction(), monitoringServiceStartAction(), monitoringServiceStopAction(), monitoringServiceRestartAction(), monitoringProcessKillAction()}
 }
 
 func mysqlActionDefinitions() []actionDefinition {

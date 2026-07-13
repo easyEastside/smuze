@@ -176,6 +176,8 @@ func payloadString(payload map[string]any, key string) (string, error) {
 	switch typed := value.(type) {
 	case string:
 		return typed, nil
+	case int:
+		return strconv.Itoa(typed), nil
 	case float64:
 		if typed != float64(int(typed)) {
 			return "", fmt.Errorf("%s must be a string or integer", key)
