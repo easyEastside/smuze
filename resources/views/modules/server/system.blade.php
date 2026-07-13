@@ -413,30 +413,6 @@
             });
     }
 
-    window.reportError = function (message, source, details = {}) {
-        const btn = document.createElement('button');
-        btn.className = 'ml-2 rounded-lg border border-[#19140035] px-2 py-0.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]';
-        btn.textContent = 'Fehler melden';
-
-        btn.addEventListener('click', async () => {
-            btn.disabled = true;
-            btn.textContent = '...';
-            try {
-                const res = await fetch('{{ route('errors.report') }}', {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message, source, details }),
-                });
-                const data = await res.json();
-                btn.textContent = data.success ? '✓' : '✗';
-            } catch {
-                btn.textContent = '✗';
-            }
-        });
-
-        return btn;
-    };
-
     function showActionResult(success, message, source) {
         const result = document.getElementById('action-result');
         result.className = 'mt-3 rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');

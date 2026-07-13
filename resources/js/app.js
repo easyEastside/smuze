@@ -92,6 +92,46 @@ function closeNavbarMenus(exceptMenu = null) {
     });
 }
 
+window.reportError = function (message, source, details = {}) {
+    const box = document.createElement('span');
+    box.className = 'ml-2 inline-flex items-center gap-1';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'rounded-lg border border-[#19140035] px-2 py-0.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]';
+    copyBtn.textContent = 'Kopieren';
+    copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(message).then(() => {
+            copyBtn.textContent = '✓';
+            setTimeout(() => { copyBtn.textContent = 'Kopieren'; }, 1500);
+        });
+    });
+    box.appendChild(copyBtn);
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+
+    const reportBtn = document.createElement('button');
+    reportBtn.className = 'rounded-lg border border-[#19140035] px-2 py-0.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]';
+    reportBtn.textContent = 'Fehler melden';
+    reportBtn.addEventListener('click', async () => {
+        reportBtn.disabled = true;
+        reportBtn.textContent = '...';
+        try {
+            const res = await fetch('/errors/report', {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrfToken, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message, source, details }),
+            });
+            const data = await res.json();
+            reportBtn.textContent = data.success ? '✓' : '✗';
+        } catch {
+            reportBtn.textContent = '✗';
+        }
+    });
+    box.appendChild(reportBtn);
+
+    return box;
+};
+
 function reindexSurveyOptions(container) {
     container.querySelectorAll('[data-survey-option]').forEach((option, index) => {
         const label = option.querySelector('label');
