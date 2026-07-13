@@ -56,8 +56,19 @@
                     </div>
                     <span id="services-status" class="text-xs text-[#706f6c] dark:text-[#A1A09A]">-</span>
                 </div>
-                <div id="services-list" class="mt-4 space-y-2 text-sm">
-                    <div class="text-[#706f6c] dark:text-[#A1A09A]">Lade Services...</div>
+                <div class="mt-4 overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="border-b border-[#19140020] text-[#706f6c] dark:border-[#3E3E3A] dark:text-[#A1A09A]">
+                            <tr>
+                                <th class="py-2 pr-3 font-medium">Unit</th>
+                                <th class="py-2 pr-3 font-medium">Status</th>
+                                <th class="py-2 text-right font-medium">Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="services-body" class="divide-y divide-[#19140020] dark:divide-[#3E3E3A]">
+                            <tr><td colspan="3" class="py-4 text-[#706f6c] dark:text-[#A1A09A]">Lade Services...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -129,35 +140,42 @@
         `).join('');
     }
 
-    function serviceClass(active) {
-        if (active === 'active') return 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300';
-        if (active === 'failed') return 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300';
-        return 'bg-[#19140008] text-[#706f6c] dark:bg-[#fffaed0a] dark:text-[#A1A09A]';
+    function serviceStatus(active, sub) {
+        if (active === 'active') return { color: '#22c55e', label: active + ' / ' + sub };
+        if (active === 'failed') return { color: '#f53003', label: active + ' / ' + sub };
+        return { color: '#706f6c', label: active + ' / ' + sub };
     }
 
     function renderServices(services) {
-        const list = document.getElementById('services-list');
+        const body = document.getElementById('services-body');
         if (services.length === 0) {
-            list.innerHTML = '<div class="text-[#706f6c] dark:text-[#A1A09A]">Keine Services gefunden.</div>';
+            body.innerHTML = '<tr><td colspan="3" class="py-4 text-[#706f6c] dark:text-[#A1A09A]">Keine Services gefunden.</td></tr>';
             return;
         }
 
-        list.innerHTML = services.map(service => `
-            <div class="rounded-xl border border-[#19140020] p-3 dark:border-[#3E3E3A]">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                        <p class="font-mono text-xs font-medium">${escapeHtml(service.unit)}</p>
-                        <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">${escapeHtml(service.description)}</p>
-                    </div>
-                    <div class="flex flex-wrap items-center justify-end gap-2">
-                        <span class="rounded-md px-2 py-0.5 text-xs font-medium ${serviceClass(service.active)}">${escapeHtml(service.active)} / ${escapeHtml(service.sub)}</span>
-                        <button type="button" onclick="serviceAction('${escapeHtml(service.unit)}', 'start')" ${service.active === 'active' ? 'disabled' : ''} class="rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Start</button>
-                        <button type="button" onclick="serviceAction('${escapeHtml(service.unit)}', 'stop')" ${service.active !== 'active' ? 'disabled' : ''} class="rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Stop</button>
+        body.innerHTML = services.map(service => {
+            const st = serviceStatus(service.active, service.sub);
+            return `
+            <tr>
+                <td class="py-3 pr-3">
+                    <p class="font-mono text-xs font-medium">${escapeHtml(service.unit)}</p>
+                    <p class="mt-0.5 text-xs text-[#706f6c] dark:text-[#A1A09A]">${escapeHtml(service.description)}</p>
+                </td>
+                <td class="py-3 pr-3">
+                    <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                        <span class="size-2 rounded-full" style="background:${st.color}"></span>
+                        <span>${st.label}</span>
+                    </span>
+                </td>
+                <td class="py-3 text-right">
+                    <div class="inline-flex items-center gap-1">
+                        <button type="button" onclick="serviceAction('${escapeHtml(service.unit)}', 'start')" ${service.active === 'active' ? 'disabled' : ''} class="rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] disabled:cursor-not-allowed disabled:opacity-30 dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Start</button>
+                        <button type="button" onclick="serviceAction('${escapeHtml(service.unit)}', 'stop')" ${service.active !== 'active' ? 'disabled' : ''} class="rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] disabled:cursor-not-allowed disabled:opacity-30 dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Stop</button>
                         <button type="button" onclick="serviceAction('${escapeHtml(service.unit)}', 'restart')" class="rounded-lg bg-[#1b1b18] px-2 py-1 text-xs font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">Restart</button>
                     </div>
-                </div>
-            </div>
-        `).join('');
+                </td>
+            </tr>`;
+        }).join('');
     }
 
     function showResult(success, message) {
