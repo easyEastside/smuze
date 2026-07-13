@@ -7,11 +7,11 @@ use App\Models\Server;
 use App\Models\ServerAgentCommand;
 use App\Models\ServerMetric;
 use App\Services\ExecutionEngine\PushAgentEngine;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -165,7 +165,7 @@ class ServerAgentController
         $path = storage_path('app/agent/smuze-agent');
 
         if (! file_exists($path)) {
-            abort(404, 'Agent binary not built. Run go build in scripts/smuze-agent first.');
+            abort(404, 'Agent-Binary nicht gefunden.');
         }
 
         return response()->file($path, [
@@ -223,7 +223,13 @@ class ServerAgentController
             }
 
             return response()->json($data, $response->status());
-        } catch (ConnectionException) {
+        } catch (\Throwable $e) {
+            Log::warning('Agent health check failed', [
+                'server_id' => $server->id,
+                'host' => $server->host,
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json(['error' => 'Agent nicht erreichbar'], 503);
         }
     }
@@ -245,7 +251,13 @@ class ServerAgentController
             }
 
             return response()->json($response->json() ?: ['error' => 'invalid_response'], $response->status());
-        } catch (ConnectionException) {
+        } catch (\Throwable $e) {
+            Log::warning('Agent metrics fetch failed', [
+                'server_id' => $server->id,
+                'host' => $server->host,
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json(['error' => 'Agent nicht erreichbar'], 503);
         }
     }
@@ -363,7 +375,13 @@ class ServerAgentController
             );
 
             return response()->json(['success' => false, 'error' => 'Agent responded with '.$response->status()], $response->status());
-        } catch (ConnectionException) {
+        } catch (\Throwable $e) {
+            Log::warning('Agent execute failed', [
+                'server_id' => $server->id,
+                'host' => $server->host,
+                'error' => $e->getMessage(),
+            ]);
+
             $this->recordProxyCommand(
                 $server,
                 $request,
@@ -439,7 +457,13 @@ class ServerAgentController
                 if (trim($buffer) !== '') {
                     $this->handleExecuteStreamLine($buffer, $stdout, $stderr, $exitCode, $success);
                 }
-            } catch (ConnectionException) {
+            } catch (\Throwable $e) {
+                Log::warning('Agent execute stream failed', [
+                    'server_id' => $server->id,
+                    'host' => $server->host,
+                    'error' => $e->getMessage(),
+                ]);
+
                 $stderr = 'Agent nicht erreichbar';
                 $this->sendNdjson(['error' => $stderr, 'done' => true, 'exit_code' => -1]);
             } finally {
@@ -499,12 +523,17 @@ class ServerAgentController
 
     private function terminalTokenFor(Server $server, int $expiresAt): string
     {
-        $payload = $this->base64UrlEncode(json_encode([
+        $encoded = json_encode([
             'server_id' => $server->id,
             'exp' => $expiresAt,
             'purpose' => 'terminal',
-        ], JSON_THROW_ON_ERROR));
+        ]);
 
+        if ($encoded === false) {
+            throw new \RuntimeException('Failed to encode terminal token payload');
+        }
+
+        $payload = $this->base64UrlEncode($encoded);
         $signature = hash_hmac('sha256', $payload, $server->agent_token, true);
 
         return $payload.'.'.$this->base64UrlEncode($signature);
@@ -548,8 +577,12 @@ class ServerAgentController
             if ($response->successful()) {
                 $this->recordAgentHealth($server, $response->json() ?: []);
             }
-        } catch (ConnectionException) {
-            // The update check should still return the stored version if the agent is restarting.
+        } catch (\Throwable $e) {
+            Log::debug('Agent health refresh failed (stale version kept)', [
+                'server_id' => $server->id,
+                'host' => $server->host,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
@@ -587,13 +620,17 @@ class ServerAgentController
             $success = $exitCode === 0 && blank($chunk['error'] ?? '');
         }
 
-        $this->sendNdjson($chunk);
+        try {
+            $this->sendNdjson($chunk);
+        } catch (\JsonException $e) {
+            $this->sendNdjson(['error' => 'stream encoding failed', 'done' => true, 'exit_code' => -1]);
+        }
     }
 
     /** @param array<string, mixed> $payload */
     private function sendNdjson(array $payload): void
     {
-        echo json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)."\n";
+        echo json_encode($payload, JSON_INVALID_UTF8_SUBSTITUTE)."\n";
 
         if (ob_get_level() > 0) {
             ob_flush();

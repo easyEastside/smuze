@@ -411,9 +411,9 @@
                 }
                 list.classList.remove('hidden');
             })
-            .catch(() => {
-                loading.textContent = 'Fehler beim Laden.';
-                loading.classList.remove('hidden');
+            .catch(err => {
+                showResult('Fehler: ' + err.message, false);
+                loading.classList.add('hidden');
             });
     }
 

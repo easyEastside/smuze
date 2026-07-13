@@ -11,6 +11,7 @@ use App\Modules\Server\Requests\UpdateServerRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class ServerController
@@ -24,6 +25,14 @@ class ServerController
 
             if ($connection !== false) {
                 fclose($connection);
+            } elseif (! app()->isProduction()) {
+                Log::debug('Server unreachable', [
+                    'server_id' => $server->id,
+                    'host' => $server->host,
+                    'port' => $server->agent_port ?? config('agent.push_port', 9300),
+                    'errno' => $errno,
+                    'error' => $errstr,
+                ]);
             }
 
             return $server;

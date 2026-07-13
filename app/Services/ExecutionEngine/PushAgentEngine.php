@@ -5,7 +5,9 @@ namespace App\Services\ExecutionEngine;
 use App\Models\Server;
 use App\Models\ServerAgentCommand;
 use App\Services\ConnectionResult;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class PushAgentEngine
 {
@@ -70,9 +72,19 @@ class PushAgentEngine
 
             return $result;
         } catch (\Throwable $e) {
+            $message = $e instanceof ConnectionException
+                ? "Agent nicht erreichbar ({$server->host}:{$server->agent_port})"
+                : 'Agent action failed: '.$e->getMessage();
+
+            Log::warning('Agent action failed', [
+                'server_id' => $server->id,
+                'action' => $action,
+                'error' => $e->getMessage(),
+            ]);
+
             $result = new ExecutionResult(
                 stdout: '',
-                stderr: 'Agent action failed: '.$e->getMessage(),
+                stderr: $message,
                 exitCode: -1,
                 success: false,
             );
@@ -119,9 +131,18 @@ class PushAgentEngine
                 return $result;
             }
         } catch (\Throwable $e) {
+            $message = $e instanceof ConnectionException
+                ? "Agent nicht erreichbar ({$server->host}:{$server->agent_port})"
+                : 'Agent communication failed: '.$e->getMessage();
+
+            Log::warning('Agent execute failed', [
+                'server_id' => $server->id,
+                'error' => $e->getMessage(),
+            ]);
+
             $result = new ExecutionResult(
                 stdout: '',
-                stderr: 'Agent communication failed: '.$e->getMessage(),
+                stderr: $message,
                 exitCode: -1,
                 success: false,
             );

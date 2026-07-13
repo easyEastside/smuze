@@ -210,7 +210,7 @@
                         <button onclick="nginxDeleteSite('${site.name}', '${site.document_root}')" class="text-xs text-red-600 hover:text-red-800 dark:text-red-400">Löschen</button>
                     </td>
                 </tr>`).join('');
-        });
+        }).catch(err => showResult('Fehler: ' + err.message, false));
     }
 
     function nginxSiteAction(action, site) {

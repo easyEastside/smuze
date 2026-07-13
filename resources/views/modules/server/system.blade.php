@@ -402,7 +402,8 @@
                 btn.disabled = false;
             })
             .catch(() => {
-                btn.textContent = 'Fehler';
+                setConnectionStatus('Offline', 'font-medium text-red-500');
+                btn.textContent = 'Verbindung testen';
                 btn.disabled = false;
             });
     }
@@ -480,48 +481,56 @@
     async function rotateAgentToken() {
         if (!confirm('Agent-Token neu generieren? Der bisherige Agent muss danach neu konfiguriert werden.')) return;
 
-        const res = await fetch('{{ route('server.agent.token', $server) }}', {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept': 'application/json',
-            },
-        });
-        const data = await res.json();
+        try {
+            const res = await fetch('{{ route('server.agent.token', $server) }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                },
+            });
+            const data = await res.json();
 
-        if (!res.ok || !data.success) {
-            showActionResult(false, data.message || 'Agent-Token konnte nicht generiert werden.');
-            return;
+            if (!res.ok || !data.success) {
+                showActionResult(false, data.message || 'Agent-Token konnte nicht generiert werden.');
+                return;
+            }
+
+            document.getElementById('agent-token-output').textContent = data.install_command || [
+                'SMUZE_APP_URL=' + JSON.stringify(data.app_url),
+                'SMUZE_SERVER_ID=' + JSON.stringify(String(data.server_id)),
+                'SMUZE_AGENT_TOKEN=' + JSON.stringify(data.token),
+            ].join('\n');
+            document.getElementById('agent-token-box').classList.remove('hidden');
+            showActionResult(true, 'Agent-Token generiert. Speichere ihn jetzt in der Agent-Konfiguration.');
+        } catch (err) {
+            showActionResult(false, 'Fehler: ' + err.message);
         }
-
-        document.getElementById('agent-token-output').textContent = data.install_command || [
-            'SMUZE_APP_URL=' + JSON.stringify(data.app_url),
-            'SMUZE_SERVER_ID=' + JSON.stringify(String(data.server_id)),
-            'SMUZE_AGENT_TOKEN=' + JSON.stringify(data.token),
-        ].join('\n');
-        document.getElementById('agent-token-box').classList.remove('hidden');
-        showActionResult(true, 'Agent-Token generiert. Speichere ihn jetzt in der Agent-Konfiguration.');
     }
 
     async function disableAgent() {
         if (!confirm('Agent deaktivieren? Der aktuelle Agent-Token wird gelöscht.')) return;
 
-        const res = await fetch('{{ route('server.agent.disable', $server) }}', {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept': 'application/json',
-            },
-        });
-        const data = await res.json();
+        try {
+            const res = await fetch('{{ route('server.agent.disable', $server) }}', {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                },
+            });
+            const data = await res.json();
 
-        if (!res.ok || !data.success) {
-            showActionResult(false, data.message || 'Agent konnte nicht deaktiviert werden.');
-            return;
+            if (!res.ok || !data.success) {
+                showActionResult(false, data.message || 'Agent konnte nicht deaktiviert werden.');
+                return;
+            }
+
+            showActionResult(true, 'Agent deaktiviert. Seite wird aktualisiert...');
+            setTimeout(() => window.location.reload(), 800);
+        } catch (err) {
+            showActionResult(false, 'Fehler: ' + err.message);
         }
-
-        showActionResult(true, 'Agent deaktiviert. Seite wird aktualisiert...');
-        setTimeout(() => window.location.reload(), 800);
     }
 
     async function checkAgentUpdate() {
@@ -536,7 +545,7 @@
                 document.getElementById('agent-update-section').classList.remove('hidden');
             }
         } catch {
-            // Ignore check errors
+            console.warn('Agent update check failed');
         }
     }
 
@@ -694,7 +703,13 @@
                     },
                 });
             })
-            .catch(() => {});
+            .catch(() => {
+                const canvas = document.getElementById('metrics-chart');
+                const empty = document.getElementById('chart-empty');
+                if (canvas) canvas.classList.add('hidden');
+                if (empty) empty.classList.remove('hidden');
+                console.warn('Chart data could not be loaded');
+            });
     }
 
     document.getElementById('chart-range-buttons')?.addEventListener('click', e => {

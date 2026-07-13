@@ -139,7 +139,7 @@
                         }
                     }
                 })
-                .catch(() => {});
+                .catch(() => console.warn('Metrics fetch failed for server ' + id));
         });
     });
     </script>
