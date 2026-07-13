@@ -37,6 +37,9 @@
                             <th class="px-5 py-3 font-medium">Agent-Host</th>
                             <th class="px-5 py-3 font-medium">Agent-Port</th>
                             <th class="px-5 py-3 font-medium">Agent</th>
+                            <th class="px-5 py-3 font-medium">CPU</th>
+                            <th class="px-5 py-3 font-medium">RAM</th>
+                            <th class="px-5 py-3 font-medium">Disk</th>
                             <th class="px-5 py-3 font-medium">Notizen</th>
                             <th class="px-5 py-3 font-medium text-right">Aktionen</th>
                         </tr>
@@ -70,6 +73,9 @@
                                         </span>
                                     @endif
                                 </td>
+                                <td class="px-5 py-4 text-xs" data-server-id="{{ $server->id }}" data-metric="cpu">—</td>
+                                <td class="px-5 py-4 text-xs" data-server-id="{{ $server->id }}" data-metric="ram">—</td>
+                                <td class="px-5 py-4 text-xs" data-server-id="{{ $server->id }}" data-metric="disk">—</td>
                                 <td class="max-w-[160px] truncate px-5 py-4 text-xs text-[#706f6c] dark:text-[#A1A09A]">
                                     {{ $server->notes ?: '—' }}
                                 </td>
@@ -105,4 +111,37 @@
 
         @endif
     </section>
+
+    @push('scripts')
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const rows = document.querySelectorAll('[data-server-id]');
+        const serverIds = [...new Set([...rows].map(el => el.dataset.serverId))];
+
+        serverIds.forEach(id => {
+            const cells = {
+                cpu: document.querySelector(`[data-server-id="${id}"][data-metric="cpu"]`),
+                ram: document.querySelector(`[data-server-id="${id}"][data-metric="ram"]`),
+                disk: document.querySelector(`[data-server-id="${id}"][data-metric="disk"]`),
+            };
+
+            fetch('{{ url('/servers') }}/' + id + '/agent/metrics')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) return;
+
+                    for (const key of ['cpu', 'ram', 'disk']) {
+                        const pct = data[key + '_percent'];
+                        const cell = cells[key];
+                        if (cell && pct !== null && pct !== undefined) {
+                            const color = pct >= 90 ? '#f53003' : pct >= 70 ? '#f59e0b' : '#22c55e';
+                            cell.innerHTML = `<span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full" style="background:${color}"></span>${pct}%</span>`;
+                        }
+                    }
+                })
+                .catch(() => {});
+        });
+    });
+    </script>
+    @endpush
 </x-layouts.app>
