@@ -42,7 +42,7 @@ class MonitoringController
         Gate::authorize('update', $server);
 
         $data = $request->validate([
-            'service' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9._-]+\.service$/'],
+            'service' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9][A-Za-z0-9._-]*\.service$/'],
             'action' => ['required', Rule::in(['start', 'stop', 'restart'])],
         ]);
 

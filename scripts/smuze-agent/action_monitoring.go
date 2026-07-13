@@ -168,7 +168,7 @@ func monitoringServicePayload(payload map[string]any) (string, error) {
 	}
 
 	service = strings.TrimSpace(service)
-	if service == "" || !apacheTokenPattern.MatchString(service) || !strings.HasSuffix(service, ".service") {
+	if service == "" || strings.HasPrefix(service, ".") || !apacheTokenPattern.MatchString(service) || !strings.HasSuffix(service, ".service") {
 		return "", errors.New("service must be a valid systemd service unit")
 	}
 

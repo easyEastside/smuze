@@ -82,16 +82,18 @@
     const csrfToken = '{{ csrf_token() }}';
 
     refreshButton.addEventListener('click', () => loadMonitoring());
+    document.getElementById('processes-body').addEventListener('click', event => {
+        const button = event.target.closest('[data-pid]');
+        if (!button) return;
 
-    function escapeHtml(value) {
-        return String(value ?? '').replace(/[&<>'"]/g, char => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            "'": '&#039;',
-            '"': '&quot;',
-        }[char]));
-    }
+        killProcess(button.dataset.pid);
+    });
+    document.getElementById('services-body').addEventListener('click', event => {
+        const button = event.target.closest('[data-service][data-action]');
+        if (!button || button.disabled) return;
+
+        serviceAction(button.dataset.service, button.dataset.action);
+    });
 
     function parseProcesses(stdout) {
         try {
@@ -123,21 +125,54 @@
 
     function renderProcesses(processes) {
         const body = document.getElementById('processes-body');
+        body.replaceChildren();
+
         if (processes.length === 0) {
-            body.innerHTML = '<tr><td colspan="6" class="py-4 text-[#706f6c] dark:text-[#A1A09A]">Keine Prozesse gefunden.</td></tr>';
+            body.appendChild(emptyRow(6, 'Keine Prozesse gefunden.'));
             return;
         }
 
-        body.innerHTML = processes.map(process => `
-            <tr>
-                <td class="sticky left-0 bg-white py-2 pr-3 dark:bg-[#161615]"><button type="button" onclick="killProcess('${escapeHtml(process.pid)}')" class="rounded-lg border border-red-300 px-2 py-1 text-xs text-red-700 hover:border-red-500 dark:border-red-900 dark:text-red-300">Kill</button></td>
-                <td class="py-2 pr-3 font-mono">${escapeHtml(process.pid)}</td>
-                <td class="py-2 pr-3">${escapeHtml(process.user)}</td>
-                <td class="py-2 pr-3 text-right">${fmtPercent(process.cpu)}%</td>
-                <td class="py-2 pr-3 text-right">${fmtPercent(process.mem)}%</td>
-                <td class="max-w-[320px] truncate py-2 font-mono" title="${escapeHtml(process.command)}">${escapeHtml(process.command)}</td>
-            </tr>
-        `).join('');
+        processes.forEach(process => {
+            const row = document.createElement('tr');
+
+            const actionCell = td('sticky left-0 bg-white py-2 pr-3 dark:bg-[#161615]');
+            const killButton = document.createElement('button');
+            killButton.type = 'button';
+            killButton.dataset.pid = String(process.pid ?? '');
+            killButton.className = 'rounded-lg border border-red-300 px-2 py-1 text-xs text-red-700 hover:border-red-500 dark:border-red-900 dark:text-red-300';
+            killButton.textContent = 'Kill';
+            actionCell.appendChild(killButton);
+
+            const commandCell = td('max-w-[320px] truncate py-2 font-mono', process.command);
+            commandCell.title = String(process.command ?? '');
+
+            row.append(
+                actionCell,
+                td('py-2 pr-3 font-mono', process.pid),
+                td('py-2 pr-3', process.user),
+                td('py-2 pr-3 text-right', `${fmtPercent(process.cpu)}%`),
+                td('py-2 pr-3 text-right', `${fmtPercent(process.mem)}%`),
+                commandCell,
+            );
+            body.appendChild(row);
+        });
+    }
+
+    function td(className, text = '') {
+        const cell = document.createElement('td');
+        cell.className = className;
+        cell.textContent = String(text ?? '');
+
+        return cell;
+    }
+
+    function emptyRow(colspan, message) {
+        const row = document.createElement('tr');
+        const cell = td('py-4 text-[#706f6c] dark:text-[#A1A09A]', message);
+        cell.colSpan = colspan;
+        row.appendChild(cell);
+
+        return row;
     }
 
     function serviceStatus(active, sub) {
@@ -148,34 +183,64 @@
 
     function renderServices(services) {
         const body = document.getElementById('services-body');
+        body.replaceChildren();
+
         if (services.length === 0) {
-            body.innerHTML = '<tr><td colspan="3" class="py-4 text-[#706f6c] dark:text-[#A1A09A]">Keine Services gefunden.</td></tr>';
+            body.appendChild(emptyRow(3, 'Keine Services gefunden.'));
             return;
         }
 
-        body.innerHTML = services.map(service => {
+        services.forEach(service => {
             const st = serviceStatus(service.active, service.sub);
-            return `
-            <tr>
-                <td class="py-3 pr-3">
-                    <p class="font-mono text-xs font-medium">${escapeHtml(service.unit)}</p>
-                    <p class="mt-0.5 text-xs text-[#706f6c] dark:text-[#A1A09A]">${escapeHtml(service.description)}</p>
-                </td>
-                <td class="py-3 pr-3">
-                    <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
-                        <span class="size-2 rounded-full" style="background:${st.color}"></span>
-                        <span>${st.label}</span>
-                    </span>
-                </td>
-                <td class="py-3 text-right">
-                    <div class="inline-flex items-center gap-1">
-                        <button type="button" onclick="serviceAction('${escapeHtml(service.unit)}', 'start')" ${service.active === 'active' ? 'disabled' : ''} class="rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] disabled:cursor-not-allowed disabled:opacity-30 dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Start</button>
-                        <button type="button" onclick="serviceAction('${escapeHtml(service.unit)}', 'stop')" ${service.active !== 'active' ? 'disabled' : ''} class="rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] disabled:cursor-not-allowed disabled:opacity-30 dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Stop</button>
-                        <button type="button" onclick="serviceAction('${escapeHtml(service.unit)}', 'restart')" class="rounded-lg bg-[#1b1b18] px-2 py-1 text-xs font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">Restart</button>
-                    </div>
-                </td>
-            </tr>`;
-        }).join('');
+            const row = document.createElement('tr');
+
+            const serviceCell = td('py-3 pr-3');
+            const unit = document.createElement('p');
+            unit.className = 'font-mono text-xs font-medium';
+            unit.textContent = service.unit;
+            const description = document.createElement('p');
+            description.className = 'mt-0.5 text-xs text-[#706f6c] dark:text-[#A1A09A]';
+            description.textContent = service.description;
+            serviceCell.append(unit, description);
+
+            const statusCell = td('py-3 pr-3');
+            const badge = document.createElement('span');
+            badge.className = 'inline-flex items-center gap-1.5 whitespace-nowrap';
+            const dot = document.createElement('span');
+            dot.className = 'size-2 rounded-full';
+            dot.style.background = st.color;
+            const label = document.createElement('span');
+            label.textContent = st.label;
+            badge.append(dot, label);
+            statusCell.appendChild(badge);
+
+            const actionCell = td('py-3 text-right');
+            const actions = document.createElement('div');
+            actions.className = 'inline-flex items-center gap-1';
+            actions.append(
+                serviceButton(service.unit, 'start', 'Start', service.active === 'active'),
+                serviceButton(service.unit, 'stop', 'Stop', service.active !== 'active'),
+                serviceButton(service.unit, 'restart', 'Restart', false, 'primary'),
+            );
+            actionCell.appendChild(actions);
+
+            row.append(serviceCell, statusCell, actionCell);
+            body.appendChild(row);
+        });
+    }
+
+    function serviceButton(service, action, label, disabled, variant = 'default') {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.service = service;
+        button.dataset.action = action;
+        button.disabled = disabled;
+        button.className = variant === 'primary'
+            ? 'rounded-lg bg-[#1b1b18] px-2 py-1 text-xs font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]'
+            : 'rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] disabled:cursor-not-allowed disabled:opacity-30 dark:border-[#3E3E3A] dark:hover:border-[#62605b]';
+        button.textContent = label;
+
+        return button;
     }
 
     function showResult(success, message) {
@@ -183,7 +248,7 @@
         result.className = 'mt-6 rounded-xl p-3 text-sm ' + (success
             ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200'
             : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
-        result.innerHTML = '';
+        result.replaceChildren();
         result.appendChild(document.createTextNode(message));
         if (!success) {
             result.appendChild(window.reportError(message, 'monitoring'));

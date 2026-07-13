@@ -332,6 +332,26 @@ test('user can view their own server monitoring', function () {
         ->assertSee(route('server.monitoring.services.action', $server), false);
 });
 
+test('server monitoring page uses safe dom event handlers for every click path', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.monitoring.index', $server))
+        ->assertSuccessful()
+        ->assertSee("refreshButton.addEventListener('click'", false)
+        ->assertSee("getElementById('processes-body').addEventListener('click'", false)
+        ->assertSee("getElementById('services-body').addEventListener('click'", false)
+        ->assertSee('data-pid', false)
+        ->assertSee('data-service', false)
+        ->assertSee('data-action', false)
+        ->assertSee('replaceChildren', false)
+        ->assertSee('textContent', false)
+        ->assertDontSee('onclick="killProcess', false)
+        ->assertDontSee('onclick="serviceAction', false)
+        ->assertDontSee('body.innerHTML', false)
+        ->assertDontSee('${escapeHtml', false);
+});
+
 test('user cannot view another users server monitoring', function () {
     $otherUser = User::factory()->create();
     $server = Server::factory()->create(['user_id' => $otherUser->id]);
@@ -441,6 +461,13 @@ test('server monitoring validates mutation payloads', function () {
             'pid' => 1,
         ])
         ->assertInvalid(['pid']);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.monitoring.services.action', $server), [
+            'service' => '.service',
+            'action' => 'restart',
+        ])
+        ->assertInvalid(['service']);
 });
 
 test('guest cannot view server cronjobs', function () {

@@ -595,6 +595,13 @@ func TestMonitoringServiceControlRejectsUnsafeService(t *testing.T) {
 	}
 }
 
+func TestMonitoringServiceControlRejectsBareServiceSuffix(t *testing.T) {
+	_, err := monitoringServiceStopAction().command(map[string]any{"service": ".service"})
+	if err == nil {
+		t.Fatal("expected bare service suffix to be rejected")
+	}
+}
+
 func TestMonitoringProcessKillBuildsTermCommand(t *testing.T) {
 	command, err := monitoringProcessKillAction().command(map[string]any{"pid": float64(123)})
 	if err != nil {
