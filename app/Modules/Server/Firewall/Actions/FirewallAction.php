@@ -70,8 +70,17 @@ class FirewallAction
             }
 
             $parts = preg_split('/\s+/', $rest);
-            $action = $parts[0] ?? '';
-            $portProto = $parts[1] ?? '';
+            $portProto = $parts[0] ?? '';
+
+            if (($parts[1] ?? '') === '(v6)') {
+                $action = $parts[2] ?? '';
+                $direction = $parts[3] ?? '';
+                $source = implode(' ', array_slice($parts, 4)) ?: 'Anywhere (v6)';
+            } else {
+                $action = $parts[1] ?? '';
+                $direction = $parts[2] ?? '';
+                $source = implode(' ', array_slice($parts, 3)) ?: 'Anywhere';
+            }
 
             if (str_contains($portProto, '/')) {
                 [$port, $proto] = explode('/', $portProto, 2);
@@ -79,9 +88,6 @@ class FirewallAction
                 $port = $portProto;
                 $proto = '';
             }
-
-            $direction = $parts[2] ?? '';
-            $source = $parts[count($parts) - 1] ?? 'Anywhere';
 
             $rules[] = [
                 'number' => (int) $numStr,
@@ -153,6 +159,10 @@ class FirewallAction
 
     public function destroy(Server $server, int $ruleNumber): array
     {
+        if ($ruleNumber < 1) {
+            return ['success' => false, 'message' => 'Regelnummer muss positiv sein.'];
+        }
+
         $result = $this->engine->action($server, 'firewall.delete', [
             'rule' => $ruleNumber,
         ]);

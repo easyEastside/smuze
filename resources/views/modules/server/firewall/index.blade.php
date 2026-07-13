@@ -10,7 +10,7 @@
                     </p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button type="button" onclick="refreshFirewall()" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                    <button type="button" id="btn-refresh-firewall" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                         Aktualisieren
                     </button>
                     <a href="{{ route('server.system', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
@@ -28,7 +28,7 @@
             <div class="rounded-2xl bg-white p-12 text-center shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d]">
                 <p class="text-lg font-semibold">UFW ist nicht installiert</p>
                 <p class="mt-2 text-sm text-[#706f6c] dark:text-[#A1A09A]">Installiere UFW um die Firewall zu verwalten.</p>
-                <button type="button" id="btn-install-ufw" onclick="installUfw()" class="mt-6 rounded-lg bg-[#1b1b18] px-6 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                <button type="button" id="btn-install-ufw" class="mt-6 rounded-lg bg-[#1b1b18] px-6 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
                     UFW installieren
                 </button>
                 <div id="fw-install-result" class="mt-4 hidden rounded-xl p-3 text-sm"></div>
@@ -45,10 +45,10 @@
                                 <span id="fw-status-badge" class="rounded-full px-2.5 py-0.5 text-xs font-medium"></span>
                             </div>
                             <div class="flex items-center gap-2">
-                                <button type="button" id="btn-enable" onclick="firewallAction('{{ route('server.firewall.enable', $server) }}', 'UFW aktivieren?')" class="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">
+                                <button type="button" id="btn-enable" data-action-url="{{ route('server.firewall.enable', $server) }}" data-confirm="UFW aktivieren?" class="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">
                                     Aktivieren
                                 </button>
-                                <button type="button" id="btn-disable" onclick="firewallAction('{{ route('server.firewall.disable', $server) }}', 'UFW wirklich deaktivieren? Der Server ist dann ungeschützt.')" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                                <button type="button" id="btn-disable" data-action-url="{{ route('server.firewall.disable', $server) }}" data-confirm="UFW wirklich deaktivieren? Der Server ist dann ungeschützt." class="rounded-lg border border-[#19140035] px-3 py-1.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                                     Deaktivieren
                                 </button>
                             </div>
@@ -106,10 +106,10 @@
                         </div>
 
                         <div class="mt-4 flex gap-2">
-                            <button type="button" onclick="firewallPortAction('allow')" class="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
+                            <button type="button" data-port-action="allow" class="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
                                 Freigeben
                             </button>
-                            <button type="button" onclick="firewallPortAction('deny')" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">
+                            <button type="button" data-port-action="deny" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">
                                 Blocken
                             </button>
                         </div>
@@ -125,7 +125,7 @@
                                 ['label' => 'MySQL (3306)', 'port' => '3306'],
                                 ['label' => 'PostgreSQL (5432)', 'port' => '5432'],
                             ] as $preset)
-                                <button type="button" onclick="presetAllow('{{ $preset['port'] }}')" class="rounded-lg border border-[#19140035] px-3 py-2 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                                <button type="button" data-preset-port="{{ $preset['port'] }}" class="rounded-lg border border-[#19140035] px-3 py-2 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                                     {{ $preset['label'] }}
                                 </button>
                             @endforeach
@@ -134,7 +134,7 @@
                     </div>
 
                     <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
-                        <button type="button" onclick="allowAllPorts()" class="w-full rounded-lg bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                        <button type="button" id="btn-allow-standard-ports" class="w-full rounded-lg bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
                             Alle Standard-Ports freigeben
                         </button>
                         <p class="mt-2 text-xs text-[#706f6c] dark:text-[#A1A09A]">
@@ -151,6 +151,36 @@
     @push('scripts')
     <script>
     let firewallIsActive = false;
+    const csrfToken = '{{ csrf_token() }}';
+    const firewallRoutes = {
+        status: '{{ route('server.firewall.status', $server) }}',
+        rules: '{{ route('server.firewall.rules', $server) }}',
+        allow: '{{ route('server.firewall.allow', $server) }}',
+        deny: '{{ route('server.firewall.deny', $server) }}',
+        allowStandardPorts: '{{ route('server.firewall.allow-standard-ports', $server) }}',
+        install: '{{ route('server.firewall.install', $server) }}',
+        destroy: '{{ route('server.firewall.destroy', ['server' => $server, 'rule' => '__RULE__']) }}',
+    };
+
+    document.getElementById('btn-refresh-firewall').addEventListener('click', refreshFirewall);
+    document.getElementById('btn-install-ufw').addEventListener('click', installUfw);
+    document.getElementById('btn-enable').addEventListener('click', event => firewallAction(event.currentTarget.dataset.actionUrl, event.currentTarget.dataset.confirm));
+    document.getElementById('btn-disable').addEventListener('click', event => firewallAction(event.currentTarget.dataset.actionUrl, event.currentTarget.dataset.confirm));
+    document.querySelectorAll('[data-port-action]').forEach(button => {
+        button.addEventListener('click', () => firewallPortAction(button.dataset.portAction));
+    });
+    document.querySelectorAll('[data-preset-port]').forEach(button => {
+        button.addEventListener('click', () => presetAllow(button.dataset.presetPort));
+    });
+    document.getElementById('btn-allow-standard-ports').addEventListener('click', allowAllPorts);
+
+    function textElement(tag, className, text) {
+        const element = document.createElement(tag);
+        element.className = className;
+        element.textContent = text;
+
+        return element;
+    }
 
     function getProto() {
         const el = document.querySelector('input[name="fw-proto"]:checked');
@@ -160,7 +190,7 @@
     function showResult(msg, success) {
         const el = document.getElementById('fw-result');
         el.className = 'rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
-        el.innerHTML = '';
+        el.replaceChildren();
         el.appendChild(document.createTextNode(msg));
         if (!success) {
             el.appendChild(window.reportError(msg, 'firewall'));
@@ -171,7 +201,7 @@
     function showActionResult(msg, success) {
         const el = document.getElementById('fw-action-result');
         el.className = 'mt-4 rounded-xl p-3 text-sm ' + (success ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200');
-        el.innerHTML = '';
+        el.replaceChildren();
         el.appendChild(document.createTextNode(msg));
         if (!success) {
             el.appendChild(window.reportError(msg, 'firewall'));
@@ -197,7 +227,7 @@
         content.classList.add('hidden');
         installOverlay.classList.add('hidden');
 
-        fetch('{{ route('server.firewall.status', $server) }}')
+        fetch(firewallRoutes.status)
             .then(r => r.json())
             .then(data => {
                 loading.classList.add('hidden');
@@ -244,7 +274,7 @@
     }
 
     function loadRules() {
-        fetch('{{ route('server.firewall.rules', $server) }}').then(r => r.json())
+        fetch(firewallRoutes.rules).then(r => r.json())
             .then(data => {
                 const empty = document.getElementById('fw-rules-empty');
                 const table = document.getElementById('fw-rules-table');
@@ -260,22 +290,30 @@
                 }
 
                 empty.classList.add('hidden');
-                tbody.innerHTML = '';
+                tbody.replaceChildren();
                 for (const rule of data.rules) {
                     const tr = document.createElement('tr');
                     tr.className = 'border-b border-[#19140020] dark:border-[#3E3E3A]';
-                    tr.innerHTML = `
-                        <td class="px-3 py-2">${rule.number}</td>
-                        <td class="px-3 py-2">
-                            <span class="rounded px-2 py-0.5 text-xs font-medium ${rule.action === 'ALLOW' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}">${rule.action}</span>
-                        </td>
-                        <td class="px-3 py-2">${rule.port}</td>
-                        <td class="px-3 py-2">${rule.protocol || '-'}</td>
-                        <td class="px-3 py-2">${rule.source}</td>
-                        <td class="px-3 py-2">
-                            <button onclick="deleteRule(${rule.number}, '${rule.port}')" class="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200">Löschen</button>
-                        </td>
-                    `;
+
+                    const actionCell = document.createElement('td');
+                    actionCell.className = 'px-3 py-2';
+                    actionCell.appendChild(textElement('span', rule.action === 'ALLOW' ? 'rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900 dark:text-green-200' : 'rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 dark:bg-red-900 dark:text-red-200', rule.action || ''));
+
+                    const deleteCell = document.createElement('td');
+                    deleteCell.className = 'px-3 py-2';
+                    const deleteButton = textElement('button', 'text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200', 'Löschen');
+                    deleteButton.type = 'button';
+                    deleteButton.addEventListener('click', () => deleteRule(rule.number, rule.port || ''));
+                    deleteCell.appendChild(deleteButton);
+
+                    tr.append(
+                        textElement('td', 'px-3 py-2', rule.number),
+                        actionCell,
+                        textElement('td', 'px-3 py-2', rule.port || ''),
+                        textElement('td', 'px-3 py-2', rule.protocol || '-'),
+                        textElement('td', 'px-3 py-2', rule.source || ''),
+                        deleteCell,
+                    );
                     tbody.appendChild(tr);
                 }
                 table.classList.remove('hidden');
@@ -290,7 +328,7 @@
         setButtonsLoading(true);
         showActionResult('Führe Befehl aus...', true);
 
-        fetch(url, { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+        fetch(url, { method: 'POST', headers: { 'X-CSRF-TOKEN': csrfToken } })
             .then(r => r.json())
             .then(data => {
                 setButtonsLoading(false);
@@ -319,12 +357,12 @@
         showResult('Führe Befehl aus...', true);
 
         const url = action === 'allow'
-            ? '{{ route('server.firewall.allow', $server) }}'
-            : '{{ route('server.firewall.deny', $server) }}';
+            ? firewallRoutes.allow
+            : firewallRoutes.deny;
 
         fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
             body: JSON.stringify({ port: port, protocol: proto }),
         })
             .then(r => r.json())
@@ -342,9 +380,9 @@
         if (!confirm('Regel ' + number + ' (Port ' + port + ') wirklich löschen?')) return;
         showActionResult('Lösche Regel...', true);
 
-        fetch('{{ route('server.firewall.destroy', ['server' => $server, 'rule' => '__RULE__']) }}'.replace('__RULE__', number), {
+        fetch(firewallRoutes.destroy.replace('__RULE__', encodeURIComponent(number)), {
             method: 'DELETE',
-            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            headers: { 'X-CSRF-TOKEN': csrfToken },
         })
             .then(r => r.json())
             .then(data => {
@@ -362,9 +400,9 @@
         el.textContent = 'Öffne Port ' + port + '...';
         el.classList.remove('hidden');
 
-        fetch('{{ route('server.firewall.allow', $server) }}', {
+        fetch(firewallRoutes.allow, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
             body: JSON.stringify({ port: port, protocol: 'tcp' }),
         })
             .then(r => r.json())
@@ -383,9 +421,9 @@
         if (!confirm('Folgende Ports werden freigegeben:\n22 (SSH), 80 (HTTP), 443 (HTTPS), 3306 (MySQL),\n5432 (PostgreSQL), 8080, 3000, 5000\n\nFortfahren?')) return;
         showResult('Öffne Standard-Ports...', true);
 
-        fetch('{{ route('server.firewall.allow-standard-ports', $server) }}', {
+        fetch(firewallRoutes.allowStandardPorts, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
         })
             .then(r => r.json())
             .then(data => {
@@ -406,9 +444,9 @@
         result.textContent = 'UFW wird installiert. Bitte warten...';
         result.classList.remove('hidden');
 
-        fetch('{{ route('server.firewall.install', $server) }}', {
+        fetch(firewallRoutes.install, {
             method: 'POST',
-            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            headers: { 'X-CSRF-TOKEN': csrfToken },
         })
             .then(r => r.json())
             .then(data => {

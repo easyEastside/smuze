@@ -67,6 +67,8 @@ class FirewallController
     {
         Gate::authorize('update', $server);
 
+        abort_unless($rule >= 1, 404);
+
         return response()->json($action->destroy($server, $rule));
     }
 

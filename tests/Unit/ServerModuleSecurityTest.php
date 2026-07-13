@@ -441,6 +441,52 @@ test('firewall allow rejects unsafe protocols', function () {
         ]);
 });
 
+test('firewall destroy rejects invalid rule number before agent action', function () {
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')->never();
+
+    $result = (new FirewallAction($engine))->destroy(new Server, 0);
+
+    expect($result)
+        ->toMatchArray([
+            'success' => false,
+            'message' => 'Regelnummer muss positiv sein.',
+        ]);
+});
+
+test('firewall rules parse ufw numbered output including ipv6', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->with($server, 'firewall.rules', [])
+        ->andReturn(new ExecutionResult(
+            stdout: "Status: active\n\n[ 1] 45678/tcp                  ALLOW IN    Anywhere\n[ 2] 45681/tcp (v6)             DENY IN     Anywhere (v6)\n",
+            stderr: '',
+            exitCode: 0,
+            success: true,
+        ));
+
+    $result = (new FirewallAction($engine))->rules($server);
+
+    expect($result['rules'][0])
+        ->number->toBe(1)
+        ->action->toBe('ALLOW')
+        ->port->toBe('45678')
+        ->protocol->toBe('TCP')
+        ->direction->toBe('IN')
+        ->source->toBe('Anywhere');
+
+    expect($result['rules'][1])
+        ->number->toBe(2)
+        ->action->toBe('DENY')
+        ->port->toBe('45681')
+        ->protocol->toBe('TCP')
+        ->direction->toBe('IN')
+        ->source->toBe('Anywhere (v6)');
+});
+
 test('firewall allow all delegates to agent action', function () {
     $server = new Server;
 

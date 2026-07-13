@@ -605,6 +605,22 @@ func TestFirewallAllowBuildsValidatedCommand(t *testing.T) {
 	}
 }
 
+func TestFirewallInstallUpdatesPackageIndexBeforeInstall(t *testing.T) {
+	command := firewallInstallAction().Command
+
+	if !strings.Contains(command, "apt update") || !strings.Contains(command, "apt install ufw") {
+		t.Fatalf("expected install command to update package index and install ufw, got: %s", command)
+	}
+}
+
+func TestFirewallEnableAllowsSshBeforeEnabling(t *testing.T) {
+	command := firewallEnableAction().Command
+
+	if !strings.Contains(command, "ufw allow 22/tcp") || !strings.Contains(command, "ufw allow 9300/tcp") || !strings.Contains(command, "ufw --force enable") {
+		t.Fatalf("expected enable command to allow ssh and agent access before enabling, got: %s", command)
+	}
+}
+
 func TestFirewallAllowRejectsUnsafeProtocol(t *testing.T) {
 	_, err := firewallAllowAction().command(map[string]any{
 		"port":     "443",

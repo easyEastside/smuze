@@ -1161,7 +1161,19 @@ test('user can view their own firewall page', function () {
         ->get(route('server.firewall.index', $server))
         ->assertSuccessful()
         ->assertSee('UFW-Firewall-Verwaltung')
-        ->assertSee($server->name);
+        ->assertSee($server->name)
+        ->assertSee('data-action-url', false)
+        ->assertSee('data-port-action="allow"', false)
+        ->assertSee('data-port-action="deny"', false)
+        ->assertSee('data-preset-port="22"', false)
+        ->assertSee('addEventListener(\'click\'', false)
+        ->assertSee('replaceChildren', false)
+        ->assertDontSee('onclick="refreshFirewall', false)
+        ->assertDontSee('onclick="firewallAction', false)
+        ->assertDontSee('onclick="firewallPortAction', false)
+        ->assertDontSee('onclick="presetAllow', false)
+        ->assertDontSee('onclick="allowAllPorts', false)
+        ->assertDontSee('innerHTML', false);
 });
 
 test('user cannot view another users firewall page', function () {
@@ -1233,6 +1245,20 @@ test('firewall allow rejects overflow port', function () {
             'protocol' => 'tcp',
         ])
         ->assertInvalid(['port']);
+});
+
+test('firewall allow rejects invalid protocol', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.firewall.allow', $server), [
+            'port' => 80,
+            'protocol' => 'icmp',
+        ])
+        ->assertInvalid(['protocol']);
 });
 
 test('firewall allow returns json with success field', function () {

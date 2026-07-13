@@ -28,7 +28,7 @@ func firewallRulesAction() actionDefinition {
 func firewallInstallAction() actionDefinition {
 	return actionDefinition{
 		Name:    "firewall.install",
-		Command: "DEBIAN_FRONTEND=noninteractive apt install ufw -y",
+		Command: "DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt install ufw -y",
 		Timeout: 120,
 		UseSudo: true,
 	}
@@ -37,7 +37,7 @@ func firewallInstallAction() actionDefinition {
 func firewallEnableAction() actionDefinition {
 	return actionDefinition{
 		Name:    "firewall.enable",
-		Command: "ufw --force enable",
+		Command: "ufw allow 22/tcp && ufw allow 9300/tcp && ufw --force enable",
 		Timeout: 30,
 		UseSudo: true,
 	}
