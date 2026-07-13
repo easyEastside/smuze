@@ -215,17 +215,14 @@ test('github deploy delegates to validated agent action', function () {
             expect($action)->toBe('github.deploy')
                 ->and($payload)->toBe([
                     'repo_url' => 'https://github.com/owner/repo.git',
-                    'host' => 'example.com',
                     'target_name' => 'repo',
-                    'use_ssl' => false,
-                    'email' => '',
                 ]);
 
             return true;
         })
         ->andReturn(new ExecutionResult(stdout: 'Projekt geklont', stderr: '', exitCode: 0, success: true));
 
-    $result = (new GithubAction($engine))->deploy($server, 'https://github.com/owner/repo.git', 'example.com', 'repo');
+    $result = (new GithubAction($engine))->deploy($server, 'https://github.com/owner/repo.git', 'repo');
 
     expect($result['success'])->toBeTrue();
 });
@@ -234,7 +231,7 @@ test('github deploy rejects unsafe repo before agent action', function () {
     $engine = Mockery::mock(PushAgentEngine::class);
     $engine->shouldReceive('action')->never();
 
-    $result = (new GithubAction($engine))->deploy(new Server, 'git@github.com:owner/repo.git', 'example.com', 'repo');
+    $result = (new GithubAction($engine))->deploy(new Server, 'git@github.com:owner/repo.git', 'repo');
 
     expect($result['success'])->toBeFalse();
 });

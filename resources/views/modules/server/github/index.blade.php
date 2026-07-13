@@ -15,22 +15,11 @@
             </div>
         </div>
 
-        <div id="gh-apache-overlay" class="mt-6 hidden">
-            <div class="rounded-2xl bg-white p-12 text-center shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d]">
-                <p class="text-lg font-semibold">Apache ist nicht installiert</p>
-                <p class="mt-2 text-sm text-[#706f6c] dark:text-[#A1A09A]">Installiere Apache, bevor GitHub-Projekte bereitgestellt werden können.</p>
-                <button type="button" id="btn-install-apache-gh" onclick="installApacheGh()" class="mt-6 rounded-lg bg-[#1b1b18] px-6 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
-                    Apache installieren
-                </button>
-                <div id="gh-install-result" class="mt-4 hidden rounded-xl p-3 text-sm"></div>
-            </div>
-        </div>
-
-        <div id="gh-content" class="mt-6 hidden">
+        <div id="gh-content" class="mt-6">
             <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                 <p class="text-sm text-[#f53003] dark:text-[#FF4433]">GitHub-Projekt bereitstellen</p>
                 <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">
-                    Klone ein öffentliches GitHub-Repository und richte automatisch einen Apache-VHost ein.
+                    Klone ein öffentliches GitHub-Repository nach /var/www. Die Webserver-Konfiguration erfolgt anschließend separat über Apache oder Nginx.
                 </p>
 
                 <div class="mt-6 space-y-4">
@@ -38,12 +27,6 @@
                         <label class="text-xs font-medium text-[#706f6c] dark:text-[#A1A09A]">Git-URL</label>
                         <input type="url" id="gh-url" onkeyup="syncTargetName()" placeholder="https://github.com/owner/projekt.git" class="mt-1 block w-full rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
                         <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">Hier die öffentliche GitHub-URL eintragen.</p>
-                    </div>
-
-                    <div>
-                        <label class="text-xs font-medium text-[#706f6c] dark:text-[#A1A09A]">Domain / Host</label>
-                        <input type="text" id="gh-host" onkeyup="updatePreview()" placeholder="example.com" class="mt-1 block w-full rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
-                        <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">Domain, über die das Projekt erreichbar sein soll. DNS muss bereits auf diesen Server zeigen.</p>
                     </div>
 
                     <div>
@@ -59,26 +42,9 @@
                         Vorschau wird automatisch generiert...
                     </div>
 
-                    <hr class="border-[#19140020] dark:border-[#3E3E3A]">
-
-                    <div class="flex items-center gap-2">
-                        <input type="checkbox" id="gh-ssl" onchange="toggleSsl()" class="text-[#f53003]">
-                        <label for="gh-ssl" class="text-sm">SSL mit Let's Encrypt einrichten</label>
-                    </div>
-
-                    <div id="gh-email-group" class="hidden space-y-4">
-                        <div>
-                            <label class="text-xs font-medium text-[#706f6c] dark:text-[#A1A09A]">E-Mail für Let's Encrypt</label>
-                            <input type="email" id="gh-email" placeholder="admin@example.com" class="mt-1 block w-full rounded-lg border border-[#19140035] px-3 py-2 text-sm focus:border-[#f53003] focus:outline-none dark:border-[#3E3E3A] dark:bg-[#161615]">
-                        </div>
-                        <div class="rounded-xl bg-yellow-50 p-3 text-xs text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200">
-                            Für Let's Encrypt muss die Domain bereits auf diesen Server zeigen und Port 80 (HTTP) von außen erreichbar sein. Der DNS-Eintrag muss also bereits gesetzt sein.
-                        </div>
-                    </div>
-
                     <div class="flex items-center gap-2">
                         <button type="button" onclick="deployProject()" id="gh-deploy-btn" class="rounded-lg bg-[#1b1b18] px-6 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
-                            Clonen und Apache einrichten
+                            Projekt klonen
                         </button>
                     </div>
 
@@ -113,20 +79,9 @@
     function updatePreview() {
         const el = document.getElementById('gh-preview');
         const target = document.getElementById('gh-target').value.trim() || '&lt;zielordner&gt;';
-        const host = document.getElementById('gh-host').value.trim() || '&lt;domain&gt;';
-        const ssl = document.getElementById('gh-ssl').checked;
         let html = '<strong>Vor dem Start wird eingerichtet:</strong><br>';
-        html += 'Projekt wird geklont nach: <code>/var/www/' + target + '</code><br>';
-        html += 'Apache Host wird erstellt für: <code>' + host + '</code><br>';
-        html += 'Wenn <code>/var/www/' + target + '/public</code> existiert, wird das der DocumentRoot.<br>';
-        if (ssl) html += 'SSL wird mit Let\'s Encrypt eingerichtet (HTTP → HTTPS Weiterleitung).';
+        html += 'Projekt wird geklont nach: <code>/var/www/' + target + '</code>.';
         el.innerHTML = html;
-    }
-
-    function toggleSsl() {
-        const show = document.getElementById('gh-ssl').checked;
-        document.getElementById('gh-email-group').classList.toggle('hidden', !show);
-        updatePreview();
     }
 
     function showResult(msg, success) {
@@ -143,95 +98,39 @@
         textEl.textContent = text;
     }
 
-    function loadGithub() {
-        const overlay = document.getElementById('gh-apache-overlay');
-        const content = document.getElementById('gh-content');
-        overlay.classList.add('hidden');
-        content.classList.add('hidden');
-
-        fetch('{{ route('server.apache.status', $server) }}')
-            .then(r => r.json())
-            .then(data => {
-                if (!data.success || !data.installed) {
-                    overlay.classList.remove('hidden');
-                    return;
-                }
-                content.classList.remove('hidden');
-            })
-            .catch(() => {
-                overlay.classList.remove('hidden');
-            });
-    }
-
     function deployProject() {
         const url = document.getElementById('gh-url').value.trim();
-        const host = document.getElementById('gh-host').value.trim();
         const target = document.getElementById('gh-target').value.trim();
-        const useSsl = document.getElementById('gh-ssl').checked;
-        const email = document.getElementById('gh-email').value.trim();
 
         if (!url) { showResult('Bitte eine Git-URL eingeben.', false); return; }
-        if (!host) { showResult('Bitte eine Domain eingeben.', false); return; }
         if (!target) { showResult('Bitte einen Zielordner eingeben.', false); return; }
-        if (useSsl && !email) { showResult('Bitte eine E-Mail-Adresse für Let\'s Encrypt angeben.', false); return; }
 
         const btn = document.getElementById('gh-deploy-btn');
         btn.disabled = true;
-        btn.textContent = 'Einrichtung läuft...';
+        btn.textContent = 'Klonen läuft...';
         showResult('Starte Deployment...', true);
-        setOutput('GitHub URL: ' + url + '\nDomain: ' + host + '\nZiel: /var/www/' + target + '\n\nBitte warten...');
+        setOutput('GitHub URL: ' + url + '\nZiel: /var/www/' + target + '\n\nBitte warten...');
 
         fetch('{{ route('server.github.deploy', $server) }}', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-            body: JSON.stringify({ repo_url: url, host, target_name: target, use_ssl: useSsl, email }),
+            body: JSON.stringify({ repo_url: url, target_name: target }),
         })
             .then(r => r.json())
             .then(data => {
                 btn.disabled = false;
-                btn.textContent = 'Clonen und Apache einrichten';
+                btn.textContent = 'Projekt klonen';
                 setOutput(data.message || '');
                 showResult(data.message || 'Deployment abgeschlossen.', data.success);
             })
             .catch(err => {
                 btn.disabled = false;
-                btn.textContent = 'Clonen und Apache einrichten';
+                btn.textContent = 'Projekt klonen';
                 showResult('Fehler: ' + err.message, false);
             });
     }
 
-    function installApacheGh() {
-        const btn = document.getElementById('btn-install-apache-gh');
-        const result = document.getElementById('gh-install-result');
-        btn.disabled = true;
-        btn.textContent = 'Installiere...';
-        result.className = 'mt-4 rounded-xl bg-[#19140008] p-3 text-sm dark:bg-[#fffaed08]';
-        result.textContent = 'Apache wird installiert...';
-        result.classList.remove('hidden');
-
-        fetch('{{ route('server.apache.install', $server) }}', { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
-                    result.textContent = 'Apache wurde installiert.';
-                    setTimeout(loadGithub, 2000);
-                } else {
-                    result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
-                    result.textContent = data.message;
-                    btn.disabled = false;
-                    btn.textContent = 'Apache installieren';
-                }
-            })
-            .catch(err => {
-                result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
-                result.textContent = 'Fehler: ' + err.message;
-                btn.disabled = false;
-                btn.textContent = 'Apache installieren';
-            });
-    }
-
-    loadGithub();
+    updatePreview();
     </script>
     @endpush
 </x-layouts.app>

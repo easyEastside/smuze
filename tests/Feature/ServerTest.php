@@ -1414,7 +1414,10 @@ test('user can view their own github page', function () {
         ->get(route('server.github.index', $server))
         ->assertSuccessful()
         ->assertSee('GitHub-Deployment')
-        ->assertSee($server->name);
+        ->assertSee($server->name)
+        ->assertSee('Apache oder Nginx')
+        ->assertDontSee('Apache installieren')
+        ->assertDontSee('SSL mit Let');
 });
 
 test('user cannot view another users github page', function () {
@@ -1435,13 +1438,12 @@ test('github deploy validates repo_url', function () {
     $this->actingAs($this->user)
         ->post(route('server.github.deploy', $server), [
             'repo_url' => '',
-            'host' => 'example.com',
             'target_name' => 'myproject',
         ])
         ->assertInvalid(['repo_url']);
 });
 
-test('github deploy validates host', function () {
+test('github deploy does not require host', function () {
     $server = Server::factory()->create([
         'user_id' => $this->user->id,
         'host' => '127.0.0.1',
@@ -1450,10 +1452,9 @@ test('github deploy validates host', function () {
     $this->actingAs($this->user)
         ->post(route('server.github.deploy', $server), [
             'repo_url' => 'https://github.com/owner/repo.git',
-            'host' => '',
             'target_name' => 'myproject',
         ])
-        ->assertInvalid(['host']);
+        ->assertJsonStructure(['success']);
 });
 
 test('github deploy validates target_name', function () {
@@ -1465,7 +1466,6 @@ test('github deploy validates target_name', function () {
     $this->actingAs($this->user)
         ->post(route('server.github.deploy', $server), [
             'repo_url' => 'https://github.com/owner/repo.git',
-            'host' => 'example.com',
             'target_name' => '',
         ])
         ->assertInvalid(['target_name']);
@@ -1480,7 +1480,6 @@ test('github deploy returns json with success field', function () {
     $this->actingAs($this->user)
         ->post(route('server.github.deploy', $server), [
             'repo_url' => 'https://github.com/owner/repo.git',
-            'host' => 'example.com',
             'target_name' => 'myproject',
         ])
         ->assertJsonStructure(['success']);
@@ -1495,7 +1494,6 @@ test('github deploy rejects non-https url', function () {
     $this->actingAs($this->user)
         ->post(route('server.github.deploy', $server), [
             'repo_url' => 'git@github.com:owner/repo.git',
-            'host' => 'example.com',
             'target_name' => 'myproject',
         ])
         ->assertJsonStructure(['success']);
@@ -1508,7 +1506,6 @@ test('user cannot deploy on another users server', function () {
     $this->actingAs($this->user)
         ->post(route('server.github.deploy', $server), [
             'repo_url' => 'https://github.com/owner/repo.git',
-            'host' => 'example.com',
             'target_name' => 'myproject',
         ])
         ->assertForbidden();

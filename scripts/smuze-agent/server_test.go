@@ -447,7 +447,6 @@ func TestApacheCreateVhostRejectsUnsafeDocumentRoot(t *testing.T) {
 func TestGithubDeployBuildsValidatedCommand(t *testing.T) {
 	command, err := githubDeployAction().command(map[string]any{
 		"repo_url":    "https://github.com/owner/repo.git",
-		"host":        "example.com",
 		"target_name": "repo",
 	})
 	if err != nil {
@@ -457,12 +456,16 @@ func TestGithubDeployBuildsValidatedCommand(t *testing.T) {
 	if !strings.Contains(command, "git clone") || !strings.Contains(command, "https://github.com/owner/repo.git") || !strings.Contains(command, "/var/www/repo") {
 		t.Fatalf("unexpected command: %s", command)
 	}
+	for _, forbidden := range []string{"apache2", "a2ensite", "certbot", "/etc/apache2", "VirtualHost"} {
+		if strings.Contains(command, forbidden) {
+			t.Fatalf("expected github deploy to avoid webserver config %q, got %s", forbidden, command)
+		}
+	}
 }
 
 func TestGithubDeployRejectsNonGithubURL(t *testing.T) {
 	_, err := githubDeployAction().command(map[string]any{
 		"repo_url":    "https://example.com/owner/repo.git",
-		"host":        "example.com",
 		"target_name": "repo",
 	})
 	if err == nil {
@@ -473,7 +476,6 @@ func TestGithubDeployRejectsNonGithubURL(t *testing.T) {
 func TestGithubDeployRejectsUnsafeTargetName(t *testing.T) {
 	_, err := githubDeployAction().command(map[string]any{
 		"repo_url":    "https://github.com/owner/repo.git",
-		"host":        "example.com",
 		"target_name": "../repo",
 	})
 	if err == nil {

@@ -7,8 +7,6 @@ use App\Services\ExecutionEngine\PushAgentEngine;
 
 class GithubAction
 {
-    private const HOST_REGEX = '/^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?)*$/';
-
     private const SAFE_NAME_REGEX = '/^[A-Za-z0-9._-]+$/';
 
     public function __construct(
@@ -64,22 +62,6 @@ class GithubAction
     }
 
     /** @return array{valid: bool, error: string} */
-    public function validateHost(string $host): array
-    {
-        $host = trim($host);
-
-        if ($host === '') {
-            return ['valid' => false, 'error' => 'Domain / Hostname ist erforderlich.'];
-        }
-
-        if (! preg_match(self::HOST_REGEX, $host)) {
-            return ['valid' => false, 'error' => 'Domain / Hostname darf nur gültige DNS-Zeichen enthalten, z. B. example.com.'];
-        }
-
-        return ['valid' => true, 'error' => ''];
-    }
-
-    /** @return array{valid: bool, error: string} */
     public function validateTargetName(string $targetName): array
     {
         $targetName = trim($targetName);
@@ -96,19 +78,12 @@ class GithubAction
     }
 
     /** @return array{success: bool, message: string} */
-    public function deploy(Server $server, string $repoUrl, string $host, string $targetName, bool $useSsl = false, string $email = ''): array
+    public function deploy(Server $server, string $repoUrl, string $targetName): array
     {
         $repoUrl = trim($repoUrl);
-        $host = trim($host);
         $targetName = trim($targetName);
-        $email = trim($email);
 
         $validation = $this->validateRepoUrl($repoUrl);
-        if (! $validation['valid']) {
-            return ['success' => false, 'message' => $validation['error']];
-        }
-
-        $validation = $this->validateHost($host);
         if (! $validation['valid']) {
             return ['success' => false, 'message' => $validation['error']];
         }
@@ -118,23 +93,12 @@ class GithubAction
             return ['success' => false, 'message' => $validation['error']];
         }
 
-        if ($useSsl && $email === '') {
-            return ['success' => false, 'message' => 'E-Mail-Adresse für Let\'s Encrypt ist erforderlich.'];
-        }
-
         $result = $this->engine->action($server, 'github.deploy', [
             'repo_url' => $repoUrl,
-            'host' => $host,
             'target_name' => $targetName,
-            'use_ssl' => $useSsl,
-            'email' => $email,
         ]);
 
         $message = $result->stdout ?: $result->stderr;
-
-        if ($result->success && $useSsl) {
-            $message .= "\nSSL-Zertifikat (Let's Encrypt) ausgestellt.";
-        }
 
         return [
             'success' => $result->success,

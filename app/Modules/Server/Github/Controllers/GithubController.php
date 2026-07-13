@@ -24,19 +24,13 @@ class GithubController
 
         $data = $request->validate([
             'repo_url' => ['required', 'string', 'max:500'],
-            'host' => ['required', 'string', 'max:253'],
             'target_name' => ['required', 'string', 'max:64'],
-            'use_ssl' => ['sometimes', 'boolean'],
-            'email' => ['sometimes', 'string', 'email', 'max:255'],
         ]);
 
         return response()->json($action->deploy(
             $server,
             $data['repo_url'],
-            $data['host'],
             $data['target_name'],
-            (bool) ($data['use_ssl'] ?? false),
-            $data['email'] ?? '',
         ));
     }
 }
