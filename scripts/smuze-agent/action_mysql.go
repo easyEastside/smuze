@@ -23,7 +23,7 @@ var mysqlSystemDatabases = map[string]bool{
 func mysqlStatusAction() actionDefinition {
 	return actionDefinition{
 		Name:    "mysql.status",
-		Command: `printf "ACTIVE=%s\n" "$(systemctl is-active mysql 2>/dev/null || echo unknown)" && (mysql --version 2>/dev/null || echo "NOT_INSTALLED")`,
+		Command: `printf "ACTIVE=%s\n" "$(systemctl is-active mysql 2>/dev/null || echo unknown)" && printf "INSTALLED=%s\n" "$(command -v mysql >/dev/null 2>&1 && echo yes || echo no)" && (mysql --version 2>/dev/null | sed -n "1p" | sed "s/^/VERSION=/" || true)`,
 		Timeout: 15,
 		UseSudo: true,
 	}

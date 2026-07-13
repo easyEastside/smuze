@@ -1682,7 +1682,16 @@ test('user can view their own mysql page', function () {
         ->assertSuccessful()
         ->assertSee('MySQL-Datenbank-Verwaltung')
         ->assertSee($server->name)
-        ->assertSee('encodeURIComponent(value)', false);
+        ->assertSee('encodeURIComponent(value)', false)
+        ->assertSee('function databaseRow(db)', false)
+        ->assertSee('function userRow(user)', false)
+        ->assertSee('textContent = db', false)
+        ->assertSee('addEventListener(\'click\'', false)
+        ->assertDontSee('onclick="showTables', false)
+        ->assertDontSee('onclick="dropDatabase', false)
+        ->assertDontSee('onclick="userAction', false)
+        ->assertDontSee('${user.username}', false)
+        ->assertDontSee('${db}', false);
 });
 
 test('user cannot view another users mysql page', function () {

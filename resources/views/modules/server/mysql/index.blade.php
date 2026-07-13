@@ -230,27 +230,53 @@
                 if (!data.success || !data.databases || data.databases.length === 0) {
                     empty.classList.remove('hidden');
                     table.classList.add('hidden');
+                    table.innerHTML = '';
                     return;
                 }
                 empty.classList.add('hidden');
                 table.innerHTML = '';
                 for (const db of data.databases) {
-                    const div = document.createElement('div');
-                    div.className = 'flex items-center justify-between rounded-xl border border-[#19140020] p-3 dark:border-[#3E3E3A]';
-                    div.innerHTML = `
-                        <div class="flex items-center gap-2">
-                            <span class="size-2 rounded-full bg-blue-500"></span>
-                            <span class="text-sm font-medium">${db}</span>
-                        </div>
-                        <div class="flex items-center gap-1">
-                            <button onclick="showTables('${db}')" class="text-xs text-[#706f6c] hover:text-[#1b1b18] dark:text-[#A1A09A] dark:hover:text-white">Tabellen</button>
-                            <button onclick="dropDatabase('${db}')" class="text-xs text-red-600 hover:text-red-800 dark:text-red-400">Löschen</button>
-                        </div>
-                    `;
-                    table.appendChild(div);
+                    table.appendChild(databaseRow(db));
                 }
                 table.classList.remove('hidden');
             });
+    }
+
+    function databaseRow(db) {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between rounded-xl border border-[#19140020] p-3 dark:border-[#3E3E3A]';
+
+        const label = document.createElement('div');
+        label.className = 'flex items-center gap-2';
+        const dot = document.createElement('span');
+        dot.className = 'size-2 rounded-full bg-blue-500';
+        const name = document.createElement('span');
+        name.className = 'text-sm font-medium';
+        name.textContent = db;
+        label.appendChild(dot);
+        label.appendChild(name);
+        row.appendChild(label);
+
+        const actions = document.createElement('div');
+        actions.className = 'flex items-center gap-1';
+
+        const tables = document.createElement('button');
+        tables.type = 'button';
+        tables.textContent = 'Tabellen';
+        tables.className = 'text-xs text-[#706f6c] hover:text-[#1b1b18] dark:text-[#A1A09A] dark:hover:text-white';
+        tables.addEventListener('click', () => showTables(db));
+        actions.appendChild(tables);
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = 'Löschen';
+        remove.className = 'text-xs text-red-600 hover:text-red-800 dark:text-red-400';
+        remove.addEventListener('click', () => dropDatabase(db));
+        actions.appendChild(remove);
+
+        row.appendChild(actions);
+
+        return row;
     }
 
     function showCreateDbForm() {
@@ -325,28 +351,56 @@
                 if (!data.success || !data.users || data.users.length === 0) {
                     empty.classList.remove('hidden');
                     table.classList.add('hidden');
+                    tbody.innerHTML = '';
                     return;
                 }
                 empty.classList.add('hidden');
                 tbody.innerHTML = '';
                 for (const user of data.users) {
-                    const tr = document.createElement('tr');
-                    tr.className = 'border-b border-[#19140020] dark:border-[#3E3E3A]';
-                    tr.innerHTML = `
-                        <td class="px-3 py-2 font-medium">${user.username}</td>
-                        <td class="px-3 py-2 text-xs text-[#706f6c] dark:text-[#A1A09A]">${user.host}</td>
-                        <td class="px-3 py-2">
-                            <div class="flex gap-1">
-                                <button onclick="userAction('password', '${user.username}', '${user.host}')" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400">Passwort</button>
-                                <button onclick="userAction('grant', '${user.username}', '${user.host}')" class="text-xs text-green-600 hover:text-green-800 dark:text-green-400">Grant All</button>
-                                <button onclick="userAction('drop', '${user.username}', '${user.host}')" class="text-xs text-red-600 hover:text-red-800 dark:text-red-400">Löschen</button>
-                            </div>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
+                    tbody.appendChild(userRow(user));
                 }
                 table.classList.remove('hidden');
             });
+    }
+
+    function userRow(user) {
+        const row = document.createElement('tr');
+        row.className = 'border-b border-[#19140020] dark:border-[#3E3E3A]';
+
+        row.appendChild(tableCell(user.username, 'px-3 py-2 font-medium'));
+        row.appendChild(tableCell(user.host, 'px-3 py-2 text-xs text-[#706f6c] dark:text-[#A1A09A]'));
+
+        const actions = document.createElement('td');
+        actions.className = 'px-3 py-2';
+        const actionGroup = document.createElement('div');
+        actionGroup.className = 'flex gap-1';
+
+        actionGroup.appendChild(userActionButton('Passwort', 'text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400', () => userAction('password', user.username, user.host)));
+        actionGroup.appendChild(userActionButton('Grant All', 'text-xs text-green-600 hover:text-green-800 dark:text-green-400', () => userAction('grant', user.username, user.host)));
+        actionGroup.appendChild(userActionButton('Löschen', 'text-xs text-red-600 hover:text-red-800 dark:text-red-400', () => userAction('drop', user.username, user.host)));
+
+        actions.appendChild(actionGroup);
+        row.appendChild(actions);
+
+        return row;
+    }
+
+    function tableCell(value, className) {
+        const cell = document.createElement('td');
+        cell.className = className;
+        cell.textContent = value || '-';
+
+        return cell;
+    }
+
+    function userActionButton(label, className, callback) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = label;
+        button.className = className;
+        button.addEventListener('click', callback);
+
+        return button;
     }
 
     function showCreateUserForm() {

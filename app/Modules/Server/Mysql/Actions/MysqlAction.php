@@ -48,9 +48,13 @@ class MysqlAction
             }
         }
 
+        $installed = isset($data['INSTALLED'])
+            ? $data['INSTALLED'] === 'yes'
+            : ($version !== null && $version !== 'NOT_INSTALLED');
+
         return [
             'success' => true,
-            'installed' => ($data['ACTIVE'] ?? '') !== 'unknown' || ($version !== null && $version !== 'NOT_INSTALLED'),
+            'installed' => $installed,
             'active' => ($data['ACTIVE'] ?? '') === 'active',
             'version' => $version && $version !== 'NOT_INSTALLED' ? $version : null,
         ];

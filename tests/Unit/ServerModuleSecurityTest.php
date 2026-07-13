@@ -450,6 +450,40 @@ test('mysql create user rejects unsafe hosts before agent action', function () {
     expect($result['success'])->toBeFalse();
 });
 
+test('mysql status uses installed field when present', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(fn (Server $s, string $action, array $payload): bool => $action === 'mysql.status')
+        ->andReturn(new ExecutionResult(stdout: "ACTIVE=inactive\nINSTALLED=no\n", stderr: '', exitCode: 0, success: true));
+
+    $result = (new MysqlAction($engine))->status($server);
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['installed'])->toBeFalse()
+        ->and($result['active'])->toBeFalse()
+        ->and($result['version'])->toBeNull();
+});
+
+test('mysql status parses version when installed', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(fn (Server $s, string $action, array $payload): bool => $action === 'mysql.status')
+        ->andReturn(new ExecutionResult(stdout: "ACTIVE=active\nINSTALLED=yes\nVERSION=mysql  Ver 8.0.46\n", stderr: '', exitCode: 0, success: true));
+
+    $result = (new MysqlAction($engine))->status($server);
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['installed'])->toBeTrue()
+        ->and($result['active'])->toBeTrue()
+        ->and($result['version'])->toBe('mysql  Ver 8.0.46');
+});
+
 test('apache status uses installed field when present', function () {
     $server = new Server;
 
