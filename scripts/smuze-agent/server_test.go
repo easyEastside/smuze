@@ -923,6 +923,51 @@ func TestExecuteRejectsOversizedBody(t *testing.T) {
 	}
 }
 
+func TestExecuteWithStdin(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	body := `{"command":"read -r line; echo \"stdin=$line\"","timeout":10,"use_sudo":false,"input":"hello-stdin\n"}`
+	req, _ := http.NewRequest("POST", ts.URL+"/execute", strings.NewReader(body))
+	req.Header.Set(authHeader())
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /execute: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		t.Fatalf("expected 200, got %d", res.StatusCode)
+	}
+
+	respBody, _ := io.ReadAll(res.Body)
+	if !strings.Contains(string(respBody), "stdin=hello-stdin") {
+		t.Fatalf("expected stdin content in output, got: %s", respBody)
+	}
+}
+
+func TestExecuteRejectsLargeInput(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	body := fmt.Sprintf(`{"command":"echo ok","timeout":10,"use_sudo":false,"input":"%s"}`, strings.Repeat("a", maxInputBytes+1))
+	req, _ := http.NewRequest("POST", ts.URL+"/execute", strings.NewReader(body))
+	req.Header.Set(authHeader())
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /execute: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 400 {
+		t.Fatalf("expected 400, got %d", res.StatusCode)
+	}
+}
+
 func TestExecuteWithSudo(t *testing.T) {
 	ts := newTestServer(t)
 	defer ts.Close()

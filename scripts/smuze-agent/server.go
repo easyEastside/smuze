@@ -15,6 +15,7 @@ import (
 const (
 	maxExecuteBodyBytes = 64 * 1024
 	maxCommandBytes     = 5000
+	maxInputBytes       = 16 * 1024
 	maxCommandTimeout   = 3600
 )
 
@@ -29,6 +30,7 @@ type executeRequest struct {
 	Command string `json:"command"`
 	Timeout int    `json:"timeout"`
 	UseSudo bool   `json:"use_sudo"`
+	Input   string `json:"input"`
 }
 
 type streamChunk struct {
@@ -86,6 +88,11 @@ func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(req.Input) > maxInputBytes {
+		http.Error(w, `{"error":"input too large"}`, http.StatusBadRequest)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
@@ -106,6 +113,12 @@ func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cmd := exec.CommandContext(commandCtx, "sh", "-lc", localCommand)
+
+	stdinPipe, err := cmd.StdinPipe()
+	if err != nil {
+		s.writeChunk(w, streamChunk{Error: err.Error(), Done: true})
+		return
+	}
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
@@ -133,6 +146,12 @@ func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
 		s.writeChunk(w, streamChunk{Error: err.Error(), Done: true})
 		return
 	}
+
+	if req.Input != "" {
+		_, _ = io.WriteString(stdinPipe, req.Input)
+	}
+
+	stdinPipe.Close()
 
 	var wg sync.WaitGroup
 	wg.Add(2)

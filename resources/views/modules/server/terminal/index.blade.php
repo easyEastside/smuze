@@ -43,15 +43,29 @@
 
             <pre id="terminal-output" class="mt-4 min-h-[420px] max-h-[65vh] overflow-auto whitespace-pre-wrap rounded-xl bg-black p-4 font-mono text-sm leading-6 text-[#d8f3dc]"></pre>
 
-            <form id="terminal-form" class="mt-4 flex flex-col gap-3 sm:flex-row" autocomplete="off">
-                <label for="terminal-command" class="sr-only">Befehl</label>
-                <div class="flex flex-1 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2 font-mono text-sm">
-                    <span class="text-[#f53003] dark:text-[#FF4433]">$</span>
-                    <input id="terminal-command" name="command" type="text" class="w-full border-0 bg-transparent p-0 text-white outline-none placeholder:text-[#706f6c] focus:ring-0" placeholder="z.B. whoami && pwd" autofocus>
+            <form id="terminal-form" class="mt-4 space-y-3" autocomplete="off">
+                <div class="border border-white/10 rounded-xl bg-white/5">
+                    <button type="button" id="stdin-toggle" class="flex w-full items-center justify-between px-4 py-2 text-xs text-[#A1A09A] hover:text-white">
+                        <span>Vorab-Eingabe (stdin)</span>
+                        <svg id="stdin-chevron" class="size-3 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div id="stdin-panel" class="hidden border-t border-white/10 p-3">
+                        <label for="terminal-input" class="sr-only">stdin</label>
+                        <textarea id="terminal-input" rows="3" class="w-full rounded-lg border border-white/15 bg-black px-3 py-2 font-mono text-sm text-white outline-none placeholder:text-[#706f6c] focus:ring-0" placeholder="Zeilen, die an stdin gesendet werden (Passwörter, &quot;y&quot;, …)"></textarea>
+                        <p class="mt-1 text-xs text-[#706f6c]">Jede Zeile wird an den Prozess gesendet. Keine persistente Eingabe w&auml;hrend der Laufzeit.</p>
+                    </div>
                 </div>
-                <button id="terminal-submit" type="submit" class="rounded-xl bg-[#EDEDEC] px-5 py-2 text-sm font-medium text-[#1C1C1A] hover:bg-[#dbdbd8] disabled:cursor-wait disabled:opacity-60">
-                    Ausführen
-                </button>
+
+                <div class="flex flex-col gap-3 sm:flex-row">
+                    <label for="terminal-command" class="sr-only">Befehl</label>
+                    <div class="flex flex-1 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2 font-mono text-sm">
+                        <span class="text-[#f53003] dark:text-[#FF4433]">$</span>
+                        <input id="terminal-command" name="command" type="text" class="w-full border-0 bg-transparent p-0 text-white outline-none placeholder:text-[#706f6c] focus:ring-0" placeholder="z.B. whoami && pwd" autofocus>
+                    </div>
+                    <button id="terminal-submit" type="submit" class="rounded-xl bg-[#EDEDEC] px-5 py-2 text-sm font-medium text-[#1C1C1A] hover:bg-[#dbdbd8] disabled:cursor-wait disabled:opacity-60">
+                        Ausführen
+                    </button>
+                </div>
             </form>
         </div>
     </section>
@@ -60,11 +74,21 @@
     <script>
     const terminalForm = document.getElementById('terminal-form');
     const terminalCommand = document.getElementById('terminal-command');
+    const terminalInput = document.getElementById('terminal-input');
     const terminalOutput = document.getElementById('terminal-output');
     const terminalSubmit = document.getElementById('terminal-submit');
+    const stdinToggle = document.getElementById('stdin-toggle');
+    const stdinPanel = document.getElementById('stdin-panel');
+    const stdinChevron = document.getElementById('stdin-chevron');
     const terminalHistoryKey = 'smuze:server:{{ $server->id }}:terminal-history';
     let terminalHistory = loadTerminalHistory();
     let terminalHistoryIndex = terminalHistory.length;
+
+    stdinToggle.addEventListener('click', () => {
+        const isOpen = !stdinPanel.classList.contains('hidden');
+        stdinPanel.classList.toggle('hidden');
+        stdinChevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+    });
 
     function loadTerminalHistory() {
         try {
@@ -122,7 +146,16 @@
         terminalSubmit.disabled = true;
         terminalSubmit.textContent = 'Läuft...';
 
+        const input = terminalInput.value;
         appendTerminal(`$ ${command}\n`, 'text-white');
+
+        if (input) {
+            const lines = input.split('\n').filter(l => l).length;
+            appendTerminal(`[stdin: ${lines} Zeile(n) gesendet]\n`, 'text-[#A1A09A]');
+            terminalInput.value = '';
+            stdinPanel.classList.add('hidden');
+            stdinChevron.style.transform = '';
+        }
 
         try {
             const response = await fetch('{{ route('server.agent.execute.stream', $server) }}', {
@@ -136,6 +169,7 @@
                     command,
                     timeout: Number(document.getElementById('terminal-timeout').value || 120),
                     use_sudo: document.getElementById('terminal-sudo').checked,
+                    input: input || undefined,
                 }),
             });
 

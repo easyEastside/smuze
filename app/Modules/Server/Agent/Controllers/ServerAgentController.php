@@ -228,6 +228,7 @@ class ServerAgentController
             'command' => ['required', 'string', 'max:5000'],
             'timeout' => ['nullable', 'integer', 'min:1', 'max:3600'],
             'use_sudo' => ['nullable', 'boolean'],
+            'input' => ['nullable', 'string', 'max:16000'],
         ]);
 
         $startedAt = now();
@@ -241,6 +242,7 @@ class ServerAgentController
                     'command' => $data['command'],
                     'timeout' => $data['timeout'] ?? 30,
                     'use_sudo' => $data['use_sudo'] ?? true,
+                    'input' => $data['input'] ?? '',
                 ]);
 
             if ($response->successful()) {
@@ -335,6 +337,7 @@ class ServerAgentController
             'command' => ['required', 'string', 'max:5000'],
             'timeout' => ['nullable', 'integer', 'min:1', 'max:3600'],
             'use_sudo' => ['nullable', 'boolean'],
+            'input' => ['nullable', 'string', 'max:16000'],
         ]);
 
         $timeout = $data['timeout'] ?? 30;
@@ -357,6 +360,7 @@ class ServerAgentController
                         'command' => $data['command'],
                         'timeout' => $timeout,
                         'use_sudo' => $useSudo,
+                        'input' => $data['input'] ?? '',
                     ]);
 
                 if (! $response->successful()) {

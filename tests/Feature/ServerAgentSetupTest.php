@@ -388,6 +388,46 @@ test('agent execute stream proxies ndjson and records audit log', function () {
         ->and($command->stderr)->toBe("warn\n");
 });
 
+test('agent execute stream forwards input to agent', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/execute' => Http::response(json_encode(['done' => true, 'exit_code' => 0])."\n"),
+    ]);
+
+    $response = $this->actingAs($user)
+        ->post(route('server.agent.execute.stream', $server), [
+            'command' => 'read -r line; echo "$line"',
+            'timeout' => 10,
+            'use_sudo' => false,
+            'input' => "hello\n",
+        ])
+        ->assertSuccessful();
+
+    $content = $response->streamedContent();
+
+    expect($content)->toContain('"done":true');
+});
+
+test('agent execute stream rejects oversized input', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $user->id,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('server.agent.execute.stream', $server), [
+            'command' => 'echo ok',
+            'input' => str_repeat('a', 16001),
+        ])
+        ->assertSessionHasErrors('input');
+});
+
 test('agent engine records action audit log', function () {
     $user = User::factory()->create();
     $server = Server::factory()->withAgent()->create([
