@@ -77,7 +77,7 @@ class LogController
             'filter' => ['nullable', 'string', 'max:200'],
         ]);
 
-        $cmd = $this->buildCommand($data['source'], 0, $data['filter'] ?? '', true);
+        $cmd = $this->buildCommand($data['source'], 50, $data['filter'] ?? '');
 
         if ($cmd === null) {
             return response()->json(['error' => 'Ungültige Log-Quelle.'], 422);
@@ -127,7 +127,7 @@ class LogController
 
         $path = self::KNOWN_PATHS[$source] ?? null;
 
-        if ($path === null && preg_match('#^/[a-zA-Z/._-]+$#', $source)) {
+        if ($path === null && preg_match('#^/var/log/[A-Za-z0-9/._-]+$#', $source) && ! str_contains($source, '..')) {
             $path = $source;
         }
 

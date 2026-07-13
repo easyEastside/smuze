@@ -2550,7 +2550,17 @@ test('user can view logs page', function () {
         ->assertSee('Log-Dateien')
         ->assertSee('syslog')
         ->assertSee('Nginx Access')
-        ->assertSee('MySQL Error');
+        ->assertSee('MySQL Error')
+        ->assertSee("getElementById('btn-refresh').addEventListener('click', fetchLog)", false)
+        ->assertSee("getElementById('btn-custom-source').addEventListener('click', setCustomSource)", false)
+        ->assertSee("getElementById('btn-copy-log').addEventListener('click'", false)
+        ->assertSee('replaceChildren', false)
+        ->assertSee('textContent', false)
+        ->assertDontSee('onclick="fetchLog()"', false)
+        ->assertDontSee('onclick="setCustomSource()"', false)
+        ->assertDontSee('onclick="copyLog()"', false)
+        ->assertDontSee('innerHTML', false)
+        ->assertDontSee('event.target', false);
 });
 
 test('user can fetch log content', function () {
@@ -2577,6 +2587,76 @@ test('user can fetch log content', function () {
         ->assertSuccessful()
         ->assertJsonPath('total', 3)
         ->assertJsonCount(3, 'lines');
+});
+
+test('user can fetch custom var log path', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('execute')
+        ->once()
+        ->with(Mockery::type(Server::class), Mockery::on(fn ($cmd) => str_contains($cmd, "'/var/log/custom-app.log'")), 15, true)
+        ->andReturn(new ExecutionResult(
+            stdout: "custom1\ncustom2\n",
+            stderr: '',
+            exitCode: 0,
+            success: true,
+        ));
+
+    $this->instance(PushAgentEngine::class, $engine);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.logs.fetch', $server), [
+            'source' => '/var/log/custom-app.log',
+            'lines' => 50,
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('total', 2);
+});
+
+test('logs reject custom paths outside var log', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('execute')->never();
+    $this->instance(PushAgentEngine::class, $engine);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.logs.fetch', $server), [
+            'source' => '/etc/passwd',
+            'lines' => 50,
+        ])
+        ->assertStatus(422)
+        ->assertJson(['error' => 'Ungültige Log-Quelle.']);
+});
+
+test('user can stream logs with journal source and filter', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('execute')
+        ->once()
+        ->with(Mockery::type(Server::class), Mockery::on(fn ($cmd) => str_contains($cmd, "journalctl -u 'cron.service'")
+            && str_contains($cmd, '-n 50')
+            && ! str_contains($cmd, ' -f ')
+            && str_contains($cmd, "grep -i --line-buffered 'started'")), 60, true)
+        ->andReturn(new ExecutionResult(
+            stdout: "started cron\n",
+            stderr: '',
+            exitCode: 0,
+            success: true,
+        ));
+
+    $this->instance(PushAgentEngine::class, $engine);
+
+    $this->actingAs($this->user)
+        ->postJson(route('server.logs.stream', $server), [
+            'source' => 'journalctl:cron.service',
+            'filter' => 'started',
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('total', 1)
+        ->assertJsonPath('lines.0', 'started cron');
 });
 
 test('user cannot fetch logs on another users server', function () {

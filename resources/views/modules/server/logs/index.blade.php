@@ -10,7 +10,7 @@
                     </p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                    <button type="button" id="btn-refresh" onclick="fetchLog()" class="rounded-lg bg-[#1b1b18] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                    <button type="button" id="btn-refresh" class="rounded-lg bg-[#1b1b18] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
                         Aktualisieren
                     </button>
                     <a href="{{ route('server.system', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
@@ -46,7 +46,7 @@
                     <div class="mt-4 space-y-1 text-sm">
                         <p class="text-[0.65rem] font-semibold uppercase tracking-wide text-[#706f6c] dark:text-[#A1A09A]">Benutzerdefiniert</p>
                         <input type="text" id="custom-path" placeholder="/pfad/zur/datei.log" class="mt-2 w-full rounded-lg border border-[#19140035] px-3 py-1.5 text-sm dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC]">
-                        <button type="button" onclick="setCustomSource()" class="mt-2 w-full rounded-lg bg-[#1b1b18] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                        <button type="button" id="btn-custom-source" class="mt-2 w-full rounded-lg bg-[#1b1b18] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
                             Öffnen
                         </button>
                     </div>
@@ -84,7 +84,7 @@
                         <p id="log-source-label" class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A">Bitte Log-Quelle auswählen</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button type="button" onclick="copyLog()" class="rounded-lg border border-[#19140035] px-3 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                        <button type="button" id="btn-copy-log" class="rounded-lg border border-[#19140035] px-3 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                             Kopieren
                         </button>
                         <span id="log-line-count" class="text-xs text-[#706f6c] dark:text-[#A1A09A]"></span>
@@ -101,6 +101,10 @@
     <script>
     let currentSource = 'syslog';
     let followTimer = null;
+
+    document.getElementById('btn-refresh').addEventListener('click', fetchLog);
+    document.getElementById('btn-custom-source').addEventListener('click', setCustomSource);
+    document.getElementById('btn-copy-log').addEventListener('click', event => copyLog(event.currentTarget));
 
     document.querySelectorAll('.log-source-btn').forEach(btn => {
         btn.addEventListener('click', function () {
@@ -156,7 +160,7 @@
             loading.classList.add('hidden');
 
             if (data.error) {
-                error.innerHTML = '';
+                error.replaceChildren();
                 error.appendChild(document.createTextNode(data.error));
                 error.appendChild(window.reportError(data.error, 'logs.fetch'));
                 error.classList.remove('hidden');
@@ -169,21 +173,20 @@
         .catch(err => {
             loading.classList.add('hidden');
             const msg = 'Fehler: ' + err.message;
-            error.innerHTML = '';
+            error.replaceChildren();
             error.appendChild(document.createTextNode(msg));
             error.appendChild(window.reportError(msg, 'logs.fetch'));
             error.classList.remove('hidden');
         });
     }
 
-    function copyLog() {
+    function copyLog(button) {
         const text = document.getElementById('log-output').textContent;
         if (!text || text === '-') return;
         navigator.clipboard.writeText(text).then(() => {
-            const btn = event.target;
-            const orig = btn.textContent;
-            btn.textContent = 'Kopiert!';
-            setTimeout(() => btn.textContent = orig, 1500);
+            const orig = button.textContent;
+            button.textContent = 'Kopiert!';
+            setTimeout(() => button.textContent = orig, 1500);
         });
     }
 
