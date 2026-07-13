@@ -444,6 +444,20 @@ func TestApacheCreateVhostRejectsUnsafeDocumentRoot(t *testing.T) {
 	}
 }
 
+func TestApacheStatusCommandContainsInstalled(t *testing.T) {
+	command := apacheStatusAction().Command
+	if !strings.Contains(command, "INSTALLED=") {
+		t.Fatalf("expected INSTALLED in status command, got %s", command)
+	}
+}
+
+func TestNginxStatusCommandContainsInstalled(t *testing.T) {
+	command := nginxStatusAction().Command
+	if !strings.Contains(command, "INSTALLED=") {
+		t.Fatalf("expected INSTALLED in status command, got %s", command)
+	}
+}
+
 func TestGithubDeployBuildsValidatedCommand(t *testing.T) {
 	command, err := githubDeployAction().command(map[string]any{
 		"repo_url":    "https://github.com/owner/repo.git",

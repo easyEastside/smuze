@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Admin\Achievements\Controllers\AdminAchievementsController;
+use App\Modules\Admin\Agent\Controllers\AdminAgentController;
 use App\Modules\Admin\Dashboard\Controllers\AdminDashboardController;
 use App\Modules\Admin\Inventory\Controllers\AdminInventoryController;
 use App\Modules\Admin\Permissions\Controllers\AdminPermissionsController;
@@ -36,4 +37,7 @@ Route::middleware(['auth', 'permission:access-admin'])->prefix('admin')->name('a
 
     Route::get('settings', [AdminSettingsController::class, 'show'])->name('settings');
     Route::post('settings/bank', [AdminSettingsController::class, 'updateBank'])->name('settings.bank.update');
+
+    Route::get('agent', [AdminAgentController::class, 'index'])->name('agent');
+    Route::post('agent/build', [AdminAgentController::class, 'build'])->name('agent.build');
 });

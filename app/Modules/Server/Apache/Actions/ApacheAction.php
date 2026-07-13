@@ -29,9 +29,13 @@ class ApacheAction
             }
         }
 
+        $installed = isset($data['INSTALLED'])
+            ? $data['INSTALLED'] === 'yes'
+            : ($data['ACTIVE'] ?? '') !== 'unknown';
+
         return [
             'success' => true,
-            'installed' => ($data['ACTIVE'] ?? '') !== 'unknown',
+            'installed' => $installed,
             'active' => ($data['ACTIVE'] ?? '') === 'active',
             'version' => $data['VERSION'] ?? null,
         ];
@@ -261,11 +265,15 @@ class ApacheAction
         $result = $this->engine->action($server, 'apache.modules', []);
 
         if (! $result->success) {
-            return ['success' => false, 'modules' => []];
+            return ['success' => false, 'modules' => [], 'message' => $result->stderr];
         }
 
         $modules = [];
         foreach (explode("\n", $result->stdout) as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
             $parts = explode("\t", $line, 2);
             if (count($parts) < 2) {
                 continue;

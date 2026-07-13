@@ -30,9 +30,13 @@ class NginxAction
             }
         }
 
+        $installed = isset($data['INSTALLED'])
+            ? $data['INSTALLED'] === 'yes'
+            : ($data['ACTIVE'] ?? '') !== 'unknown';
+
         return [
             'success' => true,
-            'installed' => ($data['ACTIVE'] ?? '') !== 'unknown',
+            'installed' => $installed,
             'active' => ($data['ACTIVE'] ?? '') === 'active',
             'version' => $data['VERSION'] ?? null,
         ];

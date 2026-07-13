@@ -21,7 +21,8 @@ test('agent release command registers version and computes checksum', function (
 
         $versionData = json_decode(file_get_contents($versionPath), true);
         expect($versionData['version'])->toBe('0.2.0')
-            ->and($versionData['checksum'])->not->toBe('');
+            ->and($versionData['checksum'])->not->toBe('')
+            ->and($versionData['built_at'])->not->toBe('');
 
         $expectedChecksum = hash_file('sha256', $tmpBinary);
         expect($versionData['checksum'])->toBe($expectedChecksum);

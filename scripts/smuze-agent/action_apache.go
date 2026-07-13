@@ -15,7 +15,7 @@ var (
 )
 
 func apacheStatusAction() actionDefinition {
-	return actionDefinition{Name: "apache.status", Command: `printf "ACTIVE=%s\n" "$(systemctl is-active apache2 2>/dev/null || echo unknown)" && (apache2 -v 2>/dev/null | sed -n "1p" | sed "s/^/VERSION=/")`, Timeout: 15, UseSudo: true}
+	return actionDefinition{Name: "apache.status", Command: `printf "ACTIVE=%s\n" "$(systemctl is-active apache2 2>/dev/null || echo unknown)" && printf "INSTALLED=%s\n" "$(command -v apache2 >/dev/null 2>&1 && echo yes || echo no)" && (apache2 -v 2>/dev/null | sed -n "1p" | sed "s/^/VERSION=/")`, Timeout: 15, UseSudo: true}
 }
 
 func apacheInstallAction() actionDefinition {

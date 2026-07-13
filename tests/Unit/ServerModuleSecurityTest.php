@@ -49,6 +49,41 @@ test('apache module action rejects unsafe module names', function () {
         ]);
 });
 
+test('apache modules parses agent output', function () {
+    $server = new Server;
+    $stdout = "rewrite\tenabled\nssl\tdisabled\nauthz_core\tenabled\n";
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(fn (Server $s, string $action, array $payload): bool => $action === 'apache.modules')
+        ->andReturn(new ExecutionResult(stdout: $stdout, stderr: '', exitCode: 0, success: true));
+
+    $result = (new ApacheAction($engine))->modules($server);
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['modules'])->toHaveCount(3)
+        ->and($result['modules'][0])->toMatchArray(['name' => 'rewrite', 'enabled' => 'enabled'])
+        ->and($result['modules'][1])->toMatchArray(['name' => 'ssl', 'enabled' => 'disabled'])
+        ->and($result['modules'][2])->toMatchArray(['name' => 'authz_core', 'enabled' => 'enabled']);
+});
+
+test('apache modules returns error message on failure', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(fn (Server $s, string $action, array $payload): bool => $action === 'apache.modules')
+        ->andReturn(new ExecutionResult(stdout: '', stderr: 'Connection refused', exitCode: 1, success: false));
+
+    $result = (new ApacheAction($engine))->modules($server);
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->toBe('Connection refused')
+        ->and($result['modules'])->toBe([]);
+});
+
 test('nginx site config writes encoded content', function () {
     $server = new Server;
     $content = 'server { listen 80; }';
@@ -202,6 +237,66 @@ test('mysql create user rejects unsafe hosts before agent action', function () {
     $result = (new MysqlAction($engine))->createUser(new Server, 'app_user', 'local..host', 'secret');
 
     expect($result['success'])->toBeFalse();
+});
+
+test('apache status uses installed field when present', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(fn (Server $s, string $action, array $payload): bool => $action === 'apache.status')
+        ->andReturn(new ExecutionResult(stdout: "ACTIVE=inactive\nINSTALLED=no", stderr: '', exitCode: 0, success: true));
+
+    $result = (new ApacheAction($engine))->status($server);
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['installed'])->toBeFalse();
+});
+
+test('apache status falls back to active when installed field is missing', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(fn (Server $s, string $action, array $payload): bool => $action === 'apache.status')
+        ->andReturn(new ExecutionResult(stdout: 'ACTIVE=inactive', stderr: '', exitCode: 0, success: true));
+
+    $result = (new ApacheAction($engine))->status($server);
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['installed'])->toBeTrue();
+});
+
+test('nginx status uses installed field when present', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(fn (Server $s, string $action, array $payload): bool => $action === 'nginx.status')
+        ->andReturn(new ExecutionResult(stdout: "ACTIVE=inactive\nINSTALLED=no", stderr: '', exitCode: 0, success: true));
+
+    $result = (new NginxAction($engine))->status($server);
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['installed'])->toBeFalse();
+});
+
+test('nginx status falls back to active when installed field is missing', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(fn (Server $s, string $action, array $payload): bool => $action === 'nginx.status')
+        ->andReturn(new ExecutionResult(stdout: 'ACTIVE=inactive', stderr: '', exitCode: 0, success: true));
+
+    $result = (new NginxAction($engine))->status($server);
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['installed'])->toBeTrue();
 });
 
 test('github deploy delegates to validated agent action', function () {

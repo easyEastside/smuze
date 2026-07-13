@@ -840,7 +840,7 @@ test('apache modules returns json with success field', function () {
 
     $this->actingAs($this->user)
         ->get(route('server.apache.modules', $server))
-        ->assertJsonStructure(['success']);
+        ->assertJsonStructure(['success', 'modules', 'message']);
 });
 
 test('apache create vhost validates domain', function () {

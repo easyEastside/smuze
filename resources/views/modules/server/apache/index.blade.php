@@ -375,12 +375,22 @@
         const loading = document.getElementById('ap-modules-loading');
         const list = document.getElementById('ap-modules-list');
         loading.classList.remove('hidden');
+        loading.textContent = 'Lade Module...';
         list.classList.add('hidden');
 
         fetch('{{ route('server.apache.modules', $server) }}').then(r => r.json())
             .then(data => {
                 loading.classList.add('hidden');
-                if (!data.success || !data.modules) return;
+                if (!data.success) {
+                    loading.textContent = data.message || 'Fehler beim Laden der Module.';
+                    loading.classList.remove('hidden');
+                    return;
+                }
+                if (!data.modules || data.modules.length === 0) {
+                    loading.textContent = 'Keine Module gefunden.';
+                    loading.classList.remove('hidden');
+                    return;
+                }
                 list.innerHTML = '';
                 for (const mod of data.modules) {
                     const enabled = mod.enabled === 'enabled';
@@ -403,6 +413,7 @@
             })
             .catch(() => {
                 loading.textContent = 'Fehler beim Laden.';
+                loading.classList.remove('hidden');
             });
     }
 

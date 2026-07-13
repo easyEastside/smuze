@@ -10,7 +10,7 @@ import (
 const nginxDeinstallCommand = `systemctl disable --now nginx 2>/dev/null || true && DEBIAN_FRONTEND=noninteractive apt-get purge -y nginx nginx-common nginx-core && DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y && rm -rf /etc/nginx && apt-get clean && systemctl daemon-reload && systemctl reset-failed`
 
 func nginxStatusAction() actionDefinition {
-	return actionDefinition{Name: "nginx.status", Command: `printf "ACTIVE=%s\n" "$(systemctl is-active nginx 2>/dev/null || echo unknown)" && if command -v nginx >/dev/null 2>&1; then nginx -v 2>&1 | sed -n "1p" | sed "s/^/VERSION=/"; fi`, Timeout: 15, UseSudo: true}
+	return actionDefinition{Name: "nginx.status", Command: `printf "ACTIVE=%s\n" "$(systemctl is-active nginx 2>/dev/null || echo unknown)" && printf "INSTALLED=%s\n" "$(command -v nginx >/dev/null 2>&1 && echo yes || echo no)" && (nginx -v 2>&1 | sed -n "1p" | sed "s/^/VERSION=/")`, Timeout: 15, UseSudo: true}
 }
 
 func nginxInstallAction() actionDefinition {

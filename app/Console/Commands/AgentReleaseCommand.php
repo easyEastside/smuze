@@ -2,19 +2,19 @@
 
 namespace App\Console\Commands;
 
+use App\Services\AgentRelease\AgentReleaseManager;
 use Illuminate\Console\Command;
-use Symfony\Component\Process\Process;
 
 class AgentReleaseCommand extends Command
 {
     protected $signature = 'agent:release
         {--release-version= : The new agent version}
-        {--binary= : Path to the compiled agent binary}
+        {--binary= : Path to a pre-compiled agent binary (overrides --build)}
         {--build : Build the Go agent before registering the release}';
 
     protected $description = 'Register a new agent release version';
 
-    public function handle(): int
+    public function handle(AgentReleaseManager $manager): int
     {
         $version = $this->option('release-version');
 
@@ -24,59 +24,52 @@ class AgentReleaseCommand extends Command
             return self::FAILURE;
         }
 
-        $dir = storage_path('app/agent');
-        $targetPath = $dir.'/smuze-agent';
-        $versionPath = $dir.'/version.json';
         $binary = $this->option('binary');
 
-        if ($this->option('build')) {
-            $binary = storage_path('app/agent/smuze-agent.build');
-
-            if (! is_dir($dir)) {
-                mkdir($dir, 0755, true);
-            }
-
-            $process = new Process([
-                'go',
-                'build',
-                '-ldflags',
-                '-X main.version='.$version,
-                '-o',
-                $binary,
-                '.',
-            ], base_path('scripts/smuze-agent'));
-            $process->run();
-
-            if (! $process->isSuccessful()) {
-                $this->error($process->getErrorOutput() ?: $process->getOutput());
-
-                return self::FAILURE;
-            }
-        }
-
-        if ($binary) {
+        if ($binary !== null) {
             if (! file_exists($binary)) {
                 $this->error("Binary not found: {$binary}");
 
                 return self::FAILURE;
             }
 
-            copy($binary, $targetPath);
-            chmod($targetPath, 0755);
+            copy($binary, $manager->binaryPath());
+            chmod($manager->binaryPath(), 0755);
+
+            $checksum = hash_file('sha256', $manager->binaryPath());
+
+            $release = [
+                'version' => $version,
+                'checksum' => $checksum,
+                'built_at' => now()->toIso8601String(),
+            ];
+
+            file_put_contents(storage_path('app/agent/version.json'), json_encode($release, JSON_PRETTY_PRINT)."\n");
+
+            $this->info("Agent release {$version} registered.");
+            $this->line("Checksum: {$checksum}");
+
+            return self::SUCCESS;
         }
 
-        $checksum = file_exists($targetPath) ? hash_file('sha256', $targetPath) : '';
+        if ($this->option('build')) {
+            $this->info('Building agent...');
+            $result = $manager->build($version);
 
-        $versionData = [
-            'version' => $version,
-            'checksum' => $checksum,
-        ];
+            if (! $result['success']) {
+                $this->error($result['message']);
 
-        file_put_contents($versionPath, json_encode($versionData, JSON_PRETTY_PRINT)."\n");
+                return self::FAILURE;
+            }
 
-        $this->info("Agent release {$version} registered.");
-        $this->line("Checksum: {$checksum}");
+            $this->info("Agent release {$version} built and registered.");
+            $this->line("Checksum: {$result['checksum']}");
 
-        return self::SUCCESS;
+            return self::SUCCESS;
+        }
+
+        $this->error('Either --binary or --build must be provided.');
+
+        return self::FAILURE;
     }
 }
