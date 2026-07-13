@@ -43,3 +43,4 @@ require __DIR__.'/Services/routes.php';
 require __DIR__.'/Monitoring/routes.php';
 require __DIR__.'/Cronjobs/routes.php';
 require __DIR__.'/Files/routes.php';
+require __DIR__.'/Docker/routes.php';

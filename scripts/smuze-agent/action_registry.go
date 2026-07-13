@@ -4,6 +4,7 @@ var systemActions = registerActionGroups(
 	apacheActionDefinitions(),
 	aptActionDefinitions(),
 	cronjobActionDefinitions(),
+	dockerActionDefinitions(),
 	fileActionDefinitions(),
 	firewallActionDefinitions(),
 	githubActionDefinitions(),
@@ -50,6 +51,20 @@ func nginxActionDefinitions() []actionDefinition {
 
 func serviceActionDefinitions() []actionDefinition {
 	return []actionDefinition{servicesInstallAction(), servicesDeinstallAction()}
+}
+
+func dockerActionDefinitions() []actionDefinition {
+	return []actionDefinition{
+		dockerStatusAction(), dockerInfoAction(), dockerInstallAction(), dockerDeinstallAction(),
+		dockerStartAction(), dockerStopAction(), dockerRestartAction(),
+		dockerPsAction(), dockerContainerStartAction(), dockerContainerStopAction(),
+		dockerContainerRestartAction(), dockerContainerRemoveAction(), dockerContainerLogsAction(),
+		dockerContainerExecAction(), dockerContainerCreateAction(),
+		dockerImagesAction(), dockerImagePullAction(), dockerImageRemoveAction(),
+		dockerNetworksAction(),
+		dockerComposePsAction(), dockerComposeUpAction(), dockerComposeDownAction(),
+		dockerSystemPruneAction(), dockerStatsAction(),
+	}
 }
 
 func systemActionDefinitions() []actionDefinition {

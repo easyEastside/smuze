@@ -31,6 +31,7 @@
         ['label' => 'Dienste', 'route' => 'server.services.index', 'active' => 'server.services.*'],
         ['label' => 'GitHub', 'route' => 'server.github.index', 'active' => 'server.github.*'],
         ['label' => 'Logs', 'route' => 'server.logs.index', 'active' => 'server.logs.*'],
+        ['label' => 'Docker', 'route' => 'server.docker.index', 'active' => 'server.docker.*'],
     ];
 
     $webhostingLinks = [
