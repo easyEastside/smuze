@@ -495,8 +495,11 @@ func TestMonitoringProcessKillRejectsPidOne(t *testing.T) {
 }
 
 func TestMonitoringActionsUseReadOnlyCommands(t *testing.T) {
-	processCommand := monitoringProcessesAction().Command
-	if !strings.Contains(processCommand, "ps -eo") || strings.Contains(processCommand, "systemctl") {
+	processCommand, err := monitoringProcessesAction().command(nil)
+	if err != nil {
+		t.Fatalf("expected command, got error: %v", err)
+	}
+	if !strings.Contains(processCommand, "/proc/meminfo") || strings.Contains(processCommand, "systemctl") {
 		t.Fatalf("unexpected process command: %s", processCommand)
 	}
 

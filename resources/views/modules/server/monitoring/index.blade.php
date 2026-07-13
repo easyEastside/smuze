@@ -36,8 +36,8 @@
                                 <th class="sticky left-0 bg-white py-2 pr-3 font-medium dark:bg-[#161615]">Aktion</th>
                                 <th class="py-2 pr-3 font-medium">PID</th>
                                 <th class="py-2 pr-3 font-medium">User</th>
-                                <th class="py-2 pr-3 text-right font-medium">CPU</th>
-                                <th class="py-2 pr-3 text-right font-medium">RAM</th>
+                                <th class="py-2 pr-3 text-right font-medium">CPU %</th>
+                                <th class="py-2 pr-3 text-right font-medium">RAM %</th>
                                 <th class="py-2 font-medium">Command</th>
                             </tr>
                         </thead>
@@ -83,19 +83,11 @@
     }
 
     function parseProcesses(stdout) {
-        return stdout.split('\n').map(line => line.trim()).filter(Boolean).map(line => {
-            const match = line.match(/^(\d+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*(.*)$/);
-            if (!match) return null;
-
-            return {
-                pid: match[1],
-                user: match[3],
-                stat: match[4],
-                cpu: match[5],
-                mem: match[6],
-                command: match[8] || match[7],
-            };
-        }).filter(Boolean);
+        try {
+            return JSON.parse(stdout);
+        } catch {
+            return [];
+        }
     }
 
     function parseServices(stdout) {
@@ -113,6 +105,11 @@
         }).filter(Boolean);
     }
 
+    function fmtPercent(value) {
+        const num = parseFloat(String(value || '0').replace(/[^0-9.,]/g, '').replace(',', '.'));
+        return isNaN(num) ? '0.0' : num.toFixed(1);
+    }
+
     function renderProcesses(processes) {
         const body = document.getElementById('processes-body');
         if (processes.length === 0) {
@@ -125,8 +122,8 @@
                 <td class="sticky left-0 bg-white py-2 pr-3 dark:bg-[#161615]"><button type="button" onclick="killProcess('${escapeHtml(process.pid)}')" class="rounded-lg border border-red-300 px-2 py-1 text-xs text-red-700 hover:border-red-500 dark:border-red-900 dark:text-red-300">Kill</button></td>
                 <td class="py-2 pr-3 font-mono">${escapeHtml(process.pid)}</td>
                 <td class="py-2 pr-3">${escapeHtml(process.user)}</td>
-                <td class="py-2 pr-3 text-right">${escapeHtml(process.cpu)}%</td>
-                <td class="py-2 pr-3 text-right">${escapeHtml(process.mem)}%</td>
+                <td class="py-2 pr-3 text-right">${fmtPercent(process.cpu)}%</td>
+                <td class="py-2 pr-3 text-right">${fmtPercent(process.mem)}%</td>
                 <td class="max-w-[320px] truncate py-2 font-mono" title="${escapeHtml(process.command)}">${escapeHtml(process.command)}</td>
             </tr>
         `).join('');

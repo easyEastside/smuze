@@ -308,7 +308,7 @@ test('server monitoring proxies process and service data', function () {
                 'success' => true,
                 'action' => 'monitoring.processes',
                 'exit_code' => 0,
-                'stdout' => "1 0 root Ss 0.1 0.2 systemd /sbin/init\n",
+                'stdout' => json_encode([['pid' => '1', 'ppid' => '0', 'user' => 'root', 'stat' => 'Ss', 'cpu' => '0.1', 'mem' => '0.2', 'command' => '/sbin/init']]),
                 'stderr' => '',
                 'duration_ms' => 10,
             ])
@@ -326,7 +326,7 @@ test('server monitoring proxies process and service data', function () {
         ->getJson(route('server.monitoring.processes', $server))
         ->assertSuccessful()
         ->assertJsonPath('action', 'monitoring.processes')
-        ->assertJsonPath('stdout', "1 0 root Ss 0.1 0.2 systemd /sbin/init\n");
+        ->assertJsonPath('stdout', json_encode([['pid' => '1', 'ppid' => '0', 'user' => 'root', 'stat' => 'Ss', 'cpu' => '0.1', 'mem' => '0.2', 'command' => '/sbin/init']]));
 
     $this->actingAs($this->user)
         ->getJson(route('server.monitoring.services', $server))

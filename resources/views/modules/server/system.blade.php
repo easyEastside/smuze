@@ -303,7 +303,7 @@
         return '#22c55e';
     }
 
-    function updateUsage(barId, textId, pct, used, total) {
+    function updateUsage(barId, textId, pct, used, total, showSize = true) {
         const bar = document.getElementById(barId);
         const text = document.getElementById(textId);
         if (!bar || !text) return;
@@ -311,7 +311,7 @@
         const fill = bar.querySelector('div');
         fill.style.width = pct + '%';
         fill.style.backgroundColor = getBarColor(pct);
-        text.textContent = `${pct}% | ${formatBytes(used)} / ${formatBytes(total)}`;
+        text.textContent = showSize ? `${pct}% | ${formatBytes(used)} / ${formatBytes(total)}` : `${pct}%`;
     }
 
     function setConnectionStatus(label, className) {
@@ -327,7 +327,7 @@
         document.getElementById('sys-load').textContent = data.load || '-';
 
         if (data.cpu_percent !== null && data.cpu_percent !== undefined) {
-            updateUsage('cpu-bar', 'cpu-text', data.cpu_percent, data.cpu_percent, 100);
+            updateUsage('cpu-bar', 'cpu-text', data.cpu_percent, data.cpu_percent, 100, false);
         } else {
             document.getElementById('cpu-text').textContent = '-';
         }
