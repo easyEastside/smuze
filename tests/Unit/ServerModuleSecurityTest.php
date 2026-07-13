@@ -84,6 +84,47 @@ test('apache modules returns error message on failure', function () {
         ->and($result['modules'])->toBe([]);
 });
 
+test('apache obtain ssl rejects invalid input before agent action', function (string $domain, string $email, string $message) {
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')->never();
+
+    $result = (new ApacheAction($engine))->obtainSsl(new Server, $domain, $email);
+
+    expect($result)->toMatchArray([
+        'success' => false,
+        'message' => $message,
+    ]);
+})->with([
+    ['bad domain', 'admin@example.com', 'Domain darf nur gültige DNS-Zeichen enthalten, z. B. example.com.'],
+    ['example.com', 'not-an-email', 'Bitte eine gültige E-Mail-Adresse angeben.'],
+]);
+
+test('apache obtain ssl delegates validated payload to agent', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(function (Server $serverArgument, string $action, array $payload) use ($server): bool {
+            expect($serverArgument)->toBe($server);
+            expect($action)->toBe('apache.obtain_ssl')
+                ->and($payload)->toBe([
+                    'domain' => 'example.com',
+                    'email' => 'admin@example.com',
+                ]);
+
+            return true;
+        })
+        ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
+
+    $result = (new ApacheAction($engine))->obtainSsl($server, ' example.com ', ' admin@example.com ');
+
+    expect($result)->toMatchArray([
+        'success' => true,
+        'message' => 'SSL-Zertifikat für example.com wurde ausgestellt.',
+    ]);
+});
+
 test('nginx site config writes encoded content', function () {
     $server = new Server;
     $content = 'server { listen 80; }';

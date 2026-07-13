@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	apacheTokenPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
-	apacheHostPattern  = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?)*$`)
+	apacheTokenPattern          = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+	apacheHostPattern           = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?)*$`)
+	apacheReloadIfActiveCommand = "if systemctl is-active --quiet apache2; then systemctl reload apache2; fi"
 )
 
 func apacheStatusAction() actionDefinition {
@@ -71,7 +72,7 @@ func apacheSaveSiteConfigAction() actionDefinition {
 		backup := path + ".smuzecp.bak"
 		encoded := base64.StdEncoding.EncodeToString([]byte(content))
 
-		return "cp " + shellQuote(path) + " " + shellQuote(backup) + " && printf '%s' " + shellQuote(encoded) + " | base64 -d > " + shellQuote(path) + " && apache2ctl configtest || (mv " + shellQuote(backup) + " " + shellQuote(path) + "; false) && rm -f " + shellQuote(backup) + " && systemctl reload apache2", nil
+		return "cp " + shellQuote(path) + " " + shellQuote(backup) + " && printf '%s' " + shellQuote(encoded) + " | base64 -d > " + shellQuote(path) + " && apache2ctl configtest || (mv " + shellQuote(backup) + " " + shellQuote(path) + "; false) && rm -f " + shellQuote(backup) + " && " + apacheReloadIfActiveCommand, nil
 	}, Timeout: 30, UseSudo: true}
 }
 
@@ -89,7 +90,7 @@ func apacheSiteToggleAction(name string, command string) actionDefinition {
 			return "", err
 		}
 
-		return command + " " + shellQuote(site) + " && systemctl reload apache2", nil
+		return command + " " + shellQuote(site) + " && " + apacheReloadIfActiveCommand, nil
 	}, Timeout: 30, UseSudo: true}
 }
 
@@ -115,7 +116,7 @@ func apacheDeleteSiteAction() actionDefinition {
 			commands = append(commands, "rm -rf -- "+shellQuote(root))
 		}
 
-		commands = append(commands, "apache2ctl configtest", "systemctl reload apache2")
+		commands = append(commands, "apache2ctl configtest", apacheReloadIfActiveCommand)
 
 		return strings.Join(commands, " && "), nil
 	}, Timeout: 30, UseSudo: true}
@@ -145,7 +146,7 @@ func apacheCreateVhostAction() actionDefinition {
 		siteName := domain + ".conf"
 		path := "/etc/apache2/sites-available/" + siteName
 		encoded := base64.StdEncoding.EncodeToString([]byte(config))
-		commands := []string{"mkdir -p " + shellQuote(documentRoot), "printf '%s' " + shellQuote(encoded) + " | base64 -d > " + shellQuote(path), "apache2ctl configtest", "a2ensite " + shellQuote(siteName), "systemctl reload apache2"}
+		commands := []string{"mkdir -p " + shellQuote(documentRoot), "printf '%s' " + shellQuote(encoded) + " | base64 -d > " + shellQuote(path), "apache2ctl configtest", "a2ensite " + shellQuote(siteName), apacheReloadIfActiveCommand}
 
 		return strings.Join(commands, " && "), nil
 	}, Timeout: 45, UseSudo: true}
@@ -169,7 +170,7 @@ func apacheModuleAction(name string, command string) actionDefinition {
 			return "", err
 		}
 
-		return command + " " + shellQuote(module) + " && systemctl reload apache2", nil
+		return command + " " + shellQuote(module) + " && " + apacheReloadIfActiveCommand, nil
 	}, Timeout: 30, UseSudo: true}
 }
 
@@ -194,7 +195,7 @@ func apacheObtainSslAction() actionDefinition {
 			return "", errors.New("email must be valid")
 		}
 
-		return "DEBIAN_FRONTEND=noninteractive certbot --apache --non-interactive --agree-tos -m " + shellQuote(email) + " -d " + shellQuote(domain) + " --redirect --keep-until-expiring && systemctl reload apache2", nil
+		return "DEBIAN_FRONTEND=noninteractive certbot --apache --non-interactive --agree-tos -m " + shellQuote(email) + " -d " + shellQuote(domain) + " --redirect --keep-until-expiring && " + apacheReloadIfActiveCommand, nil
 	}, Timeout: 120, UseSudo: true}
 }
 

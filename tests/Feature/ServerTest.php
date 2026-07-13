@@ -1258,7 +1258,14 @@ test('user can view their own apache page', function () {
         ->assertSuccessful()
         ->assertSee('Apache-Webserver-Verwaltung')
         ->assertSee($server->name)
-        ->assertSee('encodeURIComponent(value)', false);
+        ->assertSee('encodeURIComponent(value)', false)
+        ->assertSee('apacheSiteRow(site)', false)
+        ->assertSee('apacheModuleRow(mod)', false)
+        ->assertSee('addEventListener(\'click\'', false)
+        ->assertDontSee('onclick="apacheSiteAction', false)
+        ->assertDontSee('onclick="apacheModuleAction', false)
+        ->assertDontSee('${site.name}', false)
+        ->assertDontSee('${mod.name}', false);
 });
 
 test('user cannot view another users apache page', function () {

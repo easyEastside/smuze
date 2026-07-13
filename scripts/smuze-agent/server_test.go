@@ -640,7 +640,8 @@ func TestApacheEnableModuleBuildsValidatedCommand(t *testing.T) {
 		t.Fatalf("expected command, got error %v", err)
 	}
 
-	if command != "a2enmod 'rewrite' && systemctl reload apache2" {
+	expected := "a2enmod 'rewrite' && " + apacheReloadIfActiveCommand
+	if command != expected {
 		t.Fatalf("unexpected command: %s", command)
 	}
 }

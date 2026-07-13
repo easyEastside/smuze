@@ -263,35 +263,67 @@
                 if (!data.success || !data.sites || data.sites.length === 0) {
                     empty.classList.remove('hidden');
                     table.classList.add('hidden');
+                    tbody.innerHTML = '';
                     return;
                 }
                 empty.classList.add('hidden');
                 tbody.innerHTML = '';
                 for (const site of data.sites) {
-                    const enabled = site.enabled === 'yes';
-                    const tr = document.createElement('tr');
-                    tr.className = 'border-b border-[#19140020] dark:border-[#3E3E3A]';
-                    tr.innerHTML = `
-                        <td class="px-3 py-2 font-medium">${site.name}</td>
-                        <td class="px-3 py-2">
-                            <span class="rounded px-2 py-0.5 text-xs font-medium ${enabled ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-[#19140020] text-[#706f6c] dark:bg-[#3E3E3A] dark:text-[#A1A09A]'}">${enabled ? 'Enabled' : 'Disabled'}</span>
-                        </td>
-                        <td class="px-3 py-2 text-xs">${site.server_name}</td>
-                        <td class="px-3 py-2 text-xs">${site.document_root}</td>
-                        <td class="px-3 py-2">
-                            <div class="flex gap-1">
-                                ${enabled
-                                    ? `<button onclick="apacheSiteAction('disable', '${site.name}')" class="text-xs text-yellow-600 hover:text-yellow-800 dark:text-yellow-400">Deaktivieren</button>`
-                                    : `<button onclick="apacheSiteAction('enable', '${site.name}')" class="text-xs text-green-600 hover:text-green-800 dark:text-green-400">Aktivieren</button>`
-                                }
-                                <button onclick="apacheDeleteSite('${site.name}')" class="text-xs text-red-600 hover:text-red-800 dark:text-red-400">Löschen</button>
-                            </div>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
+                    tbody.appendChild(apacheSiteRow(site));
                 }
                 table.classList.remove('hidden');
             });
+    }
+
+    function apacheSiteRow(site) {
+        const enabled = site.enabled === 'yes';
+        const row = document.createElement('tr');
+        row.className = 'border-b border-[#19140020] dark:border-[#3E3E3A]';
+
+        row.appendChild(apacheCell(site.name, 'px-3 py-2 font-medium'));
+
+        const status = document.createElement('td');
+        status.className = 'px-3 py-2';
+        const badge = document.createElement('span');
+        badge.className = 'rounded px-2 py-0.5 text-xs font-medium ' + (enabled ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-[#19140020] text-[#706f6c] dark:bg-[#3E3E3A] dark:text-[#A1A09A]');
+        badge.textContent = enabled ? 'Enabled' : 'Disabled';
+        status.appendChild(badge);
+        row.appendChild(status);
+
+        row.appendChild(apacheCell(site.server_name, 'px-3 py-2 text-xs'));
+        row.appendChild(apacheCell(site.document_root, 'px-3 py-2 text-xs'));
+
+        const actions = document.createElement('td');
+        actions.className = 'px-3 py-2';
+        const actionGroup = document.createElement('div');
+        actionGroup.className = 'flex gap-1';
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.textContent = enabled ? 'Deaktivieren' : 'Aktivieren';
+        toggle.className = enabled ? 'text-xs text-yellow-600 hover:text-yellow-800 dark:text-yellow-400' : 'text-xs text-green-600 hover:text-green-800 dark:text-green-400';
+        toggle.addEventListener('click', () => apacheSiteAction(enabled ? 'disable' : 'enable', site.name));
+        actionGroup.appendChild(toggle);
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = 'Löschen';
+        remove.className = 'text-xs text-red-600 hover:text-red-800 dark:text-red-400';
+        remove.addEventListener('click', () => apacheDeleteSite(site.name));
+        actionGroup.appendChild(remove);
+
+        actions.appendChild(actionGroup);
+        row.appendChild(actions);
+
+        return row;
+    }
+
+    function apacheCell(value, className) {
+        const cell = document.createElement('td');
+        cell.className = className;
+        cell.textContent = value || '-';
+
+        return cell;
     }
 
     function apacheSiteAction(action, site) {
@@ -397,21 +429,7 @@
                 }
                 list.innerHTML = '';
                 for (const mod of data.modules) {
-                    const enabled = mod.enabled === 'enabled';
-                    const div = document.createElement('div');
-                    div.className = 'flex items-center justify-between rounded-lg border border-[#19140020] px-3 py-1.5 text-xs dark:border-[#3E3E3A]';
-                    div.dataset.moduleName = mod.name;
-                    div.innerHTML = `
-                        <span class="flex items-center gap-1.5">
-                            <span class="size-1.5 rounded-full ${enabled ? 'bg-green-500' : 'bg-[#19140035] dark:bg-[#3E3E3A]'}"></span>
-                            ${mod.name}
-                        </span>
-                        ${enabled
-                            ? `<button onclick="apacheModuleAction('disable', '${mod.name}')" class="text-red-600 hover:text-red-800 dark:text-red-400">Deaktivieren</button>`
-                            : `<button onclick="apacheModuleAction('enable', '${mod.name}')" class="text-green-600 hover:text-green-800 dark:text-green-400">Aktivieren</button>`
-                        }
-                    `;
-                    list.appendChild(div);
+                    list.appendChild(apacheModuleRow(mod));
                 }
                 list.classList.remove('hidden');
             })
@@ -419,6 +437,30 @@
                 showResult('Fehler: ' + err.message, false);
                 loading.classList.add('hidden');
             });
+    }
+
+    function apacheModuleRow(mod) {
+        const enabled = mod.enabled === 'enabled';
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between rounded-lg border border-[#19140020] px-3 py-1.5 text-xs dark:border-[#3E3E3A]';
+        row.dataset.moduleName = mod.name;
+
+        const label = document.createElement('span');
+        label.className = 'flex items-center gap-1.5';
+        const dot = document.createElement('span');
+        dot.className = 'size-1.5 rounded-full ' + (enabled ? 'bg-green-500' : 'bg-[#19140035] dark:bg-[#3E3E3A]');
+        label.appendChild(dot);
+        label.appendChild(document.createTextNode(mod.name));
+        row.appendChild(label);
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.textContent = enabled ? 'Deaktivieren' : 'Aktivieren';
+        toggle.className = enabled ? 'text-red-600 hover:text-red-800 dark:text-red-400' : 'text-green-600 hover:text-green-800 dark:text-green-400';
+        toggle.addEventListener('click', () => apacheModuleAction(enabled ? 'disable' : 'enable', mod.name));
+        row.appendChild(toggle);
+
+        return row;
     }
 
     function filterModules() {
