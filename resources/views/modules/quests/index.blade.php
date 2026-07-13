@@ -1,11 +1,5 @@
 <x-layouts.app title="Quests">
     <section class="w-full max-w-5xl">
-        @if (session('status'))
-            <div class="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-800 shadow-[inset_0_0_0_1px_rgba(22,101,52,0.16)] dark:bg-green-950 dark:text-green-200 dark:shadow-[inset_0_0_0_1px_rgba(187,247,208,0.18)]">
-                {{ session('status') }}
-            </div>
-        @endif
-
         @error('quest')
             <div class="mb-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800 shadow-[inset_0_0_0_1px_rgba(153,27,27,0.16)] dark:bg-red-950 dark:text-red-200 dark:shadow-[inset_0_0_0_1px_rgba(254,202,202,0.18)]">
                 {{ $message }}

@@ -5,12 +5,6 @@
         <p class="mt-2 text-sm text-[#706f6c] dark:text-[#A1A09A]">Use your email address and password to continue.</p>
     </div>
 
-    @if (session('status'))
-        <div class="mb-6 rounded-sm bg-green-50 px-4 py-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200">
-            {{ session('status') }}
-        </div>
-    @endif
-
     <form method="POST" action="{{ route('login.store') }}" class="flex flex-col gap-5">
         @csrf
 

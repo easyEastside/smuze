@@ -1,11 +1,5 @@
 <x-layouts.app title="Messages">
     <section class="w-full max-w-5xl">
-        @if (session('status'))
-            <div class="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-800 shadow-[inset_0_0_0_1px_rgba(22,101,52,0.16)] dark:bg-green-950 dark:text-green-200 dark:shadow-[inset_0_0_0_1px_rgba(187,247,208,0.18)]">
-                {{ session('status') }}
-            </div>
-        @endif
-
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
             <aside class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                 <p class="text-sm text-[#f53003] dark:text-[#FF4433]">New thread</p>

@@ -40,19 +40,9 @@
 
                 <x-admin.sidebar />
 
+                <x-toasts />
+
                 <main class="flex-1 px-6 py-10">
-                    @if (session('flash.success'))
-                        <div class="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800/30 dark:bg-green-900/20 dark:text-green-300">
-                            {{ session('flash.success') }}
-                        </div>
-                    @endif
-
-                    @if (session('flash.error'))
-                        <div class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800/30 dark:bg-red-900/20 dark:text-red-300">
-                            {{ session('flash.error') }}
-                        </div>
-                    @endif
-
                     {{ $slot }}
                 </main>
             </div>

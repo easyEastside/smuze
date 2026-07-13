@@ -17,6 +17,8 @@
                 {{ config('app.name', 'Laravel') }}
             </a>
 
+            <x-toasts />
+
             @if ($fullWidth ?? false)
                 {{ $slot }}
             @else

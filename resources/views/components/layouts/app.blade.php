@@ -15,6 +15,8 @@
         <div class="flex min-h-screen flex-col">
             <x-navbar />
 
+            <x-toasts />
+
             <main class="flex flex-1 items-center justify-center px-6 py-10">
                 {{ $slot }}
             </main>
