@@ -3,6 +3,7 @@
 use App\Models\Server;
 use App\Models\ServerAgentCommand;
 use App\Models\ServerCronjob;
+use App\Models\ServerMetric;
 use App\Models\User;
 use App\Services\ExecutionEngine\ExecutionResult;
 use App\Services\ExecutionEngine\PushAgentEngine;
@@ -2014,4 +2015,114 @@ test('user cannot deploy on another users server', function () {
             'target_name' => 'myproject',
         ])
         ->assertForbidden();
+});
+
+test('metrics history returns empty for new server', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->getJson(route('server.agent.metrics.history', $server))
+        ->assertSuccessful()
+        ->assertJsonCount(0, 'labels')
+        ->assertJsonCount(0, 'cpu');
+});
+
+test('metrics history returns stored data', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    ServerMetric::create([
+        'server_id' => $server->id,
+        'cpu_percent' => 45,
+        'ram_percent' => 60,
+        'disk_percent' => 72,
+        'created_at' => now()->subMinutes(5),
+    ]);
+    ServerMetric::create([
+        'server_id' => $server->id,
+        'cpu_percent' => 50,
+        'ram_percent' => 62,
+        'disk_percent' => 72,
+        'created_at' => now()->subMinutes(2),
+    ]);
+
+    $this->actingAs($this->user)
+        ->getJson(route('server.agent.metrics.history', $server))
+        ->assertSuccessful()
+        ->assertJsonCount(2, 'labels')
+        ->assertJsonCount(2, 'cpu')
+        ->assertJsonCount(2, 'ram')
+        ->assertJsonCount(2, 'disk')
+        ->assertJsonPath('cpu.0', 45)
+        ->assertJsonPath('cpu.1', 50);
+});
+
+test('metrics history respects 7d range', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    ServerMetric::create([
+        'server_id' => $server->id,
+        'cpu_percent' => 10,
+        'created_at' => now()->subDays(5),
+    ]);
+    ServerMetric::create([
+        'server_id' => $server->id,
+        'cpu_percent' => 20,
+        'created_at' => now()->subDays(10),
+    ]);
+
+    $this->actingAs($this->user)
+        ->getJson(route('server.agent.metrics.history', $server).'?range=7d')
+        ->assertSuccessful()
+        ->assertJsonCount(1, 'cpu');
+});
+
+test('guest cannot view metrics history', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.agent.metrics.history', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user cannot view another users metrics history', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->getJson(route('server.agent.metrics.history', $server))
+        ->assertForbidden();
+});
+
+test('proxyMetrics stores metrics on success', function () {
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/metrics' => Http::response([
+            'cpu_percent' => 30,
+            'ram_percent' => 55,
+            'ram_used_mb' => 2048,
+            'ram_total_mb' => 8192,
+            'disk_percent' => 60,
+            'disk_used_mb' => 50000,
+            'disk_total_mb' => 100000,
+            'load' => '1.5',
+            'hostname' => 'web-01',
+        ]),
+        'http://127.0.0.1:9300/health' => Http::response([
+            'status' => 'ok',
+            'version' => '0.1.0',
+        ]),
+    ]);
+
+    $this->actingAs($this->user)
+        ->getJson(route('server.agent.metrics', $server))
+        ->assertSuccessful();
+
+    $this->assertDatabaseHas('server_metrics', [
+        'server_id' => $server->id,
+        'cpu_percent' => 30,
+        'ram_percent' => 55,
+    ]);
 });

@@ -2,8 +2,10 @@
 
 namespace App\Modules\Server\Agent\Controllers;
 
+use App\MetricsRange;
 use App\Models\Server;
 use App\Models\ServerAgentCommand;
+use App\Models\ServerMetric;
 use App\Services\ExecutionEngine\PushAgentEngine;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
@@ -237,13 +239,38 @@ class ServerAgentController
                 ->get($this->agentBaseUrl($server).'/metrics');
 
             if ($response->successful()) {
-                $this->recordAgentHealth($server, $response->json() ?: []);
+                $data = $response->json() ?: [];
+                $this->recordAgentHealth($server, $data);
+                $this->storeMetrics($server, $data);
             }
 
             return response()->json($response->json() ?: ['error' => 'invalid_response'], $response->status());
         } catch (ConnectionException) {
             return response()->json(['error' => 'Agent nicht erreichbar'], 503);
         }
+    }
+
+    public function proxyMetricsHistory(Request $request, Server $server): JsonResponse
+    {
+        Gate::authorize('view', $server);
+
+        $range = $request->enum('range', MetricsRange::class) ?? MetricsRange::LastHour;
+
+        $metrics = ServerMetric::where('server_id', $server->id)
+            ->where('created_at', '>=', $range->since())
+            ->orderBy('created_at')
+            ->get();
+
+        return response()->json([
+            'labels' => $metrics->pluck('created_at')->map(fn ($d) => $d->toIso8601String()),
+            'cpu' => $metrics->pluck('cpu_percent'),
+            'ram' => $metrics->pluck('ram_percent'),
+            'disk' => $metrics->pluck('disk_percent'),
+            'ram_used_mb' => $metrics->pluck('ram_used_mb'),
+            'ram_total_mb' => $metrics->pluck('ram_total_mb'),
+            'disk_used_mb' => $metrics->pluck('disk_used_mb'),
+            'disk_total_mb' => $metrics->pluck('disk_total_mb'),
+        ]);
     }
 
     public function proxyExecute(Request $request, Server $server): JsonResponse
@@ -602,6 +629,23 @@ class ServerAgentController
             'stderr' => $this->truncate($stderr, 8000),
             'started_at' => $startedAt,
             'finished_at' => now(),
+        ]);
+    }
+
+    /** @param array<string, mixed> $data */
+    private function storeMetrics(Server $server, array $data): void
+    {
+        ServerMetric::create([
+            'server_id' => $server->id,
+            'cpu_percent' => $data['cpu_percent'] ?? null,
+            'ram_percent' => $data['ram_percent'] ?? null,
+            'ram_used_mb' => $data['ram_used_mb'] ?? null,
+            'ram_total_mb' => $data['ram_total_mb'] ?? null,
+            'disk_percent' => $data['disk_percent'] ?? null,
+            'disk_used_mb' => $data['disk_used_mb'] ?? null,
+            'disk_total_mb' => $data['disk_total_mb'] ?? null,
+            'load' => $data['load'] ?? null,
+            'created_at' => now(),
         ]);
     }
 

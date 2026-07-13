@@ -112,6 +112,23 @@
                 </div>
 
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Verlauf</p>
+                        <div class="flex gap-1 text-xs" id="chart-range-buttons">
+                            <button type="button" data-range="1h" class="rounded-md border border-[#19140035] px-2 py-1 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">1h</button>
+                            <button type="button" data-range="24h" class="rounded-md border border-[#19140035] bg-[#1b1b18] px-2 py-1 text-white hover:border-[#1915014a] dark:border-[#3E3E3A] dark:bg-[#EDEDEC] dark:text-[#1C1C1A]">24h</button>
+                            <button type="button" data-range="7d" class="rounded-md border border-[#19140035] px-2 py-1 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">7d</button>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <canvas id="metrics-chart"></canvas>
+                    </div>
+                    <div id="chart-empty" class="mt-4 hidden text-center text-sm text-[#706f6c] dark:text-[#A1A09A]">
+                        Noch keine Verlaufsdaten vorhanden. Sammle Daten...
+                    </div>
+                </div>
+
+                <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Agent-Audit</p>
@@ -252,6 +269,7 @@
     </section>
 
     @push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script>
     const host = '{{ $server->host }}';
     const port = '{{ $server->agent_port ?? config('agent.push_port', 9300) }}';
@@ -382,6 +400,7 @@
                 renderSystemData(data);
                 hasLoadedMetrics = true;
                 content.classList.remove('hidden');
+                loadChart();
             })
             .catch(err => {
                 loading.classList.add('hidden');
@@ -580,6 +599,144 @@
             result.textContent = 'Fehler: ' + err.message;
         }
     }
+
+    let metricsChart = null;
+    let currentRange = '24h';
+
+    const chartColors = {
+        cpu: { line: '#22c55e', fill: 'rgba(34,197,94,0.1)' },
+        ram: { line: '#3b82f6', fill: 'rgba(59,130,246,0.1)' },
+        disk: { line: '#f59e0b', fill: 'rgba(245,158,11,0.1)' },
+        grid: getComputedStyle(document.documentElement).getPropertyValue('--color-border').trim() || 'rgba(0,0,0,0.08)',
+        text: getComputedStyle(document.documentElement).getPropertyValue('--color-muted').trim() || '#706f6c',
+    };
+
+    function isDarkMode() {
+        return document.documentElement.classList.contains('dark');
+    }
+
+    function loadChart() {
+        const url = '{{ route('server.agent.metrics.history', $server) }}?range=' + currentRange + '&_=' + Date.now();
+
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                const empty = document.getElementById('chart-empty');
+                const canvas = document.getElementById('metrics-chart');
+
+                if (!data.labels || data.labels.length < 2) {
+                    canvas.classList.add('hidden');
+                    empty.classList.remove('hidden');
+                    return;
+                }
+
+                canvas.classList.remove('hidden');
+                empty.classList.add('hidden');
+
+                if (metricsChart) metricsChart.destroy();
+
+                const dark = isDarkMode();
+                const gridColor = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+                const textColor = dark ? '#A1A09A' : '#706f6c';
+
+                const fmt = currentRange === '1h'
+                    ? l => new Date(l).toLocaleTimeString('de-DE')
+                    : l => new Date(l).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+                metricsChart = new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels.map(fmt),
+                        datasets: [
+                            {
+                                label: 'CPU',
+                                data: data.cpu,
+                                borderColor: '#22c55e',
+                                backgroundColor: 'rgba(34,197,94,0.1)',
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 0,
+                                borderWidth: 2,
+                            },
+                            {
+                                label: 'RAM',
+                                data: data.ram,
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59,130,246,0.1)',
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 0,
+                                borderWidth: 2,
+                            },
+                            {
+                                label: 'Disk',
+                                data: data.disk,
+                                borderColor: '#f59e0b',
+                                backgroundColor: 'rgba(245,158,11,0.1)',
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 0,
+                                borderWidth: 2,
+                            },
+                        ],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 3,
+                        interaction: { intersect: false, mode: 'index' },
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: textColor,
+                                    boxWidth: 12,
+                                    padding: 16,
+                                    usePointStyle: true,
+                                    pointStyle: 'circle',
+                                },
+                            },
+                            tooltip: {
+                                backgroundColor: dark ? '#161615' : '#fff',
+                                titleColor: textColor,
+                                bodyColor: textColor,
+                                borderColor: gridColor,
+                                borderWidth: 1,
+                                callbacks: {
+                                    label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y + '%',
+                                },
+                            },
+                        },
+                        scales: {
+                            x: {
+                                display: true,
+                                grid: { color: gridColor },
+                                ticks: { color: textColor, maxTicksLimit: 10 },
+                            },
+                            y: {
+                                min: 0,
+                                max: 100,
+                                grid: { color: gridColor },
+                                ticks: { color: textColor, callback: v => v + '%' },
+                            },
+                        },
+                    },
+                });
+            })
+            .catch(() => {});
+    }
+
+    document.getElementById('chart-range-buttons')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-range]');
+        if (!btn) return;
+
+        currentRange = btn.dataset.range;
+        btn.closest('#chart-range-buttons').querySelectorAll('[data-range]').forEach(b => {
+            b.className = 'rounded-md border border-[#19140035] px-2 py-1 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]';
+        });
+        btn.className = 'rounded-md border border-[#19140035] bg-[#1b1b18] px-2 py-1 text-white hover:border-[#1915014a] dark:border-[#3E3E3A] dark:bg-[#EDEDEC] dark:text-[#1C1C1A]';
+
+        loadChart();
+    });
 
     fetchMetrics();
     metricsRefreshTimer = setInterval(fetchMetrics, metricsRefreshMs);
