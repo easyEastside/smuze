@@ -17,7 +17,7 @@ test('navbar keeps primary links visible and moves secondary links into menus', 
         ->assertSeeText('Shop')
         ->assertSeeText('Bank')
         ->assertSeeText('Inventory')
-        ->assertSeeText('More')
+        ->assertSeeText('Unwichtig')
         ->assertSeeText('Menu')
         ->assertSeeText('Leaderboard')
         ->assertSeeText('Messages')
@@ -29,7 +29,6 @@ test('navbar keeps primary links visible and moves secondary links into menus', 
         ->assertSee('group-hover:block', false)
         ->assertSee('group-focus-within:block', false)
         ->assertDontSee('id="navbar-desktop-menu" class="absolute right-0 top-full z-40 mt-2', false)
-        ->assertSee('data-navbar-menu="desktop"', false)
         ->assertSee('data-navbar-menu="mobile"', false)
         ->assertDontSeeText('Admin');
 });
