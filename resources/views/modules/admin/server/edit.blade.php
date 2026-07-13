@@ -78,6 +78,22 @@
                 </div>
 
                 <div class="sm:col-span-2">
+                    <label for="agent_public_url" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Agent public URL (optional)</label>
+                    <input
+                        type="url"
+                        name="agent_public_url"
+                        id="agent_public_url"
+                        value="{{ old('agent_public_url', $server->agent_public_url) }}"
+                        placeholder="https://agent.example.com"
+                        class="mt-1 w-full rounded-lg border border-[#19140020] bg-white px-3 py-2 text-sm text-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:text-[#EDEDEC] @error('agent_public_url') border-[#f53003] @enderror"
+                    />
+                    <p class="mt-1 text-xs text-[#706f6c] dark:text-[#A1A09A]">Use this for HTTPS/WSS terminal connections via a TLS reverse proxy.</p>
+                    @error('agent_public_url')
+                        <p class="mt-1 text-sm text-[#f53003]">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div class="sm:col-span-2">
                     <label for="notes" class="block text-sm font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Notes (optional)</label>
                     <textarea
                         name="notes"

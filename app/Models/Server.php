@@ -21,6 +21,7 @@ class Server extends Model
         'agent_last_seen_at',
         'agent_status',
         'agent_port',
+        'agent_public_url',
         'notes',
     ];
 

@@ -19,6 +19,7 @@ class AdminServerRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'host' => ['required', 'string', 'max:255'],
             'agent_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
+            'agent_public_url' => ['nullable', 'url:http,https', 'max:255'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
     }

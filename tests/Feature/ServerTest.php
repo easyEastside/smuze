@@ -29,7 +29,7 @@ test('authenticated user can view their own servers', function () {
         ->assertSee('Web Server')
         ->assertSee('Bitte zuerst Server auswählen')
         ->assertSee('Webhosting')
-        ->assertSee('PHP')
+        ->assertSee('Dienste')
         ->assertSee('Unwichtig')
         ->assertSee('Bank')
         ->assertSee('Inventory');
@@ -72,7 +72,8 @@ test('user can view create server form', function () {
     $this->actingAs($this->user)
         ->get(route('server.create'))
         ->assertSuccessful()
-        ->assertSee('Server hinzufügen');
+        ->assertSee('Server hinzufügen')
+        ->assertSee('agent_public_url', false);
 });
 
 test('user can view edit server form', function () {
@@ -81,7 +82,8 @@ test('user can view edit server form', function () {
     $this->actingAs($this->user)
         ->get(route('server.edit', $server))
         ->assertSuccessful()
-        ->assertSee('Server bearbeiten');
+        ->assertSee('Server bearbeiten')
+        ->assertSee('agent_public_url', false);
 });
 
 test('user cannot edit another users server', function () {
@@ -164,6 +166,23 @@ test('user can create server with custom agent port', function () {
         'host' => '10.0.0.1',
         'agent_port' => 9400,
         'notes' => 'Test server',
+    ]);
+});
+
+test('user can create server with agent public url', function () {
+    $this->actingAs($this->user)
+        ->post(route('server.store'), [
+            'name' => 'Public Agent Server',
+            'host' => '10.0.0.1',
+            'agent_port' => 9400,
+            'agent_public_url' => 'https://agent.example.com/',
+        ])
+        ->assertRedirect(route('server.index', absolute: false));
+
+    $this->assertDatabaseHas('servers', [
+        'user_id' => $this->user->id,
+        'name' => 'Public Agent Server',
+        'agent_public_url' => 'https://agent.example.com',
     ]);
 });
 
@@ -293,6 +312,23 @@ test('user can update server agent port', function () {
         ->assertRedirect(route('server.index', absolute: false));
 
     expect($server->refresh()->agent_port)->toBe(9400);
+});
+
+test('user can update server agent public url', function () {
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+    ]);
+
+    $this->actingAs($this->user)
+        ->put(route('server.update', $server), [
+            'name' => $server->name,
+            'host' => $server->host,
+            'agent_port' => $server->agent_port,
+            'agent_public_url' => 'https://agent.example.com/',
+        ])
+        ->assertRedirect(route('server.index', absolute: false));
+
+    expect($server->refresh()->agent_public_url)->toBe('https://agent.example.com');
 });
 
 test('admin can view all servers in admin panel', function () {

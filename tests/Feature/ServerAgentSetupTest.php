@@ -124,6 +124,22 @@ test('user can create terminal websocket token for their server', function () {
         ->and($decodedPayload['exp'])->toBeGreaterThan(now()->getTimestamp());
 });
 
+test('terminal websocket token uses agent public url when configured', function () {
+    $user = User::factory()->create();
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+        'agent_public_url' => 'https://agent.example.com/ws',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('server.agent.terminal-token', $server))
+        ->assertSuccessful();
+
+    expect($response->json('url'))->toStartWith('wss://agent.example.com/ws/terminal?token=');
+});
+
 test('user cannot create terminal websocket token for another users server', function () {
     $user = User::factory()->create();
     $server = Server::factory()->withAgent()->create([

@@ -28,6 +28,7 @@ class AdminServerController
     {
         $data = $request->validated();
         $data['agent_port'] ??= config('agent.push_port', 9300);
+        $data['agent_public_url'] = filled($data['agent_public_url'] ?? null) ? rtrim($data['agent_public_url'], '/') : null;
         $server = Server::create($data);
 
         return to_route('admin.servers.index')
@@ -45,6 +46,7 @@ class AdminServerController
     {
         $data = $request->validated();
         $data['agent_port'] ??= config('agent.push_port', 9300);
+        $data['agent_public_url'] = filled($data['agent_public_url'] ?? null) ? rtrim($data['agent_public_url'], '/') : null;
         $server->update($data);
 
         return to_route('admin.servers.index')

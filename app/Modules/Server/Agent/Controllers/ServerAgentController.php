@@ -150,12 +150,10 @@ class ServerAgentController
         $ttl = (int) config('agent.terminal_token_ttl', 60);
         $expiresAt = now()->addSeconds($ttl);
         $token = $this->terminalTokenFor($server, $expiresAt->getTimestamp());
-        $scheme = $request->isSecure() ? 'wss' : 'ws';
-        $port = $server->agent_port ?? config('agent.push_port', 9300);
 
         return response()->json([
             'success' => true,
-            'url' => "{$scheme}://{$server->host}:{$port}/terminal?token={$token}",
+            'url' => $this->terminalWebsocketUrl($request, $server, $token),
             'expires_at' => $expiresAt->toIso8601String(),
         ]);
     }
@@ -479,6 +477,24 @@ class ServerAgentController
         $signature = hash_hmac('sha256', $payload, $server->agent_token, true);
 
         return $payload.'.'.$this->base64UrlEncode($signature);
+    }
+
+    private function terminalWebsocketUrl(Request $request, Server $server, string $token): string
+    {
+        if (filled($server->agent_public_url)) {
+            $publicUrl = parse_url($server->agent_public_url);
+            $scheme = ($publicUrl['scheme'] ?? 'http') === 'https' ? 'wss' : 'ws';
+            $host = $publicUrl['host'] ?? $server->host;
+            $port = isset($publicUrl['port']) ? ':'.$publicUrl['port'] : '';
+            $path = rtrim($publicUrl['path'] ?? '', '/');
+
+            return "{$scheme}://{$host}{$port}{$path}/terminal?token={$token}";
+        }
+
+        $scheme = $request->isSecure() ? 'wss' : 'ws';
+        $port = $server->agent_port ?? config('agent.push_port', 9300);
+
+        return "{$scheme}://{$server->host}:{$port}/terminal?token={$token}";
     }
 
     private function base64UrlEncode(string $value): string

@@ -22,6 +22,7 @@ class ServerFactory extends Factory
             'agent_last_seen_at' => null,
             'agent_status' => 'disconnected',
             'agent_port' => config('agent.push_port', 9300),
+            'agent_public_url' => null,
             'notes' => fake()->optional()->sentence(),
         ];
     }
