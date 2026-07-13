@@ -415,7 +415,15 @@ test('user can view their own server cronjobs', function () {
         ->assertSuccessful()
         ->assertSee('Zeitgesteuerte Aufgaben')
         ->assertSee('Laravel Scheduler')
-        ->assertSee(route('server.cronjobs.remote', $server), false);
+        ->assertSee(route('server.cronjobs.remote', $server), false)
+        ->assertSee('data-run-button', false)
+        ->assertSee('data-confirm="Cronjob wirklich löschen?"', false)
+        ->assertSee('addEventListener(\'click\'', false)
+        ->assertSee('replaceChildren', false)
+        ->assertDontSee('onclick="runCronjob', false)
+        ->assertDontSee('onsubmit="return confirm', false)
+        ->assertDontSee('target.innerHTML', false)
+        ->assertDontSee('result.innerHTML', false);
 });
 
 test('user cannot view another users server cronjobs', function () {
@@ -494,6 +502,63 @@ test('server cronjobs can be created and synced to agent', function () {
 
     Http::assertSent(fn ($request): bool => $request['action'] === 'cronjobs.install'
         && $request['payload']['jobs'][0]['command'] === 'php artisan schedule:run');
+});
+
+test('server cronjobs can be updated toggled and deleted with agent sync', function () {
+    $server = Server::factory()->withAgent()->create([
+        'user_id' => $this->user->id,
+        'host' => '127.0.0.1',
+        'agent_port' => 9300,
+    ]);
+    $cronjob = ServerCronjob::factory()->create([
+        'server_id' => $server->id,
+        'user_id' => $this->user->id,
+        'name' => 'Old Scheduler',
+        'enabled' => true,
+    ]);
+
+    Http::fake([
+        'http://127.0.0.1:9300/actions' => Http::response([
+            'success' => true,
+            'action' => 'cronjobs.install',
+            'exit_code' => 0,
+            'stdout' => '',
+            'stderr' => '',
+            'duration_ms' => 10,
+        ]),
+    ]);
+
+    $this->actingAs($this->user)
+        ->patch(route('server.cronjobs.update', [$server, $cronjob]), [
+            'name' => 'Updated Scheduler',
+            'schedule' => '*/5 * * * *',
+            'command' => 'php artisan schedule:run',
+            'working_directory' => '/var/www/html',
+            'run_as' => 'www-data',
+            'enabled' => '1',
+        ])
+        ->assertRedirect(route('server.cronjobs.index', $server, absolute: false));
+
+    expect($cronjob->refresh())
+        ->name->toBe('Updated Scheduler')
+        ->schedule->toBe('*/5 * * * *')
+        ->run_as->toBe('www-data');
+
+    $this->actingAs($this->user)
+        ->post(route('server.cronjobs.toggle', [$server, $cronjob]))
+        ->assertRedirect(route('server.cronjobs.index', $server, absolute: false));
+
+    expect($cronjob->refresh())->enabled->toBeFalse();
+
+    $this->actingAs($this->user)
+        ->delete(route('server.cronjobs.destroy', [$server, $cronjob]))
+        ->assertRedirect(route('server.cronjobs.index', $server, absolute: false));
+
+    $this->assertDatabaseMissing('server_cronjobs', [
+        'id' => $cronjob->id,
+    ]);
+
+    Http::assertSentCount(3);
 });
 
 test('server cronjobs validate unsafe payloads', function () {

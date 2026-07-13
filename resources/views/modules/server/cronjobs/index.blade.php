@@ -90,12 +90,12 @@
                                             <p class="mt-1 font-mono text-xs text-[#706f6c] dark:text-[#A1A09A]">{{ $cronjob->schedule }} · {{ $cronjob->command }}</p>
                                         </div>
                                         <div class="flex flex-wrap items-center gap-2">
-                                            <button type="button" data-run-url="{{ route('server.cronjobs.run', [$server, $cronjob]) }}" onclick="runCronjob(this)" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Jetzt ausführen</button>
+                                            <button type="button" data-run-button data-run-url="{{ route('server.cronjobs.run', [$server, $cronjob]) }}" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Jetzt ausführen</button>
                                             <form method="POST" action="{{ route('server.cronjobs.toggle', [$server, $cronjob]) }}">
                                                 @csrf
                                                 <button type="submit" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">{{ $cronjob->enabled ? 'Deaktivieren' : 'Aktivieren' }}</button>
                                             </form>
-                                            <form method="POST" action="{{ route('server.cronjobs.destroy', [$server, $cronjob]) }}" onsubmit="return confirm('Cronjob wirklich löschen?')">
+                                            <form method="POST" action="{{ route('server.cronjobs.destroy', [$server, $cronjob]) }}" data-confirm="Cronjob wirklich löschen?">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="rounded-lg border border-red-300 px-2 py-1 text-xs text-red-700 hover:border-red-500 dark:border-red-900 dark:text-red-300">Löschen</button>
@@ -154,37 +154,58 @@
 
     remoteRefresh.addEventListener('click', () => loadRemoteCronjobs());
 
-    function escapeHtml(value) {
-        return String(value ?? '').replace(/[&<>'"]/g, char => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            "'": '&#039;',
-            '"': '&quot;',
-        }[char]));
+    document.querySelectorAll('[data-run-button]').forEach(button => {
+        button.addEventListener('click', () => runCronjob(button));
+    });
+
+    document.querySelectorAll('[data-confirm]').forEach(form => {
+        form.addEventListener('submit', event => {
+            if (!confirm(form.dataset.confirm)) {
+                event.preventDefault();
+            }
+        });
+    });
+
+    function textElement(tag, className, text) {
+        const element = document.createElement(tag);
+        element.className = className;
+        element.textContent = text;
+
+        return element;
     }
 
     function renderRemoteCronjobs(entries) {
         const target = document.getElementById('remote-cronjobs');
+        target.replaceChildren();
 
         if (entries.length === 0) {
-            target.innerHTML = '<div class="text-[#706f6c] dark:text-[#A1A09A]">Keine Cronjobs auf dem Server gefunden.</div>';
+            target.appendChild(textElement('div', 'text-[#706f6c] dark:text-[#A1A09A]', 'Keine Cronjobs auf dem Server gefunden.'));
             return;
         }
 
-        target.innerHTML = entries.map(entry => `
-            <div class="rounded-xl border border-[#19140020] p-3 dark:border-[#3E3E3A]">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <span class="rounded-md px-2 py-0.5 text-xs ${entry.managed ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300' : 'bg-[#19140008] text-[#706f6c] dark:bg-[#fffaed0a] dark:text-[#A1A09A]'}">${entry.managed ? 'Smuze' : 'Fremd'}</span>
-                    <span class="font-mono text-xs text-[#706f6c] dark:text-[#A1A09A]">${escapeHtml(entry.schedule || '')}</span>
-                </div>
-                <div class="mt-2 flex flex-wrap gap-2 text-[11px] text-[#706f6c] dark:text-[#A1A09A]">
-                    <span>Quelle: ${escapeHtml(entry.source || 'crontab')}</span>
-                    <span>User: ${escapeHtml(entry.user || '-')}</span>
-                </div>
-                <pre class="mt-2 overflow-x-auto whitespace-pre-wrap font-mono text-xs">${escapeHtml(entry.command || entry.line || '')}</pre>
-            </div>
-        `).join('');
+        entries.forEach(entry => {
+            const card = document.createElement('div');
+            card.className = 'rounded-xl border border-[#19140020] p-3 dark:border-[#3E3E3A]';
+
+            const header = document.createElement('div');
+            header.className = 'flex flex-wrap items-center justify-between gap-2';
+
+            const badge = textElement('span', entry.managed ? 'rounded-md bg-green-50 px-2 py-0.5 text-xs text-green-700 dark:bg-green-950 dark:text-green-300' : 'rounded-md bg-[#19140008] px-2 py-0.5 text-xs text-[#706f6c] dark:bg-[#fffaed0a] dark:text-[#A1A09A]', entry.managed ? 'Smuze' : 'Fremd');
+            const schedule = textElement('span', 'font-mono text-xs text-[#706f6c] dark:text-[#A1A09A]', entry.schedule || '');
+            header.append(badge, schedule);
+
+            const meta = document.createElement('div');
+            meta.className = 'mt-2 flex flex-wrap gap-2 text-[11px] text-[#706f6c] dark:text-[#A1A09A]';
+            meta.append(
+                textElement('span', '', `Quelle: ${entry.source || 'crontab'}`),
+                textElement('span', '', `User: ${entry.user || '-'}`),
+            );
+
+            const command = textElement('pre', 'mt-2 overflow-x-auto whitespace-pre-wrap font-mono text-xs', entry.command || entry.line || '');
+
+            card.append(header, meta, command);
+            target.appendChild(card);
+        });
     }
 
     async function loadRemoteCronjobs() {
@@ -202,7 +223,7 @@
             status.textContent = new Date().toLocaleTimeString('de-DE');
         } catch (error) {
             const remoteCronjobs = document.getElementById('remote-cronjobs');
-            remoteCronjobs.innerHTML = '';
+            remoteCronjobs.replaceChildren();
             const div = document.createElement('div');
             div.className = 'rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
             div.appendChild(document.createTextNode(error.message));
@@ -235,10 +256,13 @@
             }
 
             result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
-            result.innerHTML = `Ausgeführt mit Exit-Code ${escapeHtml(data.exit_code)}<pre class="mt-2 overflow-auto whitespace-pre-wrap font-mono text-xs">${escapeHtml(data.stdout || '')}</pre>`;
+            result.replaceChildren(
+                document.createTextNode(`Ausgeführt mit Exit-Code ${data.exit_code}`),
+                textElement('pre', 'mt-2 overflow-auto whitespace-pre-wrap font-mono text-xs', data.stdout || ''),
+            );
         } catch (error) {
             result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
-            result.innerHTML = '';
+            result.replaceChildren();
             result.appendChild(document.createTextNode(error.message));
             result.appendChild(window.reportError(error.message, 'cronjobs'));
         } finally {

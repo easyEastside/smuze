@@ -411,6 +411,67 @@ func TestCronjobsInstallPreservesForeignCrontabAndWritesManagedBlock(t *testing.
 	}
 }
 
+func TestCronjobsInstallEscapesPercentForCrontab(t *testing.T) {
+	command, err := cronjobsInstallAction().command(map[string]any{
+		"jobs": []any{
+			map[string]any{
+				"id":       float64(8),
+				"name":     "Date",
+				"schedule": "* * * * *",
+				"command":  "date +%s > /tmp/smuze-date",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected command, got error: %v", err)
+	}
+
+	if !strings.Contains(command, "date +\\%s > /tmp/smuze-date") {
+		t.Fatalf("expected escaped percent in cron line, got: %s", command)
+	}
+}
+
+func TestCronjobsRunDoesNotEscapePercentForDirectExecution(t *testing.T) {
+	command, err := cronjobsRunAction().command(map[string]any{
+		"id":      float64(8),
+		"command": "date +%s",
+	})
+	if err != nil {
+		t.Fatalf("expected command, got error: %v", err)
+	}
+
+	if command != "date +%s" {
+		t.Fatalf("expected direct run command to remain unchanged, got: %s", command)
+	}
+}
+
+func TestCronjobsRemoveClearsManagedBlockWithoutLeavingEmptyBlock(t *testing.T) {
+	command, err := cronjobsRemoveAction().command(map[string]any{})
+	if err != nil {
+		t.Fatalf("expected command, got error: %v", err)
+	}
+
+	if strings.Contains(command, "cat >>") || strings.Contains(command, "SMUZE_CRON") {
+		t.Fatalf("expected remove command to avoid writing a managed block, got: %s", command)
+	}
+
+	if !strings.Contains(command, "crontab -r") {
+		t.Fatalf("expected remove command to remove empty crontab, got: %s", command)
+	}
+}
+
+func TestCronjobsListSkipsEnvironmentAssignmentsAndDuplicateCurrentUserSpool(t *testing.T) {
+	command := cronjobsListAction().Command
+
+	if !strings.Contains(command, "is_environment_assignment") {
+		t.Fatalf("expected list command to skip environment assignments: %s", command)
+	}
+
+	if !strings.Contains(command, "user == current_user") {
+		t.Fatalf("expected list command to skip duplicate current user spool: %s", command)
+	}
+}
+
 func TestCronjobsRejectUnsafeScheduleAndWorkingDirectory(t *testing.T) {
 	_, err := cronjobsInstallAction().command(map[string]any{
 		"jobs": []any{

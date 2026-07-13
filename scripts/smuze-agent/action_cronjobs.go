@@ -9,9 +9,13 @@ import (
 )
 
 const cronjobsListCommand = `python3 - <<'PY'
-import glob, json, os, subprocess
+import glob, json, os, re, subprocess
 
 entries = []
+current_user = subprocess.run(["id", "-un"], text=True, capture_output=True).stdout.strip() or "root"
+
+def is_environment_assignment(line):
+    return re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", line) is not None
 
 def parse_lines(lines, source, user=None, system=False):
     managed = False
@@ -23,7 +27,7 @@ def parse_lines(lines, source, user=None, system=False):
         if stripped == "# SMUZE MANAGED END":
             managed = False
             continue
-        if not stripped or stripped.startswith("#"):
+        if not stripped or stripped.startswith("#") or is_environment_assignment(stripped):
             continue
 
         fields = stripped.split(None, 6 if system else 5)
@@ -44,7 +48,7 @@ def parse_lines(lines, source, user=None, system=False):
 
 result = subprocess.run(["crontab", "-l"], text=True, capture_output=True)
 if result.returncode == 0:
-    parse_lines(result.stdout.splitlines(), "crontab", "root")
+    parse_lines(result.stdout.splitlines(), "crontab", current_user)
 
 if os.path.exists("/etc/crontab"):
     with open("/etc/crontab", encoding="utf-8", errors="ignore") as handle:
@@ -59,6 +63,8 @@ for pattern in ("/var/spool/cron/crontabs/*", "/var/spool/cron/*"):
     for path in sorted(glob.glob(pattern)):
         if os.path.isfile(path):
             user = os.path.basename(path)
+            if result.returncode == 0 and user == current_user:
+                continue
             with open(path, encoding="utf-8", errors="ignore") as handle:
                 parse_lines(handle.read().splitlines(), "user:" + user, user)
 
@@ -243,11 +249,22 @@ func validateCronjobPayload(job cronjobPayload) error {
 }
 
 func cronjobsInstallCommand(jobs []cronjobPayload) string {
+	if len(jobs) == 0 {
+		return "set -e\n" +
+			"existing=$(mktemp)\n" +
+			"base=$(mktemp)\n" +
+			"cleanup() { rm -f \"$existing\" \"$base\"; }\n" +
+			"trap cleanup EXIT\n" +
+			"crontab -l > \"$existing\" 2>/dev/null || true\n" +
+			"awk 'BEGIN{skip=0} /^# SMUZE MANAGED START$/{skip=1; next} /^# SMUZE MANAGED END$/{skip=0; next} skip==0{print}' \"$existing\" > \"$base\"\n" +
+			"if [ -s \"$base\" ]; then crontab \"$base\"; else crontab -r 2>/dev/null || true; fi"
+	}
+
 	var managed strings.Builder
 	managed.WriteString("# SMUZE MANAGED START\n")
 	for _, job := range jobs {
 		managed.WriteString(fmt.Sprintf("# smuze:id=%d name=%q\n", job.ID, job.Name))
-		managed.WriteString(job.Schedule + " " + cronjobShellCommand(job) + "\n")
+		managed.WriteString(job.Schedule + " " + escapeCronCommand(cronjobShellCommand(job)) + "\n")
 	}
 	managed.WriteString("# SMUZE MANAGED END\n")
 
@@ -278,4 +295,23 @@ func cronjobShellCommand(job cronjobPayload) string {
 	}
 
 	return command
+}
+
+func escapeCronCommand(command string) string {
+	var escaped strings.Builder
+	previousWasBackslash := false
+
+	for _, char := range command {
+		if char == '%' && !previousWasBackslash {
+			escaped.WriteRune('\\')
+		}
+
+		escaped.WriteRune(char)
+		previousWasBackslash = char == '\\' && !previousWasBackslash
+		if char != '\\' {
+			previousWasBackslash = false
+		}
+	}
+
+	return escaped.String()
 }
