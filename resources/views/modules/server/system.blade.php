@@ -26,6 +26,25 @@
         <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_280px]">
             <div class="space-y-6">
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
+                    <p class="text-sm text-[#f53003] dark:text-[#FF4433]">System-Aktionen</p>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <button type="button" onclick="systemAction('system.apt_update', 'apt update ausführen?')" class="rounded-lg bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
+                            APT Update
+                        </button>
+                        <button type="button" onclick="systemAction('system.apt_upgrade', 'System-Upgrade ausführen? Dies kann einige Minuten dauern.')" class="rounded-lg bg-[#f59e0b] px-4 py-2 text-sm font-medium text-white hover:bg-[#d97706]">
+                            APT Upgrade
+                        </button>
+                        <button type="button" onclick="systemAction('system.reboot', 'Server neu starten?')" class="rounded-lg bg-[#f53003] px-4 py-2 text-sm font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:hover:bg-[#e63a2e]">
+                            Neustart
+                        </button>
+                        <button type="button" onclick="systemAction('system.shutdown', 'Server herunterfahren?')" class="rounded-lg border border-[#19140035] px-4 py-2 text-sm font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                            Herunterfahren
+                        </button>
+                    </div>
+                    <div id="action-result" class="mt-3 hidden rounded-xl p-3 text-sm"></div>
+                </div>
+
+                <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <div class="flex items-center justify-between gap-3">
                         <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Systeminformationen</p>
                         <button type="button" onclick="fetchMetrics()" class="rounded-lg border border-[#19140035] px-3 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
@@ -87,32 +106,9 @@
                             </div>
                         </div>
 
-                        <div class="mt-6 rounded-xl border border-[#19140020] p-4 dark:border-[#3E3E3A]">
-                            <p class="text-xs font-medium text-[#706f6c] dark:text-[#A1A09A]">Details</p>
-                            <pre id="sys-details" class="mt-2 overflow-x-auto text-xs leading-5 text-[#706f6c] dark:text-[#A1A09A]"></pre>
-                        </div>
                     </div>
 
                     <div id="system-error" class="mt-4 hidden rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200"></div>
-                </div>
-
-                <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
-                    <p class="text-sm text-[#f53003] dark:text-[#FF4433]">System-Aktionen</p>
-                    <div class="mt-4 flex flex-wrap gap-2">
-                        <button type="button" onclick="systemAction('system.apt_update', 'apt update ausführen?')" class="rounded-lg bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-[#2b2b28] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]">
-                            APT Update
-                        </button>
-                        <button type="button" onclick="systemAction('system.apt_upgrade', 'System-Upgrade ausführen? Dies kann einige Minuten dauern.')" class="rounded-lg bg-[#f59e0b] px-4 py-2 text-sm font-medium text-white hover:bg-[#d97706]">
-                            APT Upgrade
-                        </button>
-                        <button type="button" onclick="systemAction('system.reboot', 'Server neu starten?')" class="rounded-lg bg-[#f53003] px-4 py-2 text-sm font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:hover:bg-[#e63a2e]">
-                            Neustart
-                        </button>
-                        <button type="button" onclick="systemAction('system.shutdown', 'Server herunterfahren?')" class="rounded-lg border border-[#19140035] px-4 py-2 text-sm font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
-                            Herunterfahren
-                        </button>
-                    </div>
-                    <div id="action-result" class="mt-3 hidden rounded-xl p-3 text-sm"></div>
                 </div>
 
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
@@ -207,33 +203,7 @@
                     </dl>
                 </div>
 
-                <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
-                    <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Module</p>
-                    <div class="mt-4 space-y-4 text-sm">
-                        <div>
-                            <p class="text-[0.65rem] font-semibold uppercase tracking-wide text-[#706f6c] dark:text-[#A1A09A]">Basis</p>
-                            <div class="mt-2 grid gap-2">
-                                <a href="{{ route('server.services.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Dienste</a>
-                                <a href="{{ route('server.terminal', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Terminal</a>
-                            </div>
-                        </div>
-                        <div>
-                            <p class="text-[0.65rem] font-semibold uppercase tracking-wide text-[#706f6c] dark:text-[#A1A09A]">Webserver</p>
-                            <div class="mt-2 grid gap-2">
-                                <a href="{{ route('server.apache.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Apache</a>
-                                <a href="{{ route('server.nginx.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Nginx</a>
-                            </div>
-                        </div>
-                        <div>
-                            <p class="text-[0.65rem] font-semibold uppercase tracking-wide text-[#706f6c] dark:text-[#A1A09A]">Server</p>
-                            <div class="mt-2 grid gap-2">
-                                <a href="{{ route('server.firewall.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Firewall</a>
-                                <a href="{{ route('server.mysql.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">MySQL</a>
-                                <a href="{{ route('server.github.index', $server) }}" class="rounded-lg border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">GitHub</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+
 
                 <div class="rounded-2xl bg-white p-6 shadow-[inset_0_0_0_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0_0_0_1px_#fffaed2d] sm:p-8">
                     <p class="text-sm text-[#f53003] dark:text-[#FF4433]">Agent Setup</p>
@@ -341,17 +311,6 @@
         } else {
             document.getElementById('disk-text').textContent = '-';
         }
-
-        const details = [];
-        if (data.php_version) details.push('PHP: ' + data.php_version);
-        if (data.apache_version) details.push('Apache: ' + data.apache_version);
-        if (data.nginx_version) details.push('Nginx: ' + data.nginx_version);
-        if (data.mysql_version) details.push('MySQL: ' + data.mysql_version);
-        if (data.node_version) details.push('Node.js: ' + data.node_version);
-        if (data.nvm_version) details.push('nvm: ' + data.nvm_version);
-        if (data.npm_version) details.push('npm: ' + data.npm_version);
-        if (data.composer_version) details.push('Composer: ' + data.composer_version);
-        document.getElementById('sys-details').textContent = details.join('\n') || 'Keine Detailinformationen verfügbar.';
 
         const servicesList = document.getElementById('services-list');
         servicesList.innerHTML = '';
