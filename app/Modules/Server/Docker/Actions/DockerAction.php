@@ -7,6 +7,16 @@ use App\Services\ExecutionEngine\PushAgentEngine;
 
 class DockerAction
 {
+    private const NAME_REGEX = '/^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/';
+
+    private const IMAGE_REGEX = '/^[A-Za-z0-9][A-Za-z0-9._:\/@-]{0,499}$/';
+
+    private const PORT_REGEX = '/^[0-9]{1,5}(:[0-9]{1,5})?(\/[A-Za-z]+)?$/';
+
+    private const ENV_REGEX = '/^[A-Za-z_][A-Za-z0-9_]*=.*$/';
+
+    private const PROJECT_PATH_REGEX = '/^\/[A-Za-z0-9._\/@-]+$/';
+
     public function __construct(
         private PushAgentEngine $engine,
     ) {}
@@ -136,6 +146,10 @@ class DockerAction
 
     public function containerStart(Server $server, string $container): array
     {
+        if (! $this->validName($container)) {
+            return ['success' => false, 'message' => 'Container-ID oder Name ist ungültig.'];
+        }
+
         $result = $this->engine->action($server, 'docker.container_start', ['container' => $container]);
 
         return [
@@ -146,6 +160,10 @@ class DockerAction
 
     public function containerStop(Server $server, string $container): array
     {
+        if (! $this->validName($container)) {
+            return ['success' => false, 'message' => 'Container-ID oder Name ist ungültig.'];
+        }
+
         $result = $this->engine->action($server, 'docker.container_stop', ['container' => $container]);
 
         return [
@@ -156,6 +174,10 @@ class DockerAction
 
     public function containerRestart(Server $server, string $container): array
     {
+        if (! $this->validName($container)) {
+            return ['success' => false, 'message' => 'Container-ID oder Name ist ungültig.'];
+        }
+
         $result = $this->engine->action($server, 'docker.container_restart', ['container' => $container]);
 
         return [
@@ -166,6 +188,10 @@ class DockerAction
 
     public function containerRemove(Server $server, string $container, bool $force = false): array
     {
+        if (! $this->validName($container)) {
+            return ['success' => false, 'message' => 'Container-ID oder Name ist ungültig.'];
+        }
+
         $result = $this->engine->action($server, 'docker.container_remove', [
             'container' => $container,
             'force' => $force,
@@ -179,6 +205,10 @@ class DockerAction
 
     public function containerLogs(Server $server, string $container, int $tail = 100): array
     {
+        if (! $this->validName($container)) {
+            return ['success' => false, 'output' => 'Container-ID oder Name ist ungültig.'];
+        }
+
         $result = $this->engine->action($server, 'docker.container_logs', [
             'container' => $container,
             'tail' => $tail,
@@ -192,6 +222,10 @@ class DockerAction
 
     public function containerExec(Server $server, string $container, string $command): array
     {
+        if (! $this->validName($container)) {
+            return ['success' => false, 'output' => 'Container-ID oder Name ist ungültig.'];
+        }
+
         if (trim($command) === '') {
             return ['success' => false, 'output' => 'Befehl darf nicht leer sein.'];
         }
@@ -209,16 +243,35 @@ class DockerAction
 
     public function containerCreate(Server $server, string $image, ?string $name = null, ?string $ports = null, array $env = [], ?string $volume = null): array
     {
-        if (trim($image) === '') {
-            return ['success' => false, 'message' => 'Image-Name darf nicht leer sein.'];
+        $image = trim($image);
+        $name = trim((string) $name);
+        $ports = trim((string) $ports);
+        $volume = trim((string) $volume);
+
+        if (! $this->validImage($image)) {
+            return ['success' => false, 'message' => 'Image-Name ist ungültig.'];
+        }
+
+        if ($name !== '' && ! $this->validName($name)) {
+            return ['success' => false, 'message' => 'Container-Name ist ungültig.'];
+        }
+
+        if ($ports !== '' && preg_match(self::PORT_REGEX, $ports) !== 1) {
+            return ['success' => false, 'message' => 'Port-Weiterleitung ist ungültig.'];
+        }
+
+        foreach ($env as $value) {
+            if (! is_string($value) || preg_match(self::ENV_REGEX, $value) !== 1 || str_contains($value, "\0") || str_contains($value, "\n") || str_contains($value, "\r")) {
+                return ['success' => false, 'message' => 'Env-Variablen müssen im Format KEY=VALUE angegeben werden.'];
+            }
         }
 
         $result = $this->engine->action($server, 'docker.container_create', [
             'image' => $image,
-            'name' => $name,
-            'ports' => $ports,
+            'name' => $name !== '' ? $name : null,
+            'ports' => $ports !== '' ? $ports : null,
             'env' => $env,
-            'volume' => $volume,
+            'volume' => $volume !== '' ? $volume : null,
         ]);
 
         return [
@@ -256,8 +309,10 @@ class DockerAction
 
     public function imagePull(Server $server, string $image): array
     {
-        if (trim($image) === '') {
-            return ['success' => false, 'message' => 'Image-Name darf nicht leer sein.'];
+        $image = trim($image);
+
+        if (! $this->validImage($image)) {
+            return ['success' => false, 'message' => 'Image-Name ist ungültig.'];
         }
 
         $result = $this->engine->action($server, 'docker.image_pull', ['image' => $image]);
@@ -270,6 +325,10 @@ class DockerAction
 
     public function imageRemove(Server $server, string $image, bool $force = false): array
     {
+        if (! $this->validImage($image)) {
+            return ['success' => false, 'message' => 'Image-Name ist ungültig.'];
+        }
+
         $result = $this->engine->action($server, 'docker.image_remove', [
             'image' => $image,
             'force' => $force,
@@ -296,6 +355,10 @@ class DockerAction
 
     public function composePs(Server $server, ?string $projectPath = null): array
     {
+        if (! $this->validProjectPath($projectPath)) {
+            return ['success' => false, 'compose_services' => []];
+        }
+
         $result = $this->engine->action($server, 'docker.compose_ps', [
             'project_path' => $projectPath,
         ]);
@@ -311,6 +374,10 @@ class DockerAction
 
     public function composeUp(Server $server, ?string $projectPath = null, bool $detach = true): array
     {
+        if (! $this->validProjectPath($projectPath)) {
+            return ['success' => false, 'message' => 'Projekt-Pfad ist ungültig.', 'output' => ''];
+        }
+
         $result = $this->engine->action($server, 'docker.compose_up', [
             'project_path' => $projectPath,
             'detach' => $detach,
@@ -325,6 +392,10 @@ class DockerAction
 
     public function composeDown(Server $server, ?string $projectPath = null): array
     {
+        if (! $this->validProjectPath($projectPath)) {
+            return ['success' => false, 'message' => 'Projekt-Pfad ist ungültig.', 'output' => ''];
+        }
+
         $result = $this->engine->action($server, 'docker.compose_down', [
             'project_path' => $projectPath,
         ]);
@@ -364,7 +435,11 @@ class DockerAction
     {
         $lines = explode("\n", trim($output));
         if (count($lines) < 2) {
-            return [];
+            return $this->parseKeyValueRows($lines);
+        }
+
+        if (str_contains($lines[0], '=')) {
+            return $this->parseKeyValueRows($lines);
         }
 
         $headers = explode("\t", $lines[0]);
@@ -386,5 +461,52 @@ class DockerAction
         }
 
         return $rows;
+    }
+
+    private function parseKeyValueRows(array $lines): array
+    {
+        $rows = [];
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            $row = [];
+            foreach (explode("\t", $line) as $column) {
+                if (! str_contains($column, '=')) {
+                    continue;
+                }
+
+                [$key, $value] = explode('=', $column, 2);
+                $row[trim($key)] = trim($value);
+            }
+
+            if ($row !== []) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
+    }
+
+    private function validName(string $value): bool
+    {
+        return preg_match(self::NAME_REGEX, trim($value)) === 1;
+    }
+
+    private function validImage(string $value): bool
+    {
+        $value = trim($value);
+
+        return preg_match(self::IMAGE_REGEX, $value) === 1 && ! str_contains($value, '..');
+    }
+
+    private function validProjectPath(?string $value): bool
+    {
+        $value = trim((string) $value);
+
+        return $value === '' || (preg_match(self::PROJECT_PATH_REGEX, $value) === 1 && ! str_contains($value, '/..'));
     }
 }

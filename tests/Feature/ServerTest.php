@@ -991,6 +991,98 @@ test('unknown service returns not found', function () {
         ->assertNotFound();
 });
 
+// Docker
+test('guest cannot view docker page', function () {
+    $server = Server::factory()->create();
+
+    $this->get(route('server.docker.index', $server))->assertRedirect(route('login', absolute: false));
+});
+
+test('user can view their own docker page', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.docker.index', $server))
+        ->assertSuccessful()
+        ->assertSee('Docker-Container-Verwaltung')
+        ->assertSee($server->name)
+        ->assertSee('encodeURIComponent(value)', false)
+        ->assertSee('function containerRow(container)', false)
+        ->assertSee('function imageRow(image)', false)
+        ->assertSee('function networkRow(network)', false)
+        ->assertSee('function composeRow(service)', false)
+        ->assertSee('addEventListener(\'click\'', false)
+        ->assertDontSee('onclick="containerAction', false)
+        ->assertDontSee('onclick="imageRemove', false)
+        ->assertDontSee('${c.CONTAINER_ID', false)
+        ->assertDontSee('${img.IMAGE_ID', false)
+        ->assertDontSee('${net.NAME', false)
+        ->assertDontSee('${svc.NAME', false);
+});
+
+test('user cannot view another users docker page', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('server.docker.index', $server))
+        ->assertForbidden();
+});
+
+test('docker status and list endpoints return json with success field', function (string $routeName) {
+    $server = Server::factory()->create(['user_id' => $this->user->id, 'host' => '127.0.0.1']);
+
+    $this->actingAs($this->user)
+        ->get(route($routeName, $server))
+        ->assertJsonStructure(['success']);
+})->with([
+    'server.docker.status',
+    'server.docker.info',
+    'server.docker.ps',
+    'server.docker.stats',
+    'server.docker.images',
+    'server.docker.networks',
+    'server.docker.compose.ps',
+]);
+
+test('docker install deinstall service and prune endpoints return json with success field', function (string $method, string $routeName, array $parameters = []) {
+    $server = Server::factory()->create(['user_id' => $this->user->id, 'host' => '127.0.0.1']);
+
+    $this->actingAs($this->user)
+        ->{$method}(route($routeName, ['server' => $server, ...$parameters]))
+        ->assertJsonStructure(['success']);
+})->with([
+    ['post', 'server.docker.install'],
+    ['post', 'server.docker.deinstall'],
+    ['post', 'server.docker.service', ['action' => 'start']],
+    ['post', 'server.docker.system-prune'],
+]);
+
+test('docker container and image actions validate request shape', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.docker.containers.create', $server), [])
+        ->assertInvalid(['image']);
+
+    $this->actingAs($this->user)
+        ->post(route('server.docker.images.pull', $server), [])
+        ->assertInvalid(['image']);
+
+    $this->actingAs($this->user)
+        ->post(route('server.docker.containers.exec', ['server' => $server, 'container' => 'test']), [])
+        ->assertInvalid(['command']);
+});
+
+test('user cannot update docker on another users server', function () {
+    $otherUser = User::factory()->create();
+    $server = Server::factory()->create(['user_id' => $otherUser->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('server.docker.install', $server))
+        ->assertForbidden();
+});
+
 test('guest cannot view firewall page', function () {
     $server = Server::factory()->create();
 

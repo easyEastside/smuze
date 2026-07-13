@@ -341,40 +341,51 @@
                 if (!data.success || !data.containers || data.containers.length === 0) {
                     empty.classList.remove('hidden');
                     table.classList.add('hidden');
+                    tbody.innerHTML = '';
                     return;
                 }
                 empty.classList.add('hidden');
                 tbody.innerHTML = '';
                 for (const c of data.containers) {
-                    const status = (c.STATUS || c.Status || '').toLowerCase();
-                    const isRunning = status.startsWith('up');
-                    const tr = document.createElement('tr');
-                    tr.className = 'border-b border-[#19140020] dark:border-[#3E3E3A]';
-                    tr.innerHTML = `
-                        <td class="px-3 py-2 font-mono text-xs">${(c.CONTAINER_ID || c['Container ID'] || '').substring(0, 12)}</td>
-                        <td class="px-3 py-2 text-xs">${c.IMAGE || c.Image || ''}</td>
-                        <td class="px-3 py-2">
-                            <span class="rounded px-2 py-0.5 text-xs font-medium ${isRunning ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-[#19140020] text-[#706f6c] dark:bg-[#3E3E3A] dark:text-[#A1A09A]'}">${c.STATUS || c.Status || ''}</span>
-                        </td>
-                        <td class="px-3 py-2 text-xs font-mono">${c.PORTS || c.Ports || '-'}</td>
-                        <td class="px-3 py-2 text-xs font-medium">${c.NAMES || c.Names || ''}</td>
-                        <td class="px-3 py-2">
-                            <div class="flex gap-1">
-                                ${isRunning
-                                    ? `<button onclick="containerAction('stop', '${c.CONTAINER_ID || c['Container ID'] || ''}')" class="text-xs text-red-600 hover:text-red-800 dark:text-red-400">Stop</button>
-                                       <button onclick="containerAction('restart', '${c.CONTAINER_ID || c['Container ID'] || ''}')" class="text-xs text-yellow-600 hover:text-yellow-800 dark:text-yellow-400">Restart</button>`
-                                    : `<button onclick="containerAction('start', '${c.CONTAINER_ID || c['Container ID'] || ''}')" class="text-xs text-green-600 hover:text-green-800 dark:text-green-400">Start</button>`
-                                }
-                                <button onclick="showContainerLogs('${c.CONTAINER_ID || c['Container ID'] || ''}')" class="text-xs text-[#706f6c] hover:text-[#1b1b18] dark:text-[#A1A09A] dark:hover:text-white">Logs</button>
-                                <button onclick="showContainerExec('${c.CONTAINER_ID || c['Container ID'] || ''}')" class="text-xs text-[#706f6c] hover:text-[#1b1b18] dark:text-[#A1A09A] dark:hover:text-white">Exec</button>
-                                <button onclick="containerRemove('${c.CONTAINER_ID || c['Container ID'] || ''}')" class="text-xs text-red-600 hover:text-red-800 dark:text-red-400">Löschen</button>
-                            </div>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
+                    tbody.appendChild(containerRow(c));
                 }
                 table.classList.remove('hidden');
             });
+    }
+
+    function containerRow(container) {
+        const id = container.CONTAINER_ID || container['Container ID'] || '';
+        const statusText = container.STATUS || container.Status || '';
+        const isRunning = statusText.toLowerCase().startsWith('up');
+        const row = document.createElement('tr');
+        row.className = 'border-b border-[#19140020] dark:border-[#3E3E3A]';
+
+        row.appendChild(dockerCell(id.substring(0, 12), 'px-3 py-2 font-mono text-xs'));
+        row.appendChild(dockerCell(container.IMAGE || container.Image || '', 'px-3 py-2 text-xs'));
+        row.appendChild(statusCell(statusText, isRunning));
+        row.appendChild(dockerCell(container.PORTS || container.Ports || '-', 'px-3 py-2 text-xs font-mono'));
+        row.appendChild(dockerCell(container.NAMES || container.Names || '', 'px-3 py-2 text-xs font-medium'));
+
+        const actions = document.createElement('td');
+        actions.className = 'px-3 py-2';
+        const group = document.createElement('div');
+        group.className = 'flex gap-1';
+
+        if (isRunning) {
+            group.appendChild(actionButton('Stop', 'text-xs text-red-600 hover:text-red-800 dark:text-red-400', () => containerAction('stop', id)));
+            group.appendChild(actionButton('Restart', 'text-xs text-yellow-600 hover:text-yellow-800 dark:text-yellow-400', () => containerAction('restart', id)));
+        } else {
+            group.appendChild(actionButton('Start', 'text-xs text-green-600 hover:text-green-800 dark:text-green-400', () => containerAction('start', id)));
+        }
+
+        group.appendChild(actionButton('Logs', 'text-xs text-[#706f6c] hover:text-[#1b1b18] dark:text-[#A1A09A] dark:hover:text-white', () => showContainerLogs(id)));
+        group.appendChild(actionButton('Exec', 'text-xs text-[#706f6c] hover:text-[#1b1b18] dark:text-[#A1A09A] dark:hover:text-white', () => showContainerExec(id)));
+        group.appendChild(actionButton('Löschen', 'text-xs text-red-600 hover:text-red-800 dark:text-red-400', () => containerRemove(id)));
+
+        actions.appendChild(group);
+        row.appendChild(actions);
+
+        return row;
     }
 
     function containerAction(action, container) {
@@ -503,26 +514,34 @@
                 if (!data.success || !data.images || data.images.length === 0) {
                     empty.classList.remove('hidden');
                     table.classList.add('hidden');
+                    tbody.innerHTML = '';
                     return;
                 }
                 empty.classList.add('hidden');
                 tbody.innerHTML = '';
                 for (const img of data.images) {
-                    const tr = document.createElement('tr');
-                    tr.className = 'border-b border-[#19140020] dark:border-[#3E3E3A]';
-                    tr.innerHTML = `
-                        <td class="px-3 py-2 text-xs">${img.REPOSITORY || img.Repository || ''}</td>
-                        <td class="px-3 py-2 text-xs">${img.TAG || img.Tag || ''}</td>
-                        <td class="px-3 py-2 font-mono text-xs">${(img.IMAGE_ID || img['Image ID'] || '').substring(0, 19)}</td>
-                        <td class="px-3 py-2 text-xs">${img.SIZE || img.Size || ''}</td>
-                        <td class="px-3 py-2">
-                            <button onclick="imageRemove('${img.IMAGE_ID || img['Image ID'] || ''}')" class="text-xs text-red-600 hover:text-red-800 dark:text-red-400">Löschen</button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
+                    tbody.appendChild(imageRow(img));
                 }
                 table.classList.remove('hidden');
             });
+    }
+
+    function imageRow(image) {
+        const id = image.IMAGE_ID || image['Image ID'] || '';
+        const row = document.createElement('tr');
+        row.className = 'border-b border-[#19140020] dark:border-[#3E3E3A]';
+
+        row.appendChild(dockerCell(image.REPOSITORY || image.Repository || '', 'px-3 py-2 text-xs'));
+        row.appendChild(dockerCell(image.TAG || image.Tag || '', 'px-3 py-2 text-xs'));
+        row.appendChild(dockerCell(id.substring(0, 19), 'px-3 py-2 font-mono text-xs'));
+        row.appendChild(dockerCell(image.SIZE || image.Size || '', 'px-3 py-2 text-xs'));
+
+        const actions = document.createElement('td');
+        actions.className = 'px-3 py-2';
+        actions.appendChild(actionButton('Löschen', 'text-xs text-red-600 hover:text-red-800 dark:text-red-400', () => imageRemove(id)));
+        row.appendChild(actions);
+
+        return row;
     }
 
     function showPullForm() {
@@ -587,17 +606,12 @@
                 if (!data.success || !data.networks || data.networks.length === 0) {
                     loading.textContent = 'Keine Netzwerke gefunden.';
                     loading.classList.remove('hidden');
+                    list.innerHTML = '';
                     return;
                 }
                 list.innerHTML = '';
                 for (const net of data.networks) {
-                    const div = document.createElement('div');
-                    div.className = 'flex items-center justify-between rounded-lg border border-[#19140020] px-3 py-1.5 text-xs dark:border-[#3E3E3A]';
-                    div.innerHTML = `
-                        <span class="font-medium">${net.NAME || net.Name || ''}</span>
-                        <span class="text-[#706f6c] dark:text-[#A1A09A]">${net.DRIVER || net.Driver || ''}</span>
-                    `;
-                    list.appendChild(div);
+                    list.appendChild(networkRow(net));
                 }
                 list.classList.remove('hidden');
             })
@@ -605,6 +619,23 @@
                 showResult('Fehler: ' + err.message, false);
                 loading.classList.add('hidden');
             });
+    }
+
+    function networkRow(network) {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between rounded-lg border border-[#19140020] px-3 py-1.5 text-xs dark:border-[#3E3E3A]';
+
+        const name = document.createElement('span');
+        name.className = 'font-medium';
+        name.textContent = network.NAME || network.Name || '';
+        row.appendChild(name);
+
+        const driver = document.createElement('span');
+        driver.className = 'text-[#706f6c] dark:text-[#A1A09A]';
+        driver.textContent = network.DRIVER || network.Driver || '';
+        row.appendChild(driver);
+
+        return row;
     }
 
     function loadCompose() {
@@ -620,27 +651,58 @@
                 if (!data.success || !data.compose_services || data.compose_services.length === 0) {
                     empty.classList.remove('hidden');
                     table.classList.add('hidden');
+                    tbody.innerHTML = '';
                     return;
                 }
                 empty.classList.add('hidden');
                 tbody.innerHTML = '';
                 for (const svc of data.compose_services) {
-                    const status = (svc.STATUS || svc.Status || '').toLowerCase();
-                    const isUp = status.startsWith('up');
-                    const tr = document.createElement('tr');
-                    tr.className = 'border-b border-[#19140020] dark:border-[#3E3E3A]';
-                    tr.innerHTML = `
-                        <td class="px-3 py-2 text-xs font-medium">${svc.NAME || svc.Name || ''}</td>
-                        <td class="px-3 py-2 text-xs">${svc.IMAGE || svc.Image || ''}</td>
-                        <td class="px-3 py-2">
-                            <span class="rounded px-2 py-0.5 text-xs font-medium ${isUp ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-[#19140020] text-[#706f6c] dark:bg-[#3E3E3A] dark:text-[#A1A09A]'}">${svc.STATUS || svc.Status || ''}</span>
-                        </td>
-                        <td class="px-3 py-2 text-xs font-mono">${svc.PORTS || svc.Ports || '-'}</td>
-                    `;
-                    tbody.appendChild(tr);
+                    tbody.appendChild(composeRow(svc));
                 }
                 table.classList.remove('hidden');
             });
+    }
+
+    function composeRow(service) {
+        const statusText = service.STATUS || service.Status || '';
+        const row = document.createElement('tr');
+        row.className = 'border-b border-[#19140020] dark:border-[#3E3E3A]';
+
+        row.appendChild(dockerCell(service.NAME || service.Name || '', 'px-3 py-2 text-xs font-medium'));
+        row.appendChild(dockerCell(service.IMAGE || service.Image || '', 'px-3 py-2 text-xs'));
+        row.appendChild(statusCell(statusText, statusText.toLowerCase().startsWith('up')));
+        row.appendChild(dockerCell(service.PORTS || service.Ports || '-', 'px-3 py-2 text-xs font-mono'));
+
+        return row;
+    }
+
+    function dockerCell(value, className) {
+        const cell = document.createElement('td');
+        cell.className = className;
+        cell.textContent = value || '-';
+
+        return cell;
+    }
+
+    function statusCell(value, active) {
+        const cell = document.createElement('td');
+        cell.className = 'px-3 py-2';
+        const badge = document.createElement('span');
+        badge.className = 'rounded px-2 py-0.5 text-xs font-medium ' + (active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-[#19140020] text-[#706f6c] dark:bg-[#3E3E3A] dark:text-[#A1A09A]');
+        badge.textContent = value || '-';
+        cell.appendChild(badge);
+
+        return cell;
+    }
+
+    function actionButton(label, className, callback) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = label;
+        button.className = className;
+        button.addEventListener('click', callback);
+
+        return button;
     }
 
     function composeUp() {

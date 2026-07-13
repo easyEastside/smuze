@@ -59,7 +59,7 @@ func dockerActionDefinitions() []actionDefinition {
 		dockerStartAction(), dockerStopAction(), dockerRestartAction(),
 		dockerPsAction(), dockerContainerStartAction(), dockerContainerStopAction(),
 		dockerContainerRestartAction(), dockerContainerRemoveAction(), dockerContainerLogsAction(),
-		dockerContainerExecAction(), dockerContainerCreateAction(),
+		dockerContainerExecAction(), dockerContainerCreateAction(), dockerContainerInspectAction(),
 		dockerImagesAction(), dockerImagePullAction(), dockerImageRemoveAction(),
 		dockerNetworksAction(),
 		dockerComposePsAction(), dockerComposeUpAction(), dockerComposeDownAction(),

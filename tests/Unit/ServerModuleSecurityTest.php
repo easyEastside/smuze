@@ -2,6 +2,7 @@
 
 use App\Models\Server;
 use App\Modules\Server\Apache\Actions\ApacheAction;
+use App\Modules\Server\Docker\Actions\DockerAction;
 use App\Modules\Server\Firewall\Actions\FirewallAction;
 use App\Modules\Server\Github\Actions\GithubAction;
 use App\Modules\Server\Mysql\Actions\MysqlAction;
@@ -331,6 +332,78 @@ test('nginx delete site rejects unsafe project deletion paths before agent actio
         'message' => 'Projektordner kann nur unter /var/www automatisch gelöscht werden.',
     ]);
 });
+
+test('docker container create delegates validated payload', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->withArgs(function (Server $serverArgument, string $action, array $payload) use ($server): bool {
+            expect($serverArgument)->toBe($server);
+            expect($action)->toBe('docker.container_create')
+                ->and($payload)->toBe([
+                    'image' => 'nginx:alpine',
+                    'name' => 'smuze-test',
+                    'ports' => '8080:80',
+                    'env' => ['APP_ENV=testing'],
+                    'volume' => '/tmp:/data',
+                ]);
+
+            return true;
+        })
+        ->andReturn(new ExecutionResult(stdout: '', stderr: '', exitCode: 0, success: true));
+
+    $result = (new DockerAction($engine))->containerCreate($server, ' nginx:alpine ', ' smuze-test ', ' 8080:80 ', ['APP_ENV=testing'], ' /tmp:/data ');
+
+    expect($result['success'])->toBeTrue();
+});
+
+test('docker parses key value list output', function () {
+    $server = new Server;
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->with($server, 'docker.images', [])
+        ->andReturn(new ExecutionResult(
+            stdout: "REPOSITORY=nginx\tTAG=alpine\tIMAGE_ID=sha256:abc\tSIZE=50MB\n",
+            stderr: '',
+            exitCode: 0,
+            success: true,
+        ));
+
+    $result = (new DockerAction($engine))->images($server);
+
+    expect($result)->toMatchArray([
+        'success' => true,
+        'images' => [
+            [
+                'REPOSITORY' => 'nginx',
+                'TAG' => 'alpine',
+                'IMAGE_ID' => 'sha256:abc',
+                'SIZE' => '50MB',
+            ],
+        ],
+    ]);
+});
+
+test('docker actions reject unsafe values before agent action', function (string $method, array $arguments, string $messageKey) {
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')->never();
+
+    $result = (new DockerAction($engine))->{$method}(new Server, ...$arguments);
+
+    expect($result['success'])->toBeFalse()
+        ->and($result[$messageKey])->not->toBe('');
+})->with([
+    ['containerStart', ['bad;container'], 'message'],
+    ['containerLogs', ['bad;container'], 'output'],
+    ['containerExec', ['bad;container', 'whoami'], 'output'],
+    ['imagePull', ['bad image; reboot'], 'message'],
+    ['imageRemove', ['bad image; reboot'], 'message'],
+    ['composeUp', ['/tmp/../etc'], 'message'],
+]);
 
 test('firewall allow delegates to validated agent action', function () {
     $server = new Server;
