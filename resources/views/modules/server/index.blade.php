@@ -81,16 +81,22 @@
                                 </td>
                                 <td class="px-5 py-4 text-right">
                                     <div class="flex items-center justify-end gap-1">
-                                        <a
-                                            href="{{ route('server.system', $server) }}"
-                                            class="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-[#1b1b18] hover:bg-[#f5f5f4] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]"
-                                        >
-                                            Verwalten
-                                        </a>
-                                        <a
-                                            href="{{ route('server.edit', $server) }}"
-                                            class="rounded-lg border border-[#19140035] px-3 py-1.5 text-xs font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
-                                        >
+                                         <a
+                                             href="{{ route('server.system', $server) }}"
+                                             class="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-[#1b1b18] hover:bg-[#f5f5f4] dark:bg-[#EDEDEC] dark:text-[#1C1C1A] dark:hover:bg-[#dbdbd8]"
+                                         >
+                                             Verwalten
+                                         </a>
+                                         <a
+                                             href="{{ route('server.deployments.index', $server) }}"
+                                             class="rounded-lg border border-[#19140035] px-3 py-1.5 text-xs font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
+                                         >
+                                             Deployments
+                                         </a>
+                                         <a
+                                             href="{{ route('server.edit', $server) }}"
+                                             class="rounded-lg border border-[#19140035] px-3 py-1.5 text-xs font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
+                                         >
                                             Bearbeiten
                                         </a>
                                         <form action="{{ route('server.destroy', $server) }}" method="POST" class="inline" onsubmit="return confirm('Server {{ $server->name }} löschen?')">

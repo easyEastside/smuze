@@ -58,4 +58,10 @@ class Server extends Model
     {
         return $this->hasMany(ServerBackup::class);
     }
+
+    /** @return HasMany<ServerDeployment, $this> */
+    public function deployments(): HasMany
+    {
+        return $this->hasMany(ServerDeployment::class);
+    }
 }

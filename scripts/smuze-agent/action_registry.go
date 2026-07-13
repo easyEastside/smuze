@@ -9,6 +9,7 @@ var systemActions = registerActionGroups(
 	fileActionDefinitions(),
 	firewallActionDefinitions(),
 	githubActionDefinitions(),
+	laravelDeployActionDefinitions(),
 	monitoringActionDefinitions(),
 	mysqlActionDefinitions(),
 	nginxActionDefinitions(),
@@ -40,6 +41,10 @@ func firewallActionDefinitions() []actionDefinition {
 
 func githubActionDefinitions() []actionDefinition {
 	return []actionDefinition{githubDeployAction()}
+}
+
+func laravelDeployActionDefinitions() []actionDefinition {
+	return []actionDefinition{laravelDeployAction()}
 }
 
 func monitoringActionDefinitions() []actionDefinition {

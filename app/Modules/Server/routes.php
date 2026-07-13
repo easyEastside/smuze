@@ -45,3 +45,4 @@ require __DIR__.'/Cronjobs/routes.php';
 require __DIR__.'/Files/routes.php';
 require __DIR__.'/Backups/routes.php';
 require __DIR__.'/Docker/routes.php';
+require __DIR__.'/Deployments/routes.php';
