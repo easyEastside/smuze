@@ -52,4 +52,10 @@ class Server extends Model
     {
         return $this->hasMany(ServerCronjob::class);
     }
+
+    /** @return HasMany<ServerBackup, $this> */
+    public function backups(): HasMany
+    {
+        return $this->hasMany(ServerBackup::class);
+    }
 }

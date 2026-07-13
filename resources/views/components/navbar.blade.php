@@ -26,6 +26,7 @@
         ['label' => 'Monitoring', 'route' => 'server.monitoring.index', 'active' => 'server.monitoring.*'],
         ['label' => 'Cronjobs', 'route' => 'server.cronjobs.index', 'active' => 'server.cronjobs.*'],
         ['label' => 'Dateien', 'route' => 'server.files.index', 'active' => 'server.files.*'],
+        ['label' => 'Backups', 'route' => 'server.backups.index', 'active' => 'server.backups.*'],
         ['label' => 'Terminal', 'route' => 'server.terminal', 'active' => 'server.terminal'],
         ['label' => 'Firewall', 'route' => 'server.firewall.index', 'active' => 'server.firewall.*'],
         ['label' => 'Dienste', 'route' => 'server.services.index', 'active' => 'server.services.*'],
