@@ -3,6 +3,7 @@ package main
 var systemActions = registerActionGroups(
 	apacheActionDefinitions(),
 	aptActionDefinitions(),
+	backupActionDefinitions(),
 	cronjobActionDefinitions(),
 	dockerActionDefinitions(),
 	fileActionDefinitions(),
@@ -23,6 +24,10 @@ func apacheActionDefinitions() []actionDefinition {
 
 func aptActionDefinitions() []actionDefinition {
 	return []actionDefinition{aptUpdateAction(), aptUpgradeAction()}
+}
+
+func backupActionDefinitions() []actionDefinition {
+	return []actionDefinition{backupRunAction(), backupListAction(), backupDeleteAction(), backupRestoreAction(), backupPruneAction()}
 }
 
 func cronjobActionDefinitions() []actionDefinition {

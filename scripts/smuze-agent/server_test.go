@@ -259,6 +259,11 @@ func TestSystemActionsAreRegisteredByName(t *testing.T) {
 		"apache.disable_module",
 		"apache.install_certbot",
 		"apache.obtain_ssl",
+		"backup.run",
+		"backup.list",
+		"backup.delete",
+		"backup.restore",
+		"backup.prune",
 		"cronjobs.list",
 		"cronjobs.install",
 		"cronjobs.remove",
@@ -383,6 +388,59 @@ func TestFilesChmodValidatesOctalMode(t *testing.T) {
 	_, err = filesChmodAction().command(map[string]any{"path": "/var/www/index.php", "mode": "999"})
 	if err == nil {
 		t.Fatal("expected invalid chmod mode to be rejected")
+	}
+}
+
+func TestBackupRunBuildsSafeCommand(t *testing.T) {
+	command, err := backupRunAction().command(map[string]any{
+		"backup_id":      float64(7),
+		"type":           "files",
+		"targets":        []any{"/tmp/opencode"},
+		"storage":        "local",
+		"retention_days": float64(7),
+	})
+	if err != nil {
+		t.Fatalf("expected backup command, got error: %v", err)
+	}
+
+	if !strings.Contains(command, "SMUZE_BACKUP_PAYLOAD=") || !strings.Contains(command, "backup-%s-%s.tar.gz") {
+		t.Fatalf("unexpected backup command: %s", command)
+	}
+}
+
+func TestBackupRunRejectsUnsafeFileTarget(t *testing.T) {
+	_, err := backupRunAction().command(map[string]any{
+		"backup_id":      float64(7),
+		"type":           "files",
+		"targets":        []any{"/tmp/../etc"},
+		"storage":        "local",
+		"retention_days": float64(7),
+	})
+	if err == nil {
+		t.Fatal("expected unsafe target to be rejected")
+	}
+}
+
+func TestBackupDeleteRejectsUnsafeFilename(t *testing.T) {
+	_, err := backupDeleteAction().command(map[string]any{"filename": "../backup.tar.gz"})
+	if err == nil {
+		t.Fatal("expected unsafe backup filename to be rejected")
+	}
+}
+
+func TestBackupRestoreCommandHandlesRootExtraction(t *testing.T) {
+	command, err := backupRestoreAction().command(map[string]any{
+		"backup_id": float64(7),
+		"filename":  "backup-7-test.tar.gz",
+		"type":      "files",
+		"targets":   []any{"/tmp/opencode"},
+	})
+	if err != nil {
+		t.Fatalf("expected restore command, got error: %v", err)
+	}
+
+	if !strings.Contains(command, "destination == '/'") {
+		t.Fatalf("expected root extraction safety check, got: %s", command)
 	}
 }
 

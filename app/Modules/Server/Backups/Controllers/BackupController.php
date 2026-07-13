@@ -116,6 +116,7 @@ class BackupController
 
         $result = $action->run(
             $server,
+            $backup->id,
             $backup->type,
             $backup->targets,
             $backup->storage,
@@ -186,6 +187,7 @@ class BackupController
 
         $result = $action->restore(
             $server,
+            $archive->backup->id,
             $archive->filename,
             $archive->type,
             $archive->backup->targets,
@@ -203,7 +205,14 @@ class BackupController
         Gate::authorize('update', $server);
         abort_unless($archive->backup->server_id === $server->id, 404);
 
-        $action->delete($server, $archive->filename);
+        $result = $action->delete($server, $archive->backup->id, $archive->filename);
+
+        if (! $result['success']) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'],
+            ], 422);
+        }
 
         $archive->delete();
 

@@ -156,14 +156,14 @@
                                                     {{ $backup->last_status }}
                                                 </span>
                                             @endif
-                                            <button type="button" data-run-url="{{ route('server.backups.run', [$server, $backup]) }}" onclick="runBackup(this)" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
+                                            <button type="button" data-run-backup data-run-url="{{ route('server.backups.run', [$server, $backup]) }}" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">
                                                 Jetzt ausführen
                                             </button>
                                             <form method="POST" action="{{ route('server.backups.toggle', [$server, $backup]) }}">
                                                 @csrf
                                                 <button type="submit" class="rounded-lg border border-[#19140035] px-2 py-1 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">{{ $backup->enabled ? 'Deaktivieren' : 'Aktivieren' }}</button>
                                             </form>
-                                            <form method="POST" action="{{ route('server.backups.destroy', [$server, $backup]) }}" onsubmit="return confirm('Backup-Konfiguration wirklich löschen?')">
+                                            <form method="POST" action="{{ route('server.backups.destroy', [$server, $backup]) }}" data-confirm="Backup-Konfiguration wirklich löschen?">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="rounded-lg border border-red-300 px-2 py-1 text-xs text-red-700 hover:border-red-500 dark:border-red-900 dark:text-red-300">Löschen</button>
@@ -216,8 +216,8 @@
                                                     </div>
                                                     @if ($archive->status === 'success')
                                                         <div class="flex gap-1">
-                                                            <button type="button" data-restore-url="{{ route('server.backups.archives.restore', [$server, $archive]) }}" onclick="restoreArchive(this)" class="rounded border border-[#19140035] px-2 py-0.5 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Wiederherstellen</button>
-                                                            <button type="button" data-delete-url="{{ route('server.backups.archives.destroy', [$server, $archive]) }}" onclick="deleteArchive(this)" class="rounded border border-red-300 px-2 py-0.5 text-red-700 hover:border-red-500 dark:border-red-900 dark:text-red-300">Löschen</button>
+                                                            <button type="button" data-restore-archive data-restore-url="{{ route('server.backups.archives.restore', [$server, $archive]) }}" class="rounded border border-[#19140035] px-2 py-0.5 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]">Wiederherstellen</button>
+                                                            <button type="button" data-delete-archive data-delete-url="{{ route('server.backups.archives.destroy', [$server, $archive]) }}" class="rounded border border-red-300 px-2 py-0.5 text-red-700 hover:border-red-500 dark:border-red-900 dark:text-red-300">Löschen</button>
                                                         </div>
                                                     @endif
                                                 </div>
@@ -252,6 +252,26 @@
     <script>
     const csrfToken = '{{ csrf_token() }}';
 
+    document.querySelectorAll('[data-run-backup]').forEach(button => {
+        button.addEventListener('click', () => runBackup(button));
+    });
+
+    document.querySelectorAll('[data-restore-archive]').forEach(button => {
+        button.addEventListener('click', () => restoreArchive(button));
+    });
+
+    document.querySelectorAll('[data-delete-archive]').forEach(button => {
+        button.addEventListener('click', () => deleteArchive(button));
+    });
+
+    document.querySelectorAll('[data-confirm]').forEach(form => {
+        form.addEventListener('submit', event => {
+            if (!confirm(form.dataset.confirm)) {
+                event.preventDefault();
+            }
+        });
+    });
+
     async function runBackup(button) {
         if (!confirm('Backup jetzt ausführen?')) return;
 
@@ -275,12 +295,12 @@
             }
 
             result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
-            result.innerHTML = 'Backup erfolgreich: ' + escapeHtml(data.message);
+            result.textContent = 'Backup erfolgreich: ' + data.message;
 
             setTimeout(() => window.location.reload(), 1500);
         } catch (error) {
             result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
-            result.innerHTML = '';
+            result.replaceChildren();
             result.appendChild(document.createTextNode(error.message));
             result.appendChild(window.reportError(error.message, 'backups'));
         } finally {
@@ -311,10 +331,10 @@
             }
 
             result.className = 'mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200';
-            result.innerHTML = 'Backup wiederhergestellt: ' + escapeHtml(data.message);
+            result.textContent = 'Backup wiederhergestellt: ' + data.message;
         } catch (error) {
             result.className = 'mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
-            result.innerHTML = '';
+            result.replaceChildren();
             result.appendChild(document.createTextNode(error.message));
             result.appendChild(window.reportError(error.message, 'backups'));
         } finally {
@@ -344,15 +364,6 @@
         }
     }
 
-    function escapeHtml(value) {
-        return String(value ?? '').replace(/[&<>'"]/g, char => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            "'": '&#039;',
-            '"': '&quot;',
-        }[char]));
-    }
     </script>
     @endpush
 </x-layouts.app>

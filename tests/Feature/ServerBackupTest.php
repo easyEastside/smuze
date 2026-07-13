@@ -4,6 +4,7 @@ use App\Models\Server;
 use App\Models\ServerBackup;
 use App\Models\ServerBackupArchive;
 use App\Models\User;
+use App\Modules\Server\Backups\Actions\BackupAction;
 use App\Services\ExecutionEngine\ExecutionResult;
 use App\Services\ExecutionEngine\PushAgentEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,7 +35,14 @@ test('user can view their own backups page', function () {
         ->assertSuccessful()
         ->assertSee('Backup-Verwaltung')
         ->assertSee('Daily MySQL')
-        ->assertSee('Neue Backup-Konfiguration');
+        ->assertSee('Neue Backup-Konfiguration')
+        ->assertSee('data-run-backup', false)
+        ->assertSee('addEventListener(\'click\'', false)
+        ->assertDontSee('onclick="runBackup', false)
+        ->assertDontSee('onclick="restoreArchive', false)
+        ->assertDontSee('onclick="deleteArchive', false)
+        ->assertDontSee('onsubmit="return confirm', false)
+        ->assertDontSee('innerHTML', false);
 });
 
 test('user cannot see other users backups page', function () {
@@ -162,8 +170,10 @@ test('user can run a backup', function () {
     $engine = Mockery::mock(PushAgentEngine::class);
     $engine->shouldReceive('action')
         ->once()
-        ->withArgs(function (Server $s, string $action) use ($server): bool {
-            return $s->is($server) && $action === 'backup.run';
+        ->withArgs(function (Server $s, string $action, array $payload) use ($server, $backup): bool {
+            return $s->is($server)
+                && $action === 'backup.run'
+                && $payload['backup_id'] === $backup->id;
         })
         ->andReturn(new ExecutionResult(
             stdout: json_encode(['filename' => 'backup-2026-07-13.tar.gz', 'size_bytes' => 1048576, 'storage_path' => '/var/backups/backup-2026-07-13.tar.gz']),
@@ -313,7 +323,9 @@ test('user can restore an archive', function () {
     $engine = Mockery::mock(PushAgentEngine::class);
     $engine->shouldReceive('action')
         ->once()
-        ->withArgs(fn (Server $s, string $action): bool => $s->is($server) && $action === 'backup.restore')
+        ->withArgs(fn (Server $s, string $action, array $payload): bool => $s->is($server)
+            && $action === 'backup.restore'
+            && $payload['backup_id'] === $backup->id)
         ->andReturn(new ExecutionResult(
             stdout: 'Wiederherstellung abgeschlossen.',
             stderr: '',
@@ -343,7 +355,9 @@ test('user can delete an archive', function () {
     $engine = Mockery::mock(PushAgentEngine::class);
     $engine->shouldReceive('action')
         ->once()
-        ->withArgs(fn (Server $s, string $action): bool => $s->is($server) && $action === 'backup.delete')
+        ->withArgs(fn (Server $s, string $action, array $payload): bool => $s->is($server)
+            && $action === 'backup.delete'
+            && $payload['backup_id'] === $backup->id)
         ->andReturn(new ExecutionResult(
             stdout: '',
             stderr: '',
@@ -359,6 +373,53 @@ test('user can delete an archive', function () {
         ->assertJson(['success' => true]);
 
     $this->assertDatabaseMissing('server_backup_archives', ['id' => $archive->id]);
+});
+
+test('backup action rejects unsafe archive filenames before agent action', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')->never();
+
+    $action = new BackupAction($engine);
+
+    expect($action->delete($server, 1, '../backup.tar.gz'))
+        ->toMatchArray([
+            'success' => false,
+            'message' => 'Backup-Dateiname ist ungültig.',
+        ]);
+
+    expect($action->restore($server, 1, '../backup.tar.gz', 'files', ['/tmp']))
+        ->toMatchArray([
+            'success' => false,
+            'message' => 'Backup-Dateiname ist ungültig.',
+        ]);
+});
+
+test('archive db row is kept when remote delete fails', function () {
+    $server = Server::factory()->create(['user_id' => $this->user->id]);
+    $backup = ServerBackup::factory()->create([
+        'server_id' => $server->id,
+        'user_id' => $this->user->id,
+    ]);
+    $archive = ServerBackupArchive::factory()->create([
+        'server_backup_id' => $backup->id,
+        'filename' => 'backup-old.tar.gz',
+    ]);
+
+    $engine = Mockery::mock(PushAgentEngine::class);
+    $engine->shouldReceive('action')
+        ->once()
+        ->andReturn(new ExecutionResult(stdout: '', stderr: 'missing archive', exitCode: 1, success: false));
+
+    $this->app->instance(PushAgentEngine::class, $engine);
+
+    $this->actingAs($this->user)
+        ->deleteJson(route('server.backups.archives.destroy', [$server, $archive]))
+        ->assertStatus(422)
+        ->assertJson(['success' => false]);
+
+    $this->assertDatabaseHas('server_backup_archives', ['id' => $archive->id]);
 });
 
 test('nav bar shows backups link when server is selected', function () {

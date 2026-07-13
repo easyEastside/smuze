@@ -59,6 +59,7 @@ class RunScheduledBackups extends Command
 
             $result = $action->run(
                 $server,
+                $backup->id,
                 $backup->type,
                 $backup->targets,
                 $backup->storage,

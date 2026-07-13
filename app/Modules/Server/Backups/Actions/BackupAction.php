@@ -11,9 +11,10 @@ class BackupAction
         private PushAgentEngine $engine,
     ) {}
 
-    public function run(Server $server, string $type, array $targets, string $storage, ?array $s3Config, int $retentionDays): array
+    public function run(Server $server, int $backupId, string $type, array $targets, string $storage, ?array $s3Config, int $retentionDays): array
     {
         $result = $this->engine->action($server, 'backup.run', [
+            'backup_id' => $backupId,
             'type' => $type,
             'targets' => $targets,
             'storage' => $storage,
@@ -62,9 +63,14 @@ class BackupAction
         ];
     }
 
-    public function delete(Server $server, string $filename): array
+    public function delete(Server $server, int $backupId, string $filename): array
     {
+        if (! $this->validFilename($filename)) {
+            return ['success' => false, 'message' => 'Backup-Dateiname ist ungültig.'];
+        }
+
         $result = $this->engine->action($server, 'backup.delete', [
+            'backup_id' => $backupId,
             'filename' => $filename,
         ]);
 
@@ -74,9 +80,14 @@ class BackupAction
         ];
     }
 
-    public function restore(Server $server, string $filename, string $type, ?array $targets): array
+    public function restore(Server $server, int $backupId, string $filename, string $type, ?array $targets): array
     {
+        if (! $this->validFilename($filename)) {
+            return ['success' => false, 'message' => 'Backup-Dateiname ist ungültig.', 'output' => ''];
+        }
+
         $result = $this->engine->action($server, 'backup.restore', array_filter([
+            'backup_id' => $backupId,
             'filename' => $filename,
             'type' => $type,
             'targets' => $targets,
@@ -111,5 +122,10 @@ class BackupAction
             'deleted' => $data['deleted'] ?? [],
             'message' => $data['message'] ?? 'Alte Backups bereinigt.',
         ];
+    }
+
+    private function validFilename(string $filename): bool
+    {
+        return preg_match('/^[A-Za-z0-9._-]+\.tar\.gz$/', $filename) === 1 && ! str_contains($filename, '..');
     }
 }
