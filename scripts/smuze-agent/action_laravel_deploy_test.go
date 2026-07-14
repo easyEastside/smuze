@@ -86,6 +86,32 @@ func TestLaravelDeployInstallNodeUsesNvmNode24WithoutBuild(t *testing.T) {
 	}
 }
 
+func TestLaravelDeployApacheUsesPhpFpmInsteadOfModPhp(t *testing.T) {
+	command, err := laravelDeployAction().command(map[string]any{
+		"repo_url":    "https://github.com/laravel/laravel.git",
+		"target_path": "/var/www/production-app",
+		"domain":      "example.com",
+		"webserver":   "apache",
+		"php_version": "8.5",
+	})
+	if err != nil {
+		t.Fatalf("expected command, got error: %v", err)
+	}
+
+	if strings.Contains(command, "libapache2-mod-php") {
+		t.Fatalf("expected apache deployment not to install mod_php: %s", command)
+	}
+	if !strings.Contains(command, "php8.5-fpm") {
+		t.Fatalf("expected apache deployment to install/configure php-fpm: %s", command)
+	}
+	if !strings.Contains(command, "a2enmod rewrite proxy_fcgi setenvif") {
+		t.Fatalf("expected apache deployment to enable php-fpm proxy modules: %s", command)
+	}
+	if !strings.Contains(command, "a2enconf") || !strings.Contains(command, "php8.5-fpm") {
+		t.Fatalf("expected apache deployment to enable php8.5-fpm apache config: %s", command)
+	}
+}
+
 func TestLaravelDeployRejectsUnsafeTargetPath(t *testing.T) {
 	_, err := laravelDeployAction().command(map[string]any{
 		"repo_url":    "https://github.com/laravel/laravel.git",

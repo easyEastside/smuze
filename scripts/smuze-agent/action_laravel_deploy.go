@@ -263,8 +263,10 @@ func laravelApacheVhostCommands(domain string, documentRoot string, phpVersion s
 	path := "/etc/apache2/sites-available/" + domain + ".conf"
 
 	return []string{
-		"apt-get update -qq && apt-get install -y -qq apache2 " + shellQuote("libapache2-mod-php"+phpVersion),
-		"a2enmod rewrite",
+		"apt-get update -qq && apt-get install -y -qq apache2 " + shellQuote("php"+phpVersion+"-fpm"),
+		"a2enmod rewrite proxy_fcgi setenvif",
+		"for version in 8.2 8.3 8.4 8.5; do a2disconf \"php${version}-fpm\" 2>/dev/null || true; done",
+		"a2enconf " + shellQuote("php"+phpVersion+"-fpm"),
 		"mkdir -p " + shellQuote(documentRoot),
 		"printf '%s' " + shellQuote(encoded) + " | base64 -d > " + shellQuote(path),
 		"apache2ctl configtest",
