@@ -62,13 +62,21 @@ func readServiceVersions() map[string]string {
 	if version := readCommandVersion("mysql --version 2>/dev/null"); version != "" {
 		versions["mysql_version"] = version
 	}
-	if version := readCommandVersion(`export NVM_DIR="${NVM_DIR:-$HOME/.nvm}" && { command -v node >/dev/null 2>&1 || { [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; }; } && node --version 2>/dev/null`); version != "" {
+	if version := readCommandVersion("command -v node >/dev/null 2>&1 && node --version 2>/dev/null"); version != "" {
+		versions["node_version"] = version
+	} else if version := readCommandVersion(`NVM_SH=$(find /home /root -maxdepth 4 -name nvm.sh -type f 2>/dev/null | head -1) && [ -n "$NVM_SH" ] && . "$NVM_SH" && (nvm use default >/dev/null 2>&1 || true) && command -v node >/dev/null 2>&1 && node --version 2>/dev/null`); version != "" {
+		versions["node_version"] = version
+	} else if version := readCommandVersion(`NVM_SH=$(find /home /root -maxdepth 4 -name nvm.sh -type f 2>/dev/null | head -1) && [ -n "$NVM_SH" ] && NODE_BIN=$(find "$(dirname "$NVM_SH")/versions/node" -maxdepth 3 -name node -type f 2>/dev/null | head -1) && [ -n "$NODE_BIN" ] && "$NODE_BIN" --version 2>/dev/null`); version != "" {
 		versions["node_version"] = version
 	}
-	if version := readCommandVersion(`export NVM_DIR="${NVM_DIR:-$HOME/.nvm}" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm --version 2>/dev/null`); version != "" {
+	if version := readCommandVersion(`NVM_SH=$(find /home /root -maxdepth 4 -name nvm.sh -type f 2>/dev/null | head -1) && [ -n "$NVM_SH" ] && . "$NVM_SH" && nvm --version 2>/dev/null`); version != "" {
 		versions["nvm_version"] = version
 	}
-	if version := readCommandVersion(`export NVM_DIR="${NVM_DIR:-$HOME/.nvm}" && { command -v npm >/dev/null 2>&1 || { [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; }; } && npm --version 2>/dev/null`); version != "" {
+	if version := readCommandVersion("command -v npm >/dev/null 2>&1 && npm --version 2>/dev/null"); version != "" {
+		versions["npm_version"] = version
+	} else if version := readCommandVersion(`NVM_SH=$(find /home /root -maxdepth 4 -name nvm.sh -type f 2>/dev/null | head -1) && [ -n "$NVM_SH" ] && . "$NVM_SH" && (nvm use default >/dev/null 2>&1 || true) && command -v npm >/dev/null 2>&1 && npm --version 2>/dev/null`); version != "" {
+		versions["npm_version"] = version
+	} else if version := readCommandVersion(`NVM_SH=$(find /home /root -maxdepth 4 -name nvm.sh -type f 2>/dev/null | head -1) && [ -n "$NVM_SH" ] && NPM_BIN=$(find "$(dirname "$NVM_SH")/versions/node" -maxdepth 3 -name npm -type f 2>/dev/null | head -1) && [ -n "$NPM_BIN" ] && "$NPM_BIN" --version 2>/dev/null`); version != "" {
 		versions["npm_version"] = version
 	}
 	if version := readCommandVersion("composer --version 2>/dev/null"); version != "" {
@@ -85,7 +93,7 @@ func readCommandVersion(command string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	output, err := exec.CommandContext(ctx, "sh", "-lc", command).Output()
+	output, err := exec.CommandContext(ctx, "bash", "-lc", command).Output()
 	if err != nil {
 		return ""
 	}
